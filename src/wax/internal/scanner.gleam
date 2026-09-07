@@ -40,19 +40,13 @@ fn scan_loop(
   case source {
     "" -> Ok(list.reverse(tokens))
     non_empty -> {
-      use token <- result.try(scan_token(
+      use #(token, tail) <- result.try(scan_token(
         non_empty,
         tag_start,
         tag_end,
         tag_start_splitter,
         tag_end_splitter,
       ))
-      let tail =
-        string.slice(
-          non_empty,
-          token.source_length,
-          string.length(non_empty) - token.source_length,
-        )
       let #(tag_start, tag_end, tag_start_splitter, tag_end_splitter) = case
         token
       {
@@ -82,7 +76,7 @@ fn scan_token(
   tag_end: String,
   tag_start_splitter: splitter.Splitter,
   tag_end_splitter: splitter.Splitter,
-) -> Result(Token, LexicalError) {
+) -> Result(#(Token, String), LexicalError) {
   let tag_start_length = string.length(tag_start)
   let tag_end_length = string.length(tag_end)
   case string.starts_with(source, tag_start) {
@@ -169,9 +163,9 @@ fn scan_token(
 fn scan_text(
   source: String,
   tag_start_splitter: splitter.Splitter,
-) -> Result(Token, LexicalError) {
-  let #(text, _) = splitter.split_before(tag_start_splitter, source)
-  Ok(Text(string.length(text), text))
+) -> Result(#(Token, String), LexicalError) {
+  let #(text, rest) = splitter.split_before(tag_start_splitter, source)
+  Ok(#(Text(string.length(text), text), rest))
 }
 
 fn scan_tag_with_value(
@@ -181,15 +175,15 @@ fn scan_tag_with_value(
   tag_start_length: Int,
   tag_end_length: Int,
   constructor: fn(Int, String) -> Token,
-) -> Result(Token, LexicalError) {
-  use #(tag, value) <- result.map(read_tag_and_value(
+) -> Result(#(Token, String), LexicalError) {
+  use #(tag, value, rest) <- result.map(read_tag_and_value(
     source,
     tag_start_splitter,
     tag_end_splitter,
     tag_start_length,
     tag_end_length,
   ))
-  constructor(string.length(tag), value)
+  #(constructor(string.length(tag), value), rest)
 }
 
 fn read_tag_and_value(
@@ -198,34 +192,34 @@ fn read_tag_and_value(
   tag_end_splitter: splitter.Splitter,
   tag_start_length: Int,
   tag_end_length: Int,
-) -> Result(#(String, String), LexicalError) {
-  use tag <- result.map(read_tag(source, tag_start_splitter, tag_end_splitter))
+) -> Result(#(String, String, String), LexicalError) {
+  use #(tag, rest) <- result.map(read_tag(
+    source,
+    tag_start_splitter,
+    tag_end_splitter,
+  ))
   let value = read_value(tag, tag_start_length, tag_end_length)
-  #(tag, value)
+  #(tag, value, rest)
 }
 
 fn read_tag(
   source: String,
   tag_start_splitter: splitter.Splitter,
   tag_end_splitter: splitter.Splitter,
-) -> Result(String, LexicalError) {
+) -> Result(#(String, String), LexicalError) {
   let #(tag_start, rest) = splitter.split_after(tag_start_splitter, source)
   let #(tag_middle, tag_end, rest) = splitter.split(tag_end_splitter, rest)
   case string.is_empty(tag_end) && string.is_empty(rest) {
     True -> Error(NoMatchingTagCloseFoundError)
-    False -> Ok(tag_start <> tag_middle <> tag_end)
+    False -> Ok(#(tag_start <> tag_middle <> tag_end, rest))
   }
 }
 
-fn read_value(
-  value: String,
-  opening_length: Int,
-  closing_length: Int,
-) -> String {
+fn read_value(tag: String, opening_length: Int, closing_length: Int) -> String {
   string.slice(
-    value,
+    tag,
     opening_length,
-    string.length(value) - { opening_length + closing_length },
+    string.length(tag) - { opening_length + closing_length },
   )
   |> string.trim()
 }
@@ -235,9 +229,13 @@ fn scan_empty_tag(
   tag_start_splitter: splitter.Splitter,
   tag_end_splitter: splitter.Splitter,
   constructor: fn(Int) -> Token,
-) -> Result(Token, LexicalError) {
-  use tag <- result.map(read_tag(source, tag_start_splitter, tag_end_splitter))
-  constructor(string.length(tag))
+) -> Result(#(Token, String), LexicalError) {
+  use #(tag, rest) <- result.map(read_tag(
+    source,
+    tag_start_splitter,
+    tag_end_splitter,
+  ))
+  #(constructor(string.length(tag)), rest)
 }
 
 fn scan_set_delimiters(
@@ -246,19 +244,19 @@ fn scan_set_delimiters(
   tag_end_splitter: splitter.Splitter,
   tag_start_length: Int,
   tag_end_length: Int,
-) -> Result(Token, LexicalError) {
-  use #(tag, value) <- result.try(read_tag_and_value(
+) -> Result(#(Token, String), LexicalError) {
+  use #(tag, value, rest) <- result.try(read_tag_and_value(
     source,
     tag_start_splitter,
     tag_end_splitter,
     tag_start_length,
     tag_end_length,
   ))
-  use #(open, close) <- result.map(scan_delimiter_value(value))
-  SetDelimiters(string.length(tag), open, close)
+  use #(open, close) <- result.map(read_delimiter_value(value))
+  #(SetDelimiters(string.length(tag), open, close), rest)
 }
 
-fn scan_delimiter_value(
+fn read_delimiter_value(
   value: String,
 ) -> Result(#(String, String), LexicalError) {
   let assert Ok(re) = regexp.from_string("\\s+")
