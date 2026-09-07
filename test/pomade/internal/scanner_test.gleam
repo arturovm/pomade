@@ -1,4 +1,4 @@
-import wax/internal/scanner
+import pomade/internal/scanner
 
 pub fn empty_scanner_test() {
   assert Ok([]) == scanner.scan("")
