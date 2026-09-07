@@ -46,7 +46,14 @@ pub fn scan_set_delimiter_start_test() {
     scanner.Variable(_, "variable"),
     scanner.SetDelimiters(_, "{{", "}}"),
     scanner.Variable(_, "another_variable"),
-  ]) = scanner.scan("{{=<% %>=}}<% variable %><%={{ }}=%>{{another_variable}}")
+    scanner.SetDelimiters(_, "|||", "|||"),
+    scanner.Variable(_, "yet_another"),
+    scanner.SetDelimiters(_, "{{", "}}"),
+    scanner.Variable(_, "finally"),
+  ]) =
+    scanner.scan(
+      "{{=<% %>=}}<% variable %><%={{ }}=%>{{another_variable}}{{=||| |||=}}|||yet_another||||||={{ }}=|||{{finally}}",
+    )
 }
 
 pub fn scan_comments_test() {
