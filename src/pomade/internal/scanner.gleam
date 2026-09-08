@@ -1,76 +1,245 @@
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/regexp
 import gleam/result
 import gleam/string
 
 import splitter
 
+type Lexer {
+  Lexer(
+    tag_start: String,
+    tag_end: String,
+    tag_start_splitter: splitter.Splitter,
+    identifier_splitter: splitter.Splitter,
+    tag_end_splitter: splitter.Splitter,
+  )
+}
+
+type Mode {
+  Base
+  FreeForm
+  TagStart
+  InsideTag
+  TagEnd
+  CustomizeDelimiters
+  Comment
+}
+
 pub type Token {
+  // general text
   Text(source_length: Int, value: String)
-  Variable(source_length: Int, value: String)
-  RawVariable(source_length: Int, value: String)
-  SectionStart(source_length: Int, value: String)
-  ClosingTag(source_length: Int, value: String)
-  InvertedSectionStart(source_length: Int, value: String)
-  Partial(source_length: Int, value: String)
-  BlockStart(source_length: Int, value: String)
+  // tags
+  LeftDelimiter(source_length: Int)
+  RawVariable(source_length: Int)
+  SectionStart(source_length: Int)
+  ClosingTag(source_length: Int)
+  InvertedSectionStart(source_length: Int)
+  Partial(source_length: Int)
+  BlockStart(source_length: Int)
+  ParentStart(source_length: Int)
+  RightDelimiter(source_length: Int)
+  // tag content
+  Identifier(source_length: Int, value: String)
+  Dot(source_length: Int)
+  // special forms
   SetDelimiters(source_length: Int, tag_start: String, tag_end: String)
-  Comment(source_length: Int)
+  Ignored(source_length: Int)
 }
 
 pub type LexicalError {
+  MalformedIdentifier
   NoMatchingTagCloseFoundError
   MalformedSetDelimitersError
 }
 
+const default_left_delimiter: String = "{{"
+
+const default_right_delimiter: String = "}}"
+
 pub fn scan(source: String) -> Result(List(Token), LexicalError) {
-  let tag_start_splitter = splitter.new(["{{"])
-  let tag_end_splitter = splitter.new(["}}"])
-  scan_loop(source, "{{", "}}", tag_start_splitter, tag_end_splitter, [])
+  let lexer = new_lexer(default_left_delimiter, default_right_delimiter)
+  scan_loop(lexer, source, Base, [])
+}
+
+fn new_lexer(tag_start: String, tag_end: String) -> Lexer {
+  Lexer(
+    tag_start:,
+    tag_end:,
+    tag_start_splitter: splitter.new([tag_start]),
+    identifier_splitter: splitter.new([".", tag_end]),
+    tag_end_splitter: splitter.new([tag_end]),
+  )
 }
 
 fn scan_loop(
+  lexer: Lexer,
   source: String,
-  tag_start: String,
-  tag_end: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
+  mode: Mode,
   tokens: List(Token),
 ) -> Result(List(Token), LexicalError) {
   case source {
     "" -> Ok(list.reverse(tokens))
     non_empty -> {
-      use #(token, tail) <- result.try(scan_token(
-        non_empty,
-        tag_start,
-        tag_end,
-        tag_start_splitter,
-        tag_end_splitter,
-      ))
-      let #(tag_start, tag_end, tag_start_splitter, tag_end_splitter) = case
-        token
-      {
-        SetDelimiters(_, tag_start, tag_end) -> #(
-          tag_start,
-          tag_end,
-          splitter.new([tag_start]),
-          splitter.new([tag_end]),
-        )
-        _ -> #(tag_start, tag_end, tag_start_splitter, tag_end_splitter)
+      use #(token, tail, lexer) <- result.try(scan_token(non_empty, mode, lexer))
+      let tokens = case token {
+        None -> tokens
+        Some(token) -> list.prepend(tokens, token)
       }
       scan_loop(
+        lexer,
         tail,
-        tag_start,
-        tag_end,
-        tag_start_splitter,
-        tag_end_splitter,
-        list.prepend(tokens, token),
+        next_mode(tail, lexer.tag_start, lexer.tag_end, mode),
+        tokens,
       )
     }
   }
 }
 
 fn scan_token(
+  source: String,
+  mode: Mode,
+  lexer: Lexer,
+) -> Result(#(Option(Token), String, Lexer), LexicalError) {
+  case mode {
+    Base -> Ok(#(None, source, lexer))
+    FreeForm ->
+      scan_free_form(source, lexer.tag_start_splitter)
+      |> return(lexer)
+    TagStart ->
+      scan_tag_start(source, lexer.tag_start_splitter)
+      |> return(lexer)
+    InsideTag ->
+      scan_inside_tag(source, lexer.identifier_splitter)
+      |> return(lexer)
+    TagEnd ->
+      scan_tag_end(source, lexer.tag_end_splitter)
+      |> return(lexer)
+    CustomizeDelimiters -> {
+      use #(token, _) as result <- result.try(scan_customize_delimiters(
+        source,
+        lexer.tag_start,
+        lexer.tag_end,
+        lexer.tag_start_splitter,
+        lexer.tag_end_splitter,
+      ))
+      let assert SetDelimiters(_, tag_start, tag_end) = token
+      let lexer = new_lexer(tag_start, tag_end)
+      return(Ok(result), lexer)
+    }
+    Comment ->
+      scan_comment(source, lexer.tag_start_splitter, lexer.tag_end_splitter)
+      |> return(lexer)
+  }
+}
+
+fn return(
+  scanned: Result(#(Token, String), LexicalError),
+  lexer: Lexer,
+) -> Result(#(Option(Token), String, Lexer), LexicalError) {
+  use #(token, tail) <- result.map(scanned)
+  #(Some(token), tail, lexer)
+}
+
+fn next_mode(
+  source: String,
+  tag_start: String,
+  tag_end: String,
+  mode: Mode,
+) -> Mode {
+  case mode {
+    Base | FreeForm | TagEnd | CustomizeDelimiters | Comment ->
+      next_mode_from_base(source, tag_start)
+    TagStart -> InsideTag
+    InsideTag ->
+      case string.starts_with(source, tag_end) {
+        False -> InsideTag
+        True -> TagEnd
+      }
+  }
+}
+
+fn next_mode_from_base(source, tag_start) {
+  case string.starts_with(source, tag_start) {
+    False -> FreeForm
+    True -> {
+      case string.drop_start(source, string.length(tag_start)) {
+        "=" <> _ -> CustomizeDelimiters
+        "!" <> _ -> Comment
+        _ -> TagStart
+      }
+    }
+  }
+}
+
+fn scan_free_form(
+  source: String,
+  tag_start_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  let #(text, rest) = splitter.split_before(tag_start_splitter, source)
+  Ok(#(Text(string.length(text), text), rest))
+}
+
+fn scan_tag_start(
+  source: String,
+  tag_start_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  let #(tag_open, tail) = splitter.split_after(tag_start_splitter, source)
+  Ok(#(LeftDelimiter(string.length(tag_open)), tail))
+}
+
+fn scan_inside_tag(
+  source: String,
+  identifier_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  case source {
+    "&" <> _ -> scan_single(source, RawVariable)
+    "#" <> _ -> scan_single(source, SectionStart)
+    "/" <> _ -> scan_single(source, ClosingTag)
+    "^" <> _ -> scan_single(source, InvertedSectionStart)
+    ">" <> _ -> scan_single(source, Partial)
+    "$" <> _ -> scan_single(source, BlockStart)
+    "<" <> _ -> scan_single(source, ParentStart)
+    _ -> scan_identifier(source, identifier_splitter)
+  }
+}
+
+fn scan_single(
+  source: String,
+  constructor: fn(Int) -> Token,
+) -> Result(#(Token, String), LexicalError) {
+  Ok(#(constructor(1), string.drop_start(source, 1)))
+}
+
+fn scan_identifier(
+  source: String,
+  identifier_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  use #(value, rest) <- result.map(read_identifier(source, identifier_splitter))
+  #(Identifier(string.length(value), value), rest)
+}
+
+fn read_identifier(
+  source: String,
+  identifier_splitter: splitter.Splitter,
+) -> Result(#(String, String), LexicalError) {
+  let #(value, rest) = splitter.split_before(identifier_splitter, source)
+  let identifier = string.trim(value)
+  case string.is_empty(rest) {
+    True -> Error(MalformedIdentifier)
+    False -> Ok(#(identifier, rest))
+  }
+}
+
+fn scan_tag_end(
+  source: String,
+  tag_end_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  let #(tag_end, tail) = splitter.split_after(tag_end_splitter, source)
+  Ok(#(RightDelimiter(string.length(tag_end)), tail))
+}
+
+fn scan_customize_delimiters(
   source: String,
   tag_start: String,
   tag_end: String,
@@ -79,111 +248,32 @@ fn scan_token(
 ) -> Result(#(Token, String), LexicalError) {
   let tag_start_length = string.length(tag_start)
   let tag_end_length = string.length(tag_end)
-  case string.starts_with(source, tag_start) {
-    False -> scan_text(source, tag_start_splitter)
-    True ->
-      case string.drop_start(source, tag_start_length) {
-        "&" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            RawVariable,
-          )
-        "#" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            SectionStart,
-          )
-        "/" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            ClosingTag,
-          )
-        "^" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            InvertedSectionStart,
-          )
-        ">" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            Partial,
-          )
-        "$" <> _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length,
-            BlockStart,
-          )
-        "!" <> _ ->
-          scan_empty_tag(source, tag_start_splitter, tag_end_splitter, Comment)
-        "=" <> _ ->
-          scan_set_delimiters(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length + 1,
-            tag_end_length + 1,
-          )
-        _ ->
-          scan_tag_with_value(
-            source,
-            tag_start_splitter,
-            tag_end_splitter,
-            tag_start_length,
-            tag_end_length,
-            Variable,
-          )
-      }
-  }
+  use #(token, tail) <- result.map(scan_set_delimiters(
+    source,
+    tag_start_splitter,
+    tag_end_splitter,
+    tag_start_length + 1,
+    tag_end_length + 1,
+  ))
+  #(token, tail)
 }
 
-fn scan_text(
-  source: String,
-  tag_start_splitter: splitter.Splitter,
-) -> Result(#(Token, String), LexicalError) {
-  let #(text, rest) = splitter.split_before(tag_start_splitter, source)
-  Ok(#(Text(string.length(text), text), rest))
-}
-
-fn scan_tag_with_value(
+fn scan_set_delimiters(
   source: String,
   tag_start_splitter: splitter.Splitter,
   tag_end_splitter: splitter.Splitter,
   tag_start_length: Int,
   tag_end_length: Int,
-  constructor: fn(Int, String) -> Token,
 ) -> Result(#(Token, String), LexicalError) {
-  use #(tag, value, rest) <- result.map(read_tag_and_value(
+  use #(tag, value, rest) <- result.try(read_tag_and_value(
     source,
     tag_start_splitter,
     tag_end_splitter,
     tag_start_length,
     tag_end_length,
   ))
-  #(constructor(string.length(tag), value), rest)
+  use #(open, close) <- result.map(read_delimiter_value(value))
+  #(SetDelimiters(string.length(tag), open, close), rest)
 }
 
 fn read_tag_and_value(
@@ -224,38 +314,6 @@ fn read_value(tag: String, opening_length: Int, closing_length: Int) -> String {
   |> string.trim()
 }
 
-fn scan_empty_tag(
-  source: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
-  constructor: fn(Int) -> Token,
-) -> Result(#(Token, String), LexicalError) {
-  use #(tag, rest) <- result.map(read_tag(
-    source,
-    tag_start_splitter,
-    tag_end_splitter,
-  ))
-  #(constructor(string.length(tag)), rest)
-}
-
-fn scan_set_delimiters(
-  source: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
-  tag_start_length: Int,
-  tag_end_length: Int,
-) -> Result(#(Token, String), LexicalError) {
-  use #(tag, value, rest) <- result.try(read_tag_and_value(
-    source,
-    tag_start_splitter,
-    tag_end_splitter,
-    tag_start_length,
-    tag_end_length,
-  ))
-  use #(open, close) <- result.map(read_delimiter_value(value))
-  #(SetDelimiters(string.length(tag), open, close), rest)
-}
-
 fn read_delimiter_value(
   value: String,
 ) -> Result(#(String, String), LexicalError) {
@@ -264,4 +322,30 @@ fn read_delimiter_value(
     [open, close] -> Ok(#(open, close))
     _ -> Error(MalformedSetDelimitersError)
   }
+}
+
+fn scan_comment(
+  source: String,
+  tag_start_splitter: splitter.Splitter,
+  tag_end_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  use #(token, tail) <- result.map(scan_ignored(
+    source,
+    tag_start_splitter,
+    tag_end_splitter,
+  ))
+  #(token, tail)
+}
+
+fn scan_ignored(
+  source: String,
+  tag_start_splitter: splitter.Splitter,
+  tag_end_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  use #(tag, rest) <- result.map(read_tag(
+    source,
+    tag_start_splitter,
+    tag_end_splitter,
+  ))
+  #(Ignored(string.length(tag)), rest)
 }
