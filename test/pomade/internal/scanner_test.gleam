@@ -107,9 +107,19 @@ pub fn scan_comments_test() {
   ]) = scanner.scan("Hello,{{! this is a comment }} world!")
 }
 
-pub fn no_matching_tag_close_error_test() {
+pub fn error_test() {
   let assert Error(scanner.NoMatchingTagCloseFoundError) =
     scanner.scan("{{! comment")
 
   let assert Error(scanner.MalformedIdentifier) = scanner.scan("{{var")
+}
+
+pub fn triple_mustache_test() {
+  let assert Ok([
+    scanner.LeftTripleMustache(_),
+    scanner.Identifier(_, "triple_mustache"),
+    scanner.RightTripleMustache(_),
+    scanner.SetDelimiters(_, "<%", "%>"),
+    scanner.Text(_, "{{{no_triple_mustache}}}"),
+  ]) = scanner.scan("{{{triple_mustache}}}{{=<% %>=}}{{{no_triple_mustache}}}")
 }

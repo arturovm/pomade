@@ -11,7 +11,9 @@ type Lexer {
     tag_start: String,
     tag_end: String,
     tag_start_splitter: splitter.Splitter,
+    triple_mustache_start_splitter: splitter.Splitter,
     identifier_splitter: splitter.Splitter,
+    triple_mustache_end_splitter: splitter.Splitter,
     tag_end_splitter: splitter.Splitter,
   )
 }
@@ -20,7 +22,9 @@ type Mode {
   Base
   FreeForm
   TagStart
+  TripleMustacheStart
   InsideTag
+  TripleMustacheEnd
   TagEnd
   CustomizeDelimiters
   Comment
@@ -31,6 +35,7 @@ pub type Token {
   Text(source_length: Int, value: String)
   // tags
   LeftDelimiter(source_length: Int)
+  LeftTripleMustache(source_length: Int)
   RawVariable(source_length: Int)
   SectionStart(source_length: Int)
   ClosingTag(source_length: Int)
@@ -38,6 +43,7 @@ pub type Token {
   Partial(source_length: Int)
   BlockStart(source_length: Int)
   ParentStart(source_length: Int)
+  RightTripleMustache(source_length: Int)
   RightDelimiter(source_length: Int)
   // tag content
   Identifier(source_length: Int, value: String)
@@ -57,6 +63,10 @@ const default_left_delimiter: String = "{{"
 
 const default_right_delimiter: String = "}}"
 
+const left_triple_mustache: String = "{{{"
+
+const right_triple_mustache: String = "}}}"
+
 pub fn scan(source: String) -> Result(List(Token), LexicalError) {
   let lexer = new_lexer(default_left_delimiter, default_right_delimiter)
   scan_loop(lexer, source, Base, [])
@@ -64,11 +74,13 @@ pub fn scan(source: String) -> Result(List(Token), LexicalError) {
 
 fn new_lexer(tag_start: String, tag_end: String) -> Lexer {
   Lexer(
-    tag_start,
-    tag_end,
-    splitter.new([tag_start]),
-    splitter.new([".", tag_end]),
-    splitter.new([tag_end]),
+    tag_start:,
+    tag_end:,
+    tag_start_splitter: splitter.new([tag_start]),
+    triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
+    identifier_splitter: splitter.new([".", tag_end]),
+    triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
+    tag_end_splitter: splitter.new([tag_end]),
   )
 }
 
@@ -86,12 +98,7 @@ fn scan_loop(
         None -> tokens
         Some(token) -> list.prepend(tokens, token)
       }
-      scan_loop(
-        lexer,
-        tail,
-        next_mode(tail, lexer.tag_start, lexer.tag_end, mode),
-        tokens,
-      )
+      scan_loop(lexer, tail, next_mode(tail, lexer, mode), tokens)
     }
   }
 }
@@ -117,10 +124,24 @@ fn scan_token(
       ))
       #(lexer, Some(token), tail)
     }
+    TripleMustacheStart -> {
+      use #(token, tail) <- result.map(scan_triple_mustache_start(
+        source,
+        lexer.triple_mustache_start_splitter,
+      ))
+      #(lexer, Some(token), tail)
+    }
     InsideTag -> {
       use #(token, tail) <- result.map(scan_inside_tag(
         source,
         lexer.identifier_splitter,
+      ))
+      #(lexer, Some(token), tail)
+    }
+    TripleMustacheEnd -> {
+      use #(token, tail) <- result.map(scan_triple_mustache_end(
+        source,
+        lexer.triple_mustache_end_splitter,
       ))
       #(lexer, Some(token), tail)
     }
@@ -154,35 +175,50 @@ fn scan_token(
   }
 }
 
-fn next_mode(
-  source: String,
-  tag_start: String,
-  tag_end: String,
-  mode: Mode,
-) -> Mode {
+fn next_mode(source: String, lexer: Lexer, mode: Mode) -> Mode {
   case mode {
-    Base -> next_mode_from_base(source, tag_start)
-    FreeForm | TagEnd | CustomizeDelimiters | Comment -> Base
+    Base -> next_mode_from_base(lexer, source)
+    FreeForm | TagEnd | TripleMustacheEnd | CustomizeDelimiters | Comment ->
+      Base
     TagStart -> InsideTag
+    TripleMustacheStart -> InsideTag
     InsideTag ->
-      case string.starts_with(source, tag_end) {
-        False -> InsideTag
-        True -> TagEnd
+      case can_end_triple_mustache(lexer, source) {
+        True -> TripleMustacheEnd
+        False ->
+          case string.starts_with(source, lexer.tag_end) {
+            False -> InsideTag
+            True -> TagEnd
+          }
       }
   }
 }
 
-fn next_mode_from_base(source, tag_start) {
-  case string.starts_with(source, tag_start) {
-    False -> FreeForm
-    True -> {
-      case string.drop_start(source, string.length(tag_start)) {
-        "=" <> _ -> CustomizeDelimiters
-        "!" <> _ -> Comment
-        _ -> TagStart
+fn next_mode_from_base(lexer: Lexer, source: String) -> Mode {
+  case can_start_triple_mustache(lexer, source) {
+    True -> TripleMustacheStart
+    False ->
+      case string.starts_with(source, lexer.tag_start) {
+        False -> FreeForm
+        True -> {
+          case string.drop_start(source, string.length(lexer.tag_start)) {
+            "=" <> _ -> CustomizeDelimiters
+            "!" <> _ -> Comment
+            _ -> TagStart
+          }
+        }
       }
-    }
   }
+}
+
+fn can_start_triple_mustache(lexer: Lexer, source: String) -> Bool {
+  lexer.tag_start == default_left_delimiter
+  && string.starts_with(source, left_triple_mustache)
+}
+
+fn can_end_triple_mustache(lexer: Lexer, source: String) -> Bool {
+  lexer.tag_end == default_right_delimiter
+  && string.starts_with(source, right_triple_mustache)
 }
 
 fn scan_free_form(
@@ -199,6 +235,15 @@ fn scan_tag_start(
 ) -> Result(#(Token, String), LexicalError) {
   let #(tag_open, tail) = splitter.split_after(tag_start_splitter, source)
   Ok(#(LeftDelimiter(string.length(tag_open)), tail))
+}
+
+fn scan_triple_mustache_start(
+  source: String,
+  triple_mustache_start_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  let #(tag_open, tail) =
+    splitter.split_after(triple_mustache_start_splitter, source)
+  Ok(#(LeftTripleMustache(string.length(tag_open)), tail))
 }
 
 fn scan_inside_tag(
@@ -242,6 +287,15 @@ fn read_identifier(
     True -> Error(MalformedIdentifier)
     False -> Ok(#(identifier, rest))
   }
+}
+
+fn scan_triple_mustache_end(
+  source: String,
+  triple_mustache_end_splitter: splitter.Splitter,
+) -> Result(#(Token, String), LexicalError) {
+  let #(tag_end, tail) =
+    splitter.split_after(triple_mustache_end_splitter, source)
+  Ok(#(RightTripleMustache(string.length(tag_end)), tail))
 }
 
 fn scan_tag_end(
