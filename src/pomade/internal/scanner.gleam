@@ -1,20 +1,9 @@
 import gleam/list
-import gleam/option.{type Option, None, Some}
 import gleam/regexp
 import gleam/result
 import gleam/string
 
 import splitter
-
-type Lexer {
-  Lexer(
-    tag_start: String,
-    tag_end: String,
-    tag_start_splitter: splitter.Splitter,
-    identifier_splitter: splitter.Splitter,
-    tag_end_splitter: splitter.Splitter,
-  )
-}
 
 type Mode {
   Base
@@ -58,87 +47,153 @@ const default_left_delimiter: String = "{{"
 const default_right_delimiter: String = "}}"
 
 pub fn scan(source: String) -> Result(List(Token), LexicalError) {
-  let lexer = new_lexer(default_left_delimiter, default_right_delimiter)
-  scan_loop(lexer, source, Base, [])
-}
-
-fn new_lexer(tag_start: String, tag_end: String) -> Lexer {
-  Lexer(
-    tag_start:,
-    tag_end:,
-    tag_start_splitter: splitter.new([tag_start]),
-    identifier_splitter: splitter.new([".", tag_end]),
-    tag_end_splitter: splitter.new([tag_end]),
+  let tag_start_splitter = splitter.new([default_left_delimiter])
+  let identifier_splitter = splitter.new([".", default_right_delimiter])
+  let tag_end_splitter = splitter.new([default_right_delimiter])
+  scan_loop(
+    source,
+    Base,
+    default_left_delimiter,
+    default_right_delimiter,
+    tag_start_splitter,
+    identifier_splitter,
+    tag_end_splitter,
+    [],
   )
 }
 
 fn scan_loop(
-  lexer: Lexer,
   source: String,
   mode: Mode,
+  tag_start: String,
+  tag_end: String,
+  tag_start_splitter: splitter.Splitter,
+  identifier_splitter: splitter.Splitter,
+  tag_end_splitter: splitter.Splitter,
   tokens: List(Token),
 ) -> Result(List(Token), LexicalError) {
   case source {
     "" -> Ok(list.reverse(tokens))
     non_empty -> {
-      use #(token, tail, lexer) <- result.try(scan_token(non_empty, mode, lexer))
-      let tokens = case token {
-        None -> tokens
-        Some(token) -> list.prepend(tokens, token)
+      case mode {
+        Base ->
+          scan_loop(
+            source,
+            next_mode(source, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            tokens,
+          )
+        FreeForm -> {
+          use #(token, tail) <- result.try(scan_free_form(
+            non_empty,
+            tag_start_splitter,
+          ))
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
+        TagStart -> {
+          use #(token, tail) <- result.try(scan_tag_start(
+            non_empty,
+            tag_start_splitter,
+          ))
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
+        InsideTag -> {
+          use #(token, tail) <- result.try(scan_inside_tag(
+            source,
+            identifier_splitter,
+          ))
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
+        TagEnd -> {
+          use #(token, tail) <- result.try(scan_tag_end(
+            source,
+            tag_end_splitter,
+          ))
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
+        CustomizeDelimiters -> {
+          use #(token, tail) <- result.try(scan_customize_delimiters(
+            source,
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            tag_end_splitter,
+          ))
+          let assert SetDelimiters(_, tag_start, tag_end) = token
+          let tag_start_splitter = splitter.new([tag_start])
+          let identifier_splitter = splitter.new([".", tag_end])
+          let tag_end_splitter = splitter.new([tag_end])
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
+        Comment -> {
+          use #(token, tail) <- result.try(scan_comment(
+            source,
+            tag_start_splitter,
+            tag_end_splitter,
+          ))
+          scan_loop(
+            tail,
+            next_mode(tail, tag_start, tag_end, mode),
+            tag_start,
+            tag_end,
+            tag_start_splitter,
+            identifier_splitter,
+            tag_end_splitter,
+            list.prepend(tokens, token),
+          )
+        }
       }
-      scan_loop(
-        lexer,
-        tail,
-        next_mode(tail, lexer.tag_start, lexer.tag_end, mode),
-        tokens,
-      )
     }
   }
-}
-
-fn scan_token(
-  source: String,
-  mode: Mode,
-  lexer: Lexer,
-) -> Result(#(Option(Token), String, Lexer), LexicalError) {
-  case mode {
-    Base -> Ok(#(None, source, lexer))
-    FreeForm ->
-      scan_free_form(source, lexer.tag_start_splitter)
-      |> return(lexer)
-    TagStart ->
-      scan_tag_start(source, lexer.tag_start_splitter)
-      |> return(lexer)
-    InsideTag ->
-      scan_inside_tag(source, lexer.identifier_splitter)
-      |> return(lexer)
-    TagEnd ->
-      scan_tag_end(source, lexer.tag_end_splitter)
-      |> return(lexer)
-    CustomizeDelimiters -> {
-      use #(token, _) as result <- result.try(scan_customize_delimiters(
-        source,
-        lexer.tag_start,
-        lexer.tag_end,
-        lexer.tag_start_splitter,
-        lexer.tag_end_splitter,
-      ))
-      let assert SetDelimiters(_, tag_start, tag_end) = token
-      let lexer = new_lexer(tag_start, tag_end)
-      return(Ok(result), lexer)
-    }
-    Comment ->
-      scan_comment(source, lexer.tag_start_splitter, lexer.tag_end_splitter)
-      |> return(lexer)
-  }
-}
-
-fn return(
-  scanned: Result(#(Token, String), LexicalError),
-  lexer: Lexer,
-) -> Result(#(Option(Token), String, Lexer), LexicalError) {
-  use #(token, tail) <- result.map(scanned)
-  #(Some(token), tail, lexer)
 }
 
 fn next_mode(
