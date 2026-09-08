@@ -258,6 +258,7 @@ fn scan_inside_tag(
     ">" <> _ -> scan_single(source, Partial)
     "$" <> _ -> scan_single(source, BlockStart)
     "<" <> _ -> scan_single(source, ParentStart)
+    "." <> _ -> scan_single(source, Dot)
     _ -> scan_identifier(source, identifier_splitter)
   }
 }
@@ -283,7 +284,7 @@ fn read_identifier(
 ) -> Result(#(String, String), LexicalError) {
   let #(value, rest) = splitter.split_before(identifier_splitter, source)
   let identifier = string.trim(value)
-  case string.is_empty(rest) {
+  case string.is_empty(value) || string.is_empty(rest) {
     True -> Error(MalformedIdentifier)
     False -> Ok(#(identifier, rest))
   }

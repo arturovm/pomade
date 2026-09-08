@@ -123,3 +123,13 @@ pub fn triple_mustache_test() {
     scanner.Text(_, "{{{no_triple_mustache}}}"),
   ]) = scanner.scan("{{{triple_mustache}}}{{=<% %>=}}{{{no_triple_mustache}}}")
 }
+
+pub fn dotted_names_test() {
+  let assert Ok([
+    scanner.LeftDelimiter(_),
+    scanner.Identifier(_, "hello"),
+    scanner.Dot(_),
+    scanner.Identifier(_, "world"),
+    scanner.RightDelimiter(_),
+  ]) = scanner.scan("{{hello.world}}")
+}
