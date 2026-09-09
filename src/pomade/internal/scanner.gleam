@@ -8,8 +8,8 @@ import splitter
 
 type Lexer {
   Lexer(
-    tag_start: String,
-    tag_end: String,
+    left_delimiter: String,
+    right_delimiter: String,
     tag_start_splitter: splitter.Splitter,
     triple_mustache_start_splitter: splitter.Splitter,
     identifier_splitter: splitter.Splitter,
@@ -72,15 +72,15 @@ pub fn scan(source: String) -> Result(List(Token), LexicalError) {
   scan_loop(lexer, source, Base, [])
 }
 
-fn new_lexer(tag_start: String, tag_end: String) -> Lexer {
+fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
   Lexer(
-    tag_start:,
-    tag_end:,
-    tag_start_splitter: splitter.new([tag_start]),
-    triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
-    identifier_splitter: splitter.new([".", tag_end]),
-    triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
-    tag_end_splitter: splitter.new([tag_end]),
+    left_delimiter,
+    right_delimiter,
+    splitter.new([left_delimiter]),
+    splitter.new([left_triple_mustache]),
+    splitter.new([".", right_delimiter]),
+    splitter.new([right_triple_mustache]),
+    splitter.new([right_delimiter]),
   )
 }
 
@@ -110,69 +110,29 @@ fn scan_token(
 ) -> Result(#(Lexer, Option(Token), String), LexicalError) {
   case mode {
     Base -> Ok(#(lexer, None, source))
-    FreeForm -> {
-      use #(token, tail) <- result.map(scan_free_form(
-        source,
-        lexer.tag_start_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
-    TagStart -> {
-      use #(token, tail) <- result.map(scan_tag_start(
-        source,
-        lexer.tag_start_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
-    TripleMustacheStart -> {
-      use #(token, tail) <- result.map(scan_triple_mustache_start(
-        source,
-        lexer.triple_mustache_start_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
-    InsideTag -> {
-      use #(token, tail) <- result.map(scan_inside_tag(
-        source,
-        lexer.identifier_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
-    TripleMustacheEnd -> {
-      use #(token, tail) <- result.map(scan_triple_mustache_end(
-        source,
-        lexer.triple_mustache_end_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
-    TagEnd -> {
-      use #(token, tail) <- result.map(scan_tag_end(
-        source,
-        lexer.tag_end_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
+    FreeForm -> scan_with(source, lexer, scan_free_form)
+    TagStart -> scan_with(source, lexer, scan_tag_start)
+    TripleMustacheStart -> scan_with(source, lexer, scan_triple_mustache_start)
+    InsideTag -> scan_with(source, lexer, scan_inside_tag)
+    TripleMustacheEnd -> scan_with(source, lexer, scan_triple_mustache_end)
+    TagEnd -> scan_with(source, lexer, scan_tag_end)
     CustomizeDelimiters -> {
-      use #(token, tail) <- result.map(scan_customize_delimiters(
-        source,
-        lexer.tag_start,
-        lexer.tag_end,
-        lexer.tag_start_splitter,
-        lexer.tag_end_splitter,
-      ))
-      let assert SetDelimiters(_, tag_start, tag_end) = token
-      let lexer = new_lexer(tag_start, tag_end)
+      use #(token, tail) <- result.map(scan_customize_delimiters(source, lexer))
+      let assert SetDelimiters(_, left_delimiter, right_delimiter) = token
+      let lexer = new_lexer(left_delimiter, right_delimiter)
       #(lexer, Some(token), tail)
     }
-    Comment -> {
-      use #(token, tail) <- result.map(scan_comment(
-        source,
-        lexer.tag_start_splitter,
-        lexer.tag_end_splitter,
-      ))
-      #(lexer, Some(token), tail)
-    }
+    Comment -> scan_with(source, lexer, scan_comment)
   }
+}
+
+fn scan_with(
+  source: String,
+  lexer: Lexer,
+  scanner: fn(String, Lexer) -> Result(#(Token, String), LexicalError),
+) -> Result(#(Lexer, Option(Token), String), LexicalError) {
+  use #(token, tail) <- result.map(scanner(source, lexer))
+  #(lexer, Some(token), tail)
 }
 
 fn next_mode(source: String, lexer: Lexer, mode: Mode) -> Mode {
@@ -186,7 +146,7 @@ fn next_mode(source: String, lexer: Lexer, mode: Mode) -> Mode {
       case can_end_triple_mustache(lexer, source) {
         True -> TripleMustacheEnd
         False ->
-          case string.starts_with(source, lexer.tag_end) {
+          case string.starts_with(source, lexer.right_delimiter) {
             False -> InsideTag
             True -> TagEnd
           }
@@ -198,10 +158,10 @@ fn next_mode_from_base(lexer: Lexer, source: String) -> Mode {
   case can_start_triple_mustache(lexer, source) {
     True -> TripleMustacheStart
     False ->
-      case string.starts_with(source, lexer.tag_start) {
+      case string.starts_with(source, lexer.left_delimiter) {
         False -> FreeForm
         True -> {
-          case string.drop_start(source, string.length(lexer.tag_start)) {
+          case string.drop_start(source, string.length(lexer.left_delimiter)) {
             "=" <> _ -> CustomizeDelimiters
             "!" <> _ -> Comment
             _ -> TagStart
@@ -212,43 +172,43 @@ fn next_mode_from_base(lexer: Lexer, source: String) -> Mode {
 }
 
 fn can_start_triple_mustache(lexer: Lexer, source: String) -> Bool {
-  lexer.tag_start == default_left_delimiter
+  lexer.left_delimiter == default_left_delimiter
   && string.starts_with(source, left_triple_mustache)
 }
 
 fn can_end_triple_mustache(lexer: Lexer, source: String) -> Bool {
-  lexer.tag_end == default_right_delimiter
+  lexer.right_delimiter == default_right_delimiter
   && string.starts_with(source, right_triple_mustache)
 }
 
 fn scan_free_form(
   source: String,
-  tag_start_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let #(text, rest) = splitter.split_before(tag_start_splitter, source)
+  let #(text, rest) = splitter.split_before(lexer.tag_start_splitter, source)
   Ok(#(Text(string.length(text), text), rest))
 }
 
 fn scan_tag_start(
   source: String,
-  tag_start_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let #(tag_open, tail) = splitter.split_after(tag_start_splitter, source)
+  let #(tag_open, tail) = splitter.split_after(lexer.tag_start_splitter, source)
   Ok(#(LeftDelimiter(string.length(tag_open)), tail))
 }
 
 fn scan_triple_mustache_start(
   source: String,
-  triple_mustache_start_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   let #(tag_open, tail) =
-    splitter.split_after(triple_mustache_start_splitter, source)
+    splitter.split_after(lexer.triple_mustache_start_splitter, source)
   Ok(#(LeftTripleMustache(string.length(tag_open)), tail))
 }
 
 fn scan_inside_tag(
   source: String,
-  identifier_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   case source {
     "&" <> _ -> scan_single(source, RawVariable)
@@ -259,7 +219,7 @@ fn scan_inside_tag(
     "$" <> _ -> scan_single(source, BlockStart)
     "<" <> _ -> scan_single(source, ParentStart)
     "." <> _ -> scan_single(source, Dot)
-    _ -> scan_identifier(source, identifier_splitter)
+    _ -> scan_identifier(source, lexer.identifier_splitter)
   }
 }
 
@@ -292,53 +252,33 @@ fn read_identifier(
 
 fn scan_triple_mustache_end(
   source: String,
-  triple_mustache_end_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   let #(tag_end, tail) =
-    splitter.split_after(triple_mustache_end_splitter, source)
+    splitter.split_after(lexer.triple_mustache_end_splitter, source)
   Ok(#(RightTripleMustache(string.length(tag_end)), tail))
 }
 
 fn scan_tag_end(
   source: String,
-  tag_end_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let #(tag_end, tail) = splitter.split_after(tag_end_splitter, source)
+  let #(tag_end, tail) = splitter.split_after(lexer.tag_end_splitter, source)
   Ok(#(RightDelimiter(string.length(tag_end)), tail))
 }
 
 fn scan_customize_delimiters(
   source: String,
-  tag_start: String,
-  tag_end: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let tag_start_length = string.length(tag_start)
-  let tag_end_length = string.length(tag_end)
-  use #(token, tail) <- result.map(scan_set_delimiters(
-    source,
-    tag_start_splitter,
-    tag_end_splitter,
-    tag_start_length + 1,
-    tag_end_length + 1,
-  ))
-  #(token, tail)
-}
-
-fn scan_set_delimiters(
-  source: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
-  tag_start_length: Int,
-  tag_end_length: Int,
-) -> Result(#(Token, String), LexicalError) {
+  let tag_start_length = string.length(lexer.left_delimiter)
+  let tag_end_length = string.length(lexer.right_delimiter)
   use #(tag, value, rest) <- result.try(read_tag_and_value(
     source,
-    tag_start_splitter,
-    tag_end_splitter,
-    tag_start_length,
-    tag_end_length,
+    lexer.tag_start_splitter,
+    lexer.tag_end_splitter,
+    tag_start_length + 1,
+    tag_end_length + 1,
   ))
   use #(open, close) <- result.map(read_delimiter_value(value))
   #(SetDelimiters(string.length(tag), open, close), rest)
@@ -394,26 +334,12 @@ fn read_delimiter_value(
 
 fn scan_comment(
   source: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
-) -> Result(#(Token, String), LexicalError) {
-  use #(token, tail) <- result.map(scan_ignored(
-    source,
-    tag_start_splitter,
-    tag_end_splitter,
-  ))
-  #(token, tail)
-}
-
-fn scan_ignored(
-  source: String,
-  tag_start_splitter: splitter.Splitter,
-  tag_end_splitter: splitter.Splitter,
+  lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   use #(tag, rest) <- result.map(read_tag(
     source,
-    tag_start_splitter,
-    tag_end_splitter,
+    lexer.tag_start_splitter,
+    lexer.tag_end_splitter,
   ))
   #(Ignored(string.length(tag)), rest)
 }
