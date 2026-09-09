@@ -116,12 +116,18 @@ pub fn error_test() {
 
 pub fn triple_mustache_test() {
   let assert Ok([
+    scanner.LeftDelimiter(_),
+    scanner.Identifier(_, "some_variable"),
+    scanner.RightDelimiter(_),
     scanner.LeftTripleMustache(_),
     scanner.Identifier(_, "triple_mustache"),
     scanner.RightTripleMustache(_),
     scanner.SetDelimiters(_, "<%", "%>"),
     scanner.Text(_, "{{{no_triple_mustache}}}"),
-  ]) = scanner.scan("{{{triple_mustache}}}{{=<% %>=}}{{{no_triple_mustache}}}")
+  ]) =
+    scanner.scan(
+      "{{some_variable}}{{{triple_mustache}}}{{=<% %>=}}{{{no_triple_mustache}}}",
+    )
 }
 
 pub fn dotted_names_test() {
