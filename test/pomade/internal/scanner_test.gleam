@@ -108,10 +108,9 @@ pub fn scan_comments_test() {
 }
 
 pub fn error_test() {
-  let assert Error(scanner.NoMatchingTagCloseFoundError) =
-    scanner.scan("{{! comment")
-
-  let assert Error(scanner.MalformedIdentifier) = scanner.scan("{{var")
+  let assert Error(scanner.UnterminatedTagError) = scanner.scan("{{! comment")
+  let assert Error(scanner.UnterminatedTagError) = scanner.scan("{{var")
+  let assert Error(scanner.MalformedIdentifierError) = scanner.scan("{{}}")
 }
 
 pub fn triple_mustache_test() {

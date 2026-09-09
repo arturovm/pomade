@@ -54,8 +54,8 @@ pub type Token {
 }
 
 pub type LexicalError {
-  MalformedIdentifier
-  NoMatchingTagCloseFoundError
+  MalformedIdentifierError
+  UnterminatedTagError
   MalformedSetDelimitersError
 }
 
@@ -243,10 +243,15 @@ fn read_identifier(
   identifier_splitter: splitter.Splitter,
 ) -> Result(#(String, String), LexicalError) {
   let #(value, rest) = splitter.split_before(identifier_splitter, source)
-  let identifier = string.trim(value)
-  case string.is_empty(value) || string.is_empty(rest) {
-    True -> Error(MalformedIdentifier)
-    False -> Ok(#(identifier, rest))
+  case string.is_empty(rest) {
+    True -> Error(UnterminatedTagError)
+    False -> {
+      let identifier = string.trim(value)
+      case string.is_empty(value) {
+        True -> Error(MalformedIdentifierError)
+        False -> Ok(#(identifier, rest))
+      }
+    }
   }
 }
 
@@ -308,7 +313,7 @@ fn read_tag(
   let #(tag_start, rest) = splitter.split_after(tag_start_splitter, source)
   let #(tag_middle, tag_end, rest) = splitter.split(tag_end_splitter, rest)
   case string.is_empty(tag_end) && string.is_empty(rest) {
-    True -> Error(NoMatchingTagCloseFoundError)
+    True -> Error(UnterminatedTagError)
     False -> Ok(#(tag_start <> tag_middle <> tag_end, rest))
   }
 }
