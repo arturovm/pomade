@@ -7,52 +7,52 @@ pub fn empty_parser_test() {
 
 pub fn text_test() {
   let assert Ok(parser.Template([parser.Text("hello")])) =
-    parser.parse([scanner.Text(5, "hello")])
+    parser.parse([scanner.Text("hello")])
 }
 
 pub fn variable_test() {
   let assert Ok(parser.Template([parser.Variable(["hello"])])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.Identifier(5, "hello"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.Identifier("hello"),
+      scanner.RightDelimiter,
     ])
 }
 
 pub fn dotted_variable_test() {
   let assert Ok(parser.Template([parser.Variable(["hello", "world"])])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.Identifier(5, "hello"),
-      scanner.Dot(5),
-      scanner.Identifier(5, "world"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.Identifier("hello"),
+      scanner.Dot,
+      scanner.Identifier("world"),
+      scanner.RightDelimiter,
     ])
 }
 
 pub fn variable_single_dot_test() {
   let assert Ok(parser.Template([parser.Variable(["."])])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.Dot(5),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.Dot,
+      scanner.RightDelimiter,
     ])
 }
 
 pub fn raw_variable_test() {
   let assert Ok(parser.Template([parser.RawVariable(["hello"])])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.RawVariableIndicator(1),
-      scanner.Identifier(5, "hello"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.RawVariableIndicator,
+      scanner.Identifier("hello"),
+      scanner.RightDelimiter,
     ])
 
   let assert Ok(parser.Template([parser.RawVariable(["goodbye"])])) =
     parser.parse([
-      scanner.LeftTripleMustache(3),
-      scanner.Identifier(5, "goodbye"),
-      scanner.RightTripleMustache(3),
+      scanner.LeftTripleMustache,
+      scanner.Identifier("goodbye"),
+      scanner.RightTripleMustache,
     ])
 }
 
@@ -61,17 +61,17 @@ pub fn section_test() {
     parser.Section(["person"], [parser.Variable(["name"])]),
   ])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.SectionIndicator(1),
-      scanner.Identifier(6, "person"),
-      scanner.RightDelimiter(2),
-      scanner.LeftDelimiter(2),
-      scanner.Identifier(4, "name"),
-      scanner.RightDelimiter(2),
-      scanner.LeftDelimiter(2),
-      scanner.ClosingIndicator(1),
-      scanner.Identifier(6, "person"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.SectionIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.Identifier("name"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
     ])
 }
 
@@ -80,25 +80,25 @@ pub fn inverted_section_test() {
     parser.InvertedSection(["person"], [parser.Text("no repos :(")]),
   ])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.InvertedSectionIndicator(1),
-      scanner.Identifier(6, "person"),
-      scanner.RightDelimiter(2),
-      scanner.Text(11, "no repos :("),
-      scanner.LeftDelimiter(2),
-      scanner.ClosingIndicator(1),
-      scanner.Identifier(6, "person"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.InvertedSectionIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.Text("no repos :("),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
     ])
 }
 
 pub fn partial_test() {
   let assert Ok(parser.Template([parser.Partial(["box"])])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.PartialIndicator(1),
-      scanner.Identifier(6, "box"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.PartialIndicator,
+      scanner.Identifier("box"),
+      scanner.RightDelimiter,
     ])
 }
 
@@ -107,15 +107,15 @@ pub fn block_test() {
     parser.Block(["title"], [parser.Text("hello, world!")]),
   ])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.BlockIndicator(1),
-      scanner.Identifier(6, "title"),
-      scanner.RightDelimiter(2),
-      scanner.Text(11, "hello, world!"),
-      scanner.LeftDelimiter(2),
-      scanner.ClosingIndicator(1),
-      scanner.Identifier(6, "title"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.BlockIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.Text("hello, world!"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
     ])
 }
 
@@ -124,14 +124,14 @@ pub fn parent_test() {
     parser.Parent(["title"], [parser.Text("foo, bar, baz")]),
   ])) =
     parser.parse([
-      scanner.LeftDelimiter(2),
-      scanner.ParentIndicator(1),
-      scanner.Identifier(6, "title"),
-      scanner.RightDelimiter(2),
-      scanner.Text(11, "foo, bar, baz"),
-      scanner.LeftDelimiter(2),
-      scanner.ClosingIndicator(1),
-      scanner.Identifier(6, "title"),
-      scanner.RightDelimiter(2),
+      scanner.LeftDelimiter,
+      scanner.ParentIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.Text("foo, bar, baz"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
     ])
 }
