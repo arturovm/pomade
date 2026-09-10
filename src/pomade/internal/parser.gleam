@@ -112,9 +112,9 @@ fn map_expr(
 fn variable(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
+  use #(_, tail) <- result.try(expect(tokens, scanner.LeftDelimiter))
   let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
+  use #(_, tail) <- result.map(expect(tail, scanner.RightDelimiter))
   #(Variable(path), tail)
 }
 
@@ -133,9 +133,9 @@ fn raw_variable(
 fn raw_variable_with_triple_mustache(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_triple_mustache))
+  use #(_, tail) <- result.try(expect(tokens, scanner.LeftTripleMustache))
   let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_triple_mustache))
+  use #(_, tail) <- result.map(expect(tail, scanner.RightTripleMustache))
   #(RawVariable(path), tail)
 }
 
@@ -144,7 +144,7 @@ fn raw_variable_with_delimiters(
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   use #(path, tail) <- result.map(parse_tag_with_indicator(
     tokens,
-    is_raw_variable,
+    scanner.RawVariableIndicator,
   ))
   #(RawVariable(path), tail)
 }
@@ -158,7 +158,7 @@ fn section(
 fn section_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, is_section_start)
+  parse_tag_with_indicator(tokens, scanner.SectionIndicator)
 }
 
 fn closing_tag(
@@ -166,7 +166,7 @@ fn closing_tag(
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   use #(path, tail) <- result.map(parse_tag_with_indicator(
     tokens,
-    is_closing_tag,
+    scanner.ClosingIndicator,
   ))
   #(path, tail)
 }
@@ -180,13 +180,16 @@ fn inverted_section(
 fn inverted_section_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, is_inverted_section_start)
+  parse_tag_with_indicator(tokens, scanner.InvertedSectionIndicator)
 }
 
 fn partial(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  use #(path, tail) <- result.map(parse_tag_with_indicator(tokens, is_partial))
+  use #(path, tail) <- result.map(parse_tag_with_indicator(
+    tokens,
+    scanner.PartialIndicator,
+  ))
   #(Partial(path), tail)
 }
 
@@ -199,7 +202,7 @@ fn block(
 fn block_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, is_block)
+  parse_tag_with_indicator(tokens, scanner.BlockIndicator)
 }
 
 fn parent(
@@ -211,7 +214,7 @@ fn parent(
 fn parent_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, is_parent)
+  parse_tag_with_indicator(tokens, scanner.ParentIndicator)
 }
 
 fn name(tokens: List(Token)) -> #(List(String), List(Token)) {
@@ -241,12 +244,12 @@ fn name_loop(
 
 fn parse_tag_with_indicator(
   tokens: List(Token),
-  indicator: fn(Token) -> Bool,
+  indicator: Token,
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
+  use #(_, tail) <- result.try(expect(tokens, scanner.LeftDelimiter))
   use #(_, tail) <- result.try(expect(tail, indicator))
   let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
+  use #(_, tail) <- result.map(expect(tail, scanner.RightDelimiter))
   #(path, tail)
 }
 
@@ -285,95 +288,16 @@ fn is_blank(string: String) -> Bool {
   }
 }
 
-// matchers
-
 fn expect(
   tokens: List(Token),
-  pred: fn(Token) -> Bool,
+  expected: Token,
 ) -> Result(#(Token, List(Token)), SyntaxError) {
   case tokens {
     [head, ..tail] ->
-      case pred(head) {
+      case head == expected {
         True -> Ok(#(head, tail))
         False -> Error(UnexpectedTokenError(head))
       }
     [] -> Error(SyntaxError)
-  }
-}
-
-fn is_left_delimiter(token: Token) -> Bool {
-  case token {
-    scanner.LeftDelimiter -> True
-    _ -> False
-  }
-}
-
-fn is_right_delimiter(token: Token) -> Bool {
-  case token {
-    scanner.RightDelimiter -> True
-    _ -> False
-  }
-}
-
-fn is_left_triple_mustache(token: Token) -> Bool {
-  case token {
-    scanner.LeftTripleMustache -> True
-    _ -> False
-  }
-}
-
-fn is_right_triple_mustache(token: Token) -> Bool {
-  case token {
-    scanner.RightTripleMustache -> True
-    _ -> False
-  }
-}
-
-fn is_raw_variable(token: Token) -> Bool {
-  case token {
-    scanner.RawVariableIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_section_start(token: Token) -> Bool {
-  case token {
-    scanner.SectionIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_inverted_section_start(token: Token) -> Bool {
-  case token {
-    scanner.InvertedSectionIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_partial(token: Token) -> Bool {
-  case token {
-    scanner.PartialIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_block(token: Token) -> Bool {
-  case token {
-    scanner.BlockIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_parent(token: Token) -> Bool {
-  case token {
-    scanner.ParentIndicator -> True
-    _ -> False
-  }
-}
-
-fn is_closing_tag(token: Token) -> Bool {
-  case token {
-    scanner.ClosingIndicator -> True
-    _ -> False
   }
 }
