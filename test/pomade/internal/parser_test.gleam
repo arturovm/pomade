@@ -147,3 +147,39 @@ pub fn elide_comments_test() {
       scanner.Text("End"),
     ])
 }
+
+pub fn recursion_test() {
+  let assert Ok(parser.Template([
+    parser.Text("some text"),
+    parser.Section(
+      ["a_section"],
+      [
+        parser.Variable(["some_variable"]),
+        parser.InvertedSection(["inner_section"], [parser.Text("inner text")]),
+      ],
+    ),
+  ])) =
+    parser.parse([
+      scanner.Text("some text"),
+      scanner.LeftDelimiter,
+      scanner.SectionIndicator,
+      scanner.Identifier("a_section"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.Identifier("some_variable"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.InvertedSectionIndicator,
+      scanner.Identifier("inner_section"),
+      scanner.RightDelimiter,
+      scanner.Text("inner text"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("inner_section"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("a_section"),
+      scanner.RightDelimiter,
+    ])
+}
