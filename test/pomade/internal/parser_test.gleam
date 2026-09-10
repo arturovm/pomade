@@ -135,3 +135,15 @@ pub fn parent_test() {
       scanner.RightDelimiter,
     ])
 }
+
+pub fn elide_comments_test() {
+  let assert Ok(parser.Template([parser.Text("Begin"), parser.Text("End")])) =
+    parser.parse([
+      scanner.Text("Begin"),
+      scanner.Newline,
+      scanner.Text("\t  "),
+      scanner.Ignored,
+      scanner.Newline,
+      scanner.Text("End"),
+    ])
+}

@@ -18,6 +18,8 @@
 //// name                     -> "." | (IDENTIFIER? ("." IDENTIFIER)*)) ;
 
 import gleam/list
+import gleam/option.{type Option, None, Some}
+import gleam/pair
 import gleam/result
 
 import pomade/internal/scanner.{type Token}
@@ -64,28 +66,47 @@ fn expressions(
       Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(expression(non_empty))
-      expressions(tail, list.prepend(acc, expression))
+      let acc = case expression {
+        None -> acc
+        Some(expression) -> list.prepend(acc, expression)
+      }
+      expressions(tail, acc)
     }
   }
 }
 
 fn expression(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [scanner.Text(value), ..tail] -> Ok(#(Text(value), tail))
     [scanner.LeftTripleMustache, ..]
     | [scanner.LeftDelimiter, scanner.RawVariableIndicator, ..] ->
-      raw_variable(tokens)
-    [scanner.LeftDelimiter, scanner.SectionIndicator, ..] -> section(tokens)
+      map_expr(tokens, raw_variable)
+    [scanner.LeftDelimiter, scanner.SectionIndicator, ..] ->
+      map_expr(tokens, section)
     [scanner.LeftDelimiter, scanner.InvertedSectionIndicator, ..] ->
-      inverted_section(tokens)
-    [scanner.LeftDelimiter, scanner.PartialIndicator, ..] -> partial(tokens)
-    [scanner.LeftDelimiter, scanner.BlockIndicator, ..] -> block(tokens)
-    [scanner.LeftDelimiter, scanner.ParentIndicator, ..] -> parent(tokens)
-    [scanner.LeftDelimiter, ..] -> variable(tokens)
+      map_expr(tokens, inverted_section)
+    [scanner.LeftDelimiter, scanner.PartialIndicator, ..] ->
+      map_expr(tokens, partial)
+    [scanner.LeftDelimiter, scanner.BlockIndicator, ..] ->
+      map_expr(tokens, block)
+    [scanner.LeftDelimiter, scanner.ParentIndicator, ..] ->
+      map_expr(tokens, parent)
+    [scanner.LeftDelimiter, ..] -> map_expr(tokens, variable)
+    [scanner.Text(_), scanner.Ignored, scanner.Newline, ..] ->
+      check_comment(tokens)
+    [scanner.Newline, ..tail] | [scanner.Ignored, ..tail] -> Ok(#(None, tail))
+    [scanner.Text(value), ..tail] -> Ok(#(Some(Text(value)), tail))
     _ -> Error(SyntaxError)
   }
+}
+
+fn map_expr(
+  tokens: List(Token),
+  rule: fn(List(Token)) -> Result(#(Expression, List(Token)), SyntaxError),
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
+  use res <- result.map(rule(tokens))
+  pair.map_first(res, Some)
 }
 
 fn variable(
@@ -241,6 +262,26 @@ fn parse_enclosed(
   case path == closing_path {
     False -> Error(NonMatchingClosingTagError)
     True -> Ok(#(expr_constructor(path, expressions), tail))
+  }
+}
+
+fn check_comment(tokens) {
+  case tokens {
+    [scanner.Text(content), scanner.Ignored, scanner.Newline, ..tail] -> {
+      case is_blank(content) {
+        False -> Ok(#(Some(Text(content)), tail))
+        True -> Ok(#(None, tail))
+      }
+    }
+    _ -> Error(SyntaxError)
+  }
+}
+
+fn is_blank(string: String) -> Bool {
+  case string {
+    "" -> True
+    " " <> tail | "\t" <> tail -> is_blank(tail)
+    _ -> False
   }
 }
 
