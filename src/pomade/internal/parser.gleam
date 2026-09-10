@@ -31,10 +31,10 @@ pub type Expression {
   Variable(path: List(String))
   RawVariable(path: List(String))
   Section(path: List(String), content: List(Expression))
-  InvertedSection(name: String, content: List(Expression))
+  InvertedSection(path: List(String), content: List(Expression))
   Partial(name: List(String))
-  Block(name: String, content: List(Expression))
-  Parent(path: String)
+  Block(path: List(String), content: List(Expression))
+  Parent(path: List(String), content: List(Expression))
 }
 
 pub type SyntaxError {
@@ -78,6 +78,11 @@ fn expression(
     | [scanner.LeftDelimiter(_), scanner.RawVariable(_), ..] ->
       raw_variable(tokens)
     [scanner.LeftDelimiter(_), scanner.SectionStart(_), ..] -> section(tokens)
+    [scanner.LeftDelimiter(_), scanner.InvertedSectionStart(_), ..] ->
+      inverted_section(tokens)
+    [scanner.LeftDelimiter(_), scanner.Partial(_), ..] -> partial(tokens)
+    [scanner.LeftDelimiter(_), scanner.BlockStart(_), ..] -> block(tokens)
+    [scanner.LeftDelimiter(_), scanner.ParentStart(_), ..] -> parent(tokens)
     [scanner.LeftDelimiter(_), ..] -> variable(tokens)
     _ -> Error(SyntaxError)
   }
@@ -104,51 +109,88 @@ fn raw_variable(
   }
 }
 
-fn raw_variable_with_triple_mustache(tokens) {
+fn raw_variable_with_triple_mustache(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
   use #(_, tail) <- result.try(expect(tokens, is_left_triple_mustache))
   let #(path, tail) = name(tail)
   use #(_, tail) <- result.map(expect(tail, is_right_triple_mustache))
   #(RawVariable(path), tail)
 }
 
-fn raw_variable_with_delimiters(tokens) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
-  use #(_, tail) <- result.try(expect(tail, is_raw_variable))
-  let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
+fn raw_variable_with_delimiters(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  use #(path, tail) <- result.map(parse_tag_with_indicator(
+    tokens,
+    is_raw_variable,
+  ))
   #(RawVariable(path), tail)
 }
 
 fn section(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  use #(path, tail) <- result.try(section_opening(tokens))
-  use #(expressions, tail) <- result.try(expressions(tail, []))
-  use #(closing_path, tail) <- result.try(closing_tag(tail))
-  case path == closing_path {
-    False -> Error(NonMatchingClosingTagError)
-    True -> Ok(#(Section(path, expressions), tail))
-  }
+  parse_enclosed(tokens, section_opening, Section)
 }
 
 fn section_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
-  use #(_, tail) <- result.try(expect(tail, is_section_start))
-  let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
-  #(path, tail)
+  parse_tag_with_indicator(tokens, is_section_start)
 }
 
 fn closing_tag(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
-  use #(_, tail) <- result.try(expect(tail, is_closing_tag))
-  let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
+  use #(path, tail) <- result.map(parse_tag_with_indicator(
+    tokens,
+    is_closing_tag,
+  ))
   #(path, tail)
+}
+
+fn inverted_section(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  parse_enclosed(tokens, inverted_section_opening, InvertedSection)
+}
+
+fn inverted_section_opening(
+  tokens: List(Token),
+) -> Result(#(List(String), List(Token)), SyntaxError) {
+  parse_tag_with_indicator(tokens, is_inverted_section_start)
+}
+
+fn partial(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  use #(path, tail) <- result.map(parse_tag_with_indicator(tokens, is_partial))
+  #(Partial(path), tail)
+}
+
+fn block(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  parse_enclosed(tokens, block_opening, Block)
+}
+
+fn block_opening(
+  tokens: List(Token),
+) -> Result(#(List(String), List(Token)), SyntaxError) {
+  parse_tag_with_indicator(tokens, is_block)
+}
+
+fn parent(
+  tokens: List(Token),
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  parse_enclosed(tokens, parent_opening, Parent)
+}
+
+fn parent_opening(
+  tokens: List(Token),
+) -> Result(#(List(String), List(Token)), SyntaxError) {
+  parse_tag_with_indicator(tokens, is_parent)
 }
 
 fn name(tokens: List(Token)) -> #(List(String), List(Token)) {
@@ -171,6 +213,34 @@ fn name_loop(
     any -> {
       #(list.reverse(path), any)
     }
+  }
+}
+
+// helpers
+
+fn parse_tag_with_indicator(
+  tokens: List(Token),
+  indicator: fn(Token) -> Bool,
+) -> Result(#(List(String), List(Token)), SyntaxError) {
+  use #(_, tail) <- result.try(expect(tokens, is_left_delimiter))
+  use #(_, tail) <- result.try(expect(tail, indicator))
+  let #(path, tail) = name(tail)
+  use #(_, tail) <- result.map(expect(tail, is_right_delimiter))
+  #(path, tail)
+}
+
+fn parse_enclosed(
+  tokens: List(Token),
+  opening_rule: fn(List(Token)) ->
+    Result(#(List(String), List(Token)), SyntaxError),
+  expr_constructor: fn(List(String), List(Expression)) -> Expression,
+) -> Result(#(Expression, List(Token)), SyntaxError) {
+  use #(path, tail) <- result.try(opening_rule(tokens))
+  use #(expressions, tail) <- result.try(expressions(tail, []))
+  use #(closing_path, tail) <- result.try(closing_tag(tail))
+  case path == closing_path {
+    False -> Error(NonMatchingClosingTagError)
+    True -> Ok(#(expr_constructor(path, expressions), tail))
   }
 }
 
@@ -228,6 +298,34 @@ fn is_raw_variable(token: Token) -> Bool {
 fn is_section_start(token: Token) -> Bool {
   case token {
     scanner.SectionStart(_) -> True
+    _ -> False
+  }
+}
+
+fn is_inverted_section_start(token: Token) -> Bool {
+  case token {
+    scanner.InvertedSectionStart(_) -> True
+    _ -> False
+  }
+}
+
+fn is_partial(token: Token) -> Bool {
+  case token {
+    scanner.Partial(_) -> True
+    _ -> False
+  }
+}
+
+fn is_block(token: Token) -> Bool {
+  case token {
+    scanner.BlockStart(_) -> True
+    _ -> False
+  }
+}
+
+fn is_parent(token: Token) -> Bool {
+  case token {
+    scanner.ParentStart(_) -> True
     _ -> False
   }
 }

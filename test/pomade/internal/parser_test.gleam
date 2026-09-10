@@ -74,3 +74,64 @@ pub fn section_test() {
       scanner.RightDelimiter(2),
     ])
 }
+
+pub fn inverted_section_test() {
+  let assert Ok(parser.Template([
+    parser.InvertedSection(["person"], [parser.Text("no repos :(")]),
+  ])) =
+    parser.parse([
+      scanner.LeftDelimiter(2),
+      scanner.InvertedSectionStart(1),
+      scanner.Identifier(6, "person"),
+      scanner.RightDelimiter(2),
+      scanner.Text(11, "no repos :("),
+      scanner.LeftDelimiter(2),
+      scanner.ClosingTag(1),
+      scanner.Identifier(6, "person"),
+      scanner.RightDelimiter(2),
+    ])
+}
+
+pub fn partial_test() {
+  let assert Ok(parser.Template([parser.Partial(["box"])])) =
+    parser.parse([
+      scanner.LeftDelimiter(2),
+      scanner.Partial(1),
+      scanner.Identifier(6, "box"),
+      scanner.RightDelimiter(2),
+    ])
+}
+
+pub fn block_test() {
+  let assert Ok(parser.Template([
+    parser.Block(["title"], [parser.Text("hello, world!")]),
+  ])) =
+    parser.parse([
+      scanner.LeftDelimiter(2),
+      scanner.BlockStart(1),
+      scanner.Identifier(6, "title"),
+      scanner.RightDelimiter(2),
+      scanner.Text(11, "hello, world!"),
+      scanner.LeftDelimiter(2),
+      scanner.ClosingTag(1),
+      scanner.Identifier(6, "title"),
+      scanner.RightDelimiter(2),
+    ])
+}
+
+pub fn parent_test() {
+  let assert Ok(parser.Template([
+    parser.Parent(["title"], [parser.Text("foo, bar, baz")]),
+  ])) =
+    parser.parse([
+      scanner.LeftDelimiter(2),
+      scanner.ParentStart(1),
+      scanner.Identifier(6, "title"),
+      scanner.RightDelimiter(2),
+      scanner.Text(11, "foo, bar, baz"),
+      scanner.LeftDelimiter(2),
+      scanner.ClosingTag(1),
+      scanner.Identifier(6, "title"),
+      scanner.RightDelimiter(2),
+    ])
+}
