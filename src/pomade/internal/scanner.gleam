@@ -36,13 +36,13 @@ pub type Token {
   // tags
   LeftDelimiter(source_length: Int)
   LeftTripleMustache(source_length: Int)
-  RawVariable(source_length: Int)
-  SectionStart(source_length: Int)
-  ClosingTag(source_length: Int)
-  InvertedSectionStart(source_length: Int)
-  Partial(source_length: Int)
-  BlockStart(source_length: Int)
-  ParentStart(source_length: Int)
+  RawVariableIndicator(source_length: Int)
+  SectionIndicator(source_length: Int)
+  ClosingIndicator(source_length: Int)
+  InvertedSectionIndicator(source_length: Int)
+  PartialIndicator(source_length: Int)
+  BlockIndicator(source_length: Int)
+  ParentIndicator(source_length: Int)
   RightTripleMustache(source_length: Int)
   RightDelimiter(source_length: Int)
   // tag content
@@ -211,13 +211,13 @@ fn scan_inside_tag(
   lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   case source {
-    "&" <> _ -> scan_single(source, RawVariable)
-    "#" <> _ -> scan_single(source, SectionStart)
-    "/" <> _ -> scan_single(source, ClosingTag)
-    "^" <> _ -> scan_single(source, InvertedSectionStart)
-    ">" <> _ -> scan_single(source, Partial)
-    "$" <> _ -> scan_single(source, BlockStart)
-    "<" <> _ -> scan_single(source, ParentStart)
+    "&" <> _ -> scan_single(source, RawVariableIndicator)
+    "#" <> _ -> scan_single(source, SectionIndicator)
+    "/" <> _ -> scan_single(source, ClosingIndicator)
+    "^" <> _ -> scan_single(source, InvertedSectionIndicator)
+    ">" <> _ -> scan_single(source, PartialIndicator)
+    "$" <> _ -> scan_single(source, BlockIndicator)
+    "<" <> _ -> scan_single(source, ParentIndicator)
     "." <> _ -> scan_single(source, Dot)
     _ -> scan_identifier(source, lexer.identifier_splitter)
   }

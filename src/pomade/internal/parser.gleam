@@ -60,7 +60,7 @@ fn expressions(
 ) -> Result(#(List(Expression), List(Token)), SyntaxError) {
   case tokens {
     [] -> Ok(#(list.reverse(acc), []))
-    [scanner.LeftDelimiter(_), scanner.ClosingTag(_), ..] ->
+    [scanner.LeftDelimiter(_), scanner.ClosingIndicator(_), ..] ->
       Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(expression(non_empty))
@@ -75,14 +75,16 @@ fn expression(
   case tokens {
     [scanner.Text(_, value), ..tail] -> Ok(#(Text(value), tail))
     [scanner.LeftTripleMustache(_), ..]
-    | [scanner.LeftDelimiter(_), scanner.RawVariable(_), ..] ->
+    | [scanner.LeftDelimiter(_), scanner.RawVariableIndicator(_), ..] ->
       raw_variable(tokens)
-    [scanner.LeftDelimiter(_), scanner.SectionStart(_), ..] -> section(tokens)
-    [scanner.LeftDelimiter(_), scanner.InvertedSectionStart(_), ..] ->
+    [scanner.LeftDelimiter(_), scanner.SectionIndicator(_), ..] ->
+      section(tokens)
+    [scanner.LeftDelimiter(_), scanner.InvertedSectionIndicator(_), ..] ->
       inverted_section(tokens)
-    [scanner.LeftDelimiter(_), scanner.Partial(_), ..] -> partial(tokens)
-    [scanner.LeftDelimiter(_), scanner.BlockStart(_), ..] -> block(tokens)
-    [scanner.LeftDelimiter(_), scanner.ParentStart(_), ..] -> parent(tokens)
+    [scanner.LeftDelimiter(_), scanner.PartialIndicator(_), ..] ->
+      partial(tokens)
+    [scanner.LeftDelimiter(_), scanner.BlockIndicator(_), ..] -> block(tokens)
+    [scanner.LeftDelimiter(_), scanner.ParentIndicator(_), ..] -> parent(tokens)
     [scanner.LeftDelimiter(_), ..] -> variable(tokens)
     _ -> Error(SyntaxError)
   }
@@ -290,49 +292,49 @@ fn is_right_triple_mustache(token: Token) -> Bool {
 
 fn is_raw_variable(token: Token) -> Bool {
   case token {
-    scanner.RawVariable(_) -> True
+    scanner.RawVariableIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_section_start(token: Token) -> Bool {
   case token {
-    scanner.SectionStart(_) -> True
+    scanner.SectionIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_inverted_section_start(token: Token) -> Bool {
   case token {
-    scanner.InvertedSectionStart(_) -> True
+    scanner.InvertedSectionIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_partial(token: Token) -> Bool {
   case token {
-    scanner.Partial(_) -> True
+    scanner.PartialIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_block(token: Token) -> Bool {
   case token {
-    scanner.BlockStart(_) -> True
+    scanner.BlockIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_parent(token: Token) -> Bool {
   case token {
-    scanner.ParentStart(_) -> True
+    scanner.ParentIndicator(_) -> True
     _ -> False
   }
 }
 
 fn is_closing_tag(token: Token) -> Bool {
   case token {
-    scanner.ClosingTag(_) -> True
+    scanner.ClosingIndicator(_) -> True
     _ -> False
   }
 }

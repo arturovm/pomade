@@ -15,7 +15,7 @@ pub fn scan_variable_test() {
 pub fn scan_raw_variable_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.RawVariable(_),
+    scanner.RawVariableIndicator(_),
     scanner.Identifier(_, "name"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{& name}}")
@@ -24,7 +24,7 @@ pub fn scan_raw_variable_test() {
 pub fn scan_section_start_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.SectionStart(_),
+    scanner.SectionIndicator(_),
     scanner.Identifier(_, "person"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{#person}}")
@@ -33,7 +33,7 @@ pub fn scan_section_start_test() {
 pub fn scan_closing_tag_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.ClosingTag(_),
+    scanner.ClosingIndicator(_),
     scanner.Identifier(_, "person"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{/person}}")
@@ -42,7 +42,7 @@ pub fn scan_closing_tag_test() {
 pub fn scan_inverted_section_start_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.InvertedSectionStart(_),
+    scanner.InvertedSectionIndicator(_),
     scanner.Identifier(_, "person"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{^person}}")
@@ -51,7 +51,7 @@ pub fn scan_inverted_section_start_test() {
 pub fn scan_partial_test_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.Partial(_),
+    scanner.PartialIndicator(_),
     scanner.Identifier(_, "next_more"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{> next_more}}")
@@ -60,7 +60,7 @@ pub fn scan_partial_test_test() {
 pub fn scan_block_start_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.BlockStart(_),
+    scanner.BlockIndicator(_),
     scanner.Identifier(_, "title"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{$title}}")
@@ -69,7 +69,7 @@ pub fn scan_block_start_test() {
 pub fn scan_parent_start_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
-    scanner.ParentStart(_),
+    scanner.ParentIndicator(_),
     scanner.Identifier(_, "article"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{<article}}")

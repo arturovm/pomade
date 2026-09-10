@@ -43,7 +43,7 @@ pub fn raw_variable_test() {
   let assert Ok(parser.Template([parser.RawVariable(["hello"])])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.RawVariable(1),
+      scanner.RawVariableIndicator(1),
       scanner.Identifier(5, "hello"),
       scanner.RightDelimiter(2),
     ])
@@ -62,14 +62,14 @@ pub fn section_test() {
   ])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.SectionStart(1),
+      scanner.SectionIndicator(1),
       scanner.Identifier(6, "person"),
       scanner.RightDelimiter(2),
       scanner.LeftDelimiter(2),
       scanner.Identifier(4, "name"),
       scanner.RightDelimiter(2),
       scanner.LeftDelimiter(2),
-      scanner.ClosingTag(1),
+      scanner.ClosingIndicator(1),
       scanner.Identifier(6, "person"),
       scanner.RightDelimiter(2),
     ])
@@ -81,12 +81,12 @@ pub fn inverted_section_test() {
   ])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.InvertedSectionStart(1),
+      scanner.InvertedSectionIndicator(1),
       scanner.Identifier(6, "person"),
       scanner.RightDelimiter(2),
       scanner.Text(11, "no repos :("),
       scanner.LeftDelimiter(2),
-      scanner.ClosingTag(1),
+      scanner.ClosingIndicator(1),
       scanner.Identifier(6, "person"),
       scanner.RightDelimiter(2),
     ])
@@ -96,7 +96,7 @@ pub fn partial_test() {
   let assert Ok(parser.Template([parser.Partial(["box"])])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.Partial(1),
+      scanner.PartialIndicator(1),
       scanner.Identifier(6, "box"),
       scanner.RightDelimiter(2),
     ])
@@ -108,12 +108,12 @@ pub fn block_test() {
   ])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.BlockStart(1),
+      scanner.BlockIndicator(1),
       scanner.Identifier(6, "title"),
       scanner.RightDelimiter(2),
       scanner.Text(11, "hello, world!"),
       scanner.LeftDelimiter(2),
-      scanner.ClosingTag(1),
+      scanner.ClosingIndicator(1),
       scanner.Identifier(6, "title"),
       scanner.RightDelimiter(2),
     ])
@@ -125,12 +125,12 @@ pub fn parent_test() {
   ])) =
     parser.parse([
       scanner.LeftDelimiter(2),
-      scanner.ParentStart(1),
+      scanner.ParentIndicator(1),
       scanner.Identifier(6, "title"),
       scanner.RightDelimiter(2),
       scanner.Text(11, "foo, bar, baz"),
       scanner.LeftDelimiter(2),
-      scanner.ClosingTag(1),
+      scanner.ClosingIndicator(1),
       scanner.Identifier(6, "title"),
       scanner.RightDelimiter(2),
     ])
