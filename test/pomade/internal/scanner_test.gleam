@@ -107,13 +107,13 @@ pub fn scan_comments_test() {
   ]) = scanner.scan("Hello,{{! this is a comment }} world!")
 }
 
-pub fn error_test() {
+pub fn scanner_error_test() {
   let assert Error(scanner.UnterminatedTagError) = scanner.scan("{{! comment")
   let assert Error(scanner.UnterminatedTagError) = scanner.scan("{{var")
   let assert Error(scanner.MalformedIdentifierError) = scanner.scan("{{}}")
 }
 
-pub fn triple_mustache_test() {
+pub fn scan_triple_mustache_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
     scanner.Identifier(_, "some_variable"),
@@ -129,7 +129,7 @@ pub fn triple_mustache_test() {
     )
 }
 
-pub fn dotted_names_test() {
+pub fn scan_dotted_names_test() {
   let assert Ok([
     scanner.LeftDelimiter(_),
     scanner.Identifier(_, "hello"),
@@ -137,4 +137,24 @@ pub fn dotted_names_test() {
     scanner.Identifier(_, "world"),
     scanner.RightDelimiter(_),
   ]) = scanner.scan("{{hello.world}}")
+}
+
+pub fn scan_newline_test() {
+  let assert Ok([
+    scanner.Text(_, "Begin"),
+    scanner.Newline(_),
+    scanner.Text(_, "\t"),
+    scanner.Ignored(_),
+    scanner.Newline(_),
+    scanner.Text(_, "End"),
+  ]) = scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
+
+  let assert Ok([
+    scanner.Text(_, "Foo"),
+    scanner.Newline(_),
+    scanner.Text(_, "\t"),
+    scanner.Ignored(_),
+    scanner.Newline(_),
+    scanner.Text(_, "Bar"),
+  ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
 }

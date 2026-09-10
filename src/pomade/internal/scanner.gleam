@@ -10,7 +10,7 @@ type Lexer {
   Lexer(
     left_delimiter: String,
     right_delimiter: String,
-    tag_start_splitter: splitter.Splitter,
+    free_form_splitter: splitter.Splitter,
     triple_mustache_start_splitter: splitter.Splitter,
     identifier_splitter: splitter.Splitter,
     triple_mustache_end_splitter: splitter.Splitter,
@@ -21,6 +21,7 @@ type Lexer {
 type Mode {
   Base
   FreeForm
+  LineEnd
   TagStart
   TripleMustacheStart
   InsideTag
@@ -33,6 +34,7 @@ type Mode {
 pub type Token {
   // general text
   Text(source_length: Int, value: String)
+  Newline(source_length: Int)
   // tags
   LeftDelimiter(source_length: Int)
   LeftTripleMustache(source_length: Int)
@@ -57,6 +59,7 @@ pub type LexicalError {
   MalformedIdentifierError
   UnterminatedTagError
   MalformedSetDelimitersError
+  UnexpectedCharacterError
 }
 
 const default_left_delimiter: String = "{{"
@@ -74,13 +77,13 @@ pub fn scan(source: String) -> Result(List(Token), LexicalError) {
 
 fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
   Lexer(
-    left_delimiter,
-    right_delimiter,
-    splitter.new([left_delimiter]),
-    splitter.new([left_triple_mustache]),
-    splitter.new([".", right_delimiter]),
-    splitter.new([right_triple_mustache]),
-    splitter.new([right_delimiter]),
+    left_delimiter: left_delimiter,
+    right_delimiter: right_delimiter,
+    free_form_splitter: splitter.new(["\r\n", "\n", left_delimiter]),
+    triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
+    identifier_splitter: splitter.new([".", right_delimiter]),
+    triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
+    tag_end_splitter: splitter.new([right_delimiter]),
   )
 }
 
@@ -111,6 +114,7 @@ fn scan_token(
   case mode {
     Base -> Ok(#(lexer, None, source))
     FreeForm -> scan_with(source, lexer, scan_free_form)
+    LineEnd -> scan_with(source, lexer, scan_line_end)
     TagStart -> scan_with(source, lexer, scan_tag_start)
     TripleMustacheStart -> scan_with(source, lexer, scan_triple_mustache_start)
     InsideTag -> scan_with(source, lexer, scan_inside_tag)
@@ -138,8 +142,12 @@ fn scan_with(
 fn next_mode(source: String, lexer: Lexer, mode: Mode) -> Mode {
   case mode {
     Base -> next_mode_from_base(lexer, source)
-    FreeForm | TagEnd | TripleMustacheEnd | CustomizeDelimiters | Comment ->
-      Base
+    FreeForm
+    | LineEnd
+    | TagEnd
+    | TripleMustacheEnd
+    | CustomizeDelimiters
+    | Comment -> Base
     TagStart -> InsideTag
     TripleMustacheStart -> InsideTag
     InsideTag ->
@@ -155,18 +163,24 @@ fn next_mode(source: String, lexer: Lexer, mode: Mode) -> Mode {
 }
 
 fn next_mode_from_base(lexer: Lexer, source: String) -> Mode {
-  case can_start_triple_mustache(lexer, source) {
-    True -> TripleMustacheStart
-    False ->
-      case string.starts_with(source, lexer.left_delimiter) {
-        False -> FreeForm
-        True -> {
-          case string.drop_start(source, string.length(lexer.left_delimiter)) {
-            "=" <> _ -> CustomizeDelimiters
-            "!" <> _ -> Comment
-            _ -> TagStart
+  case source {
+    "\r\n" <> _ | "\n" <> _ -> LineEnd
+    _ ->
+      case can_start_triple_mustache(lexer, source) {
+        True -> TripleMustacheStart
+        False ->
+          case string.starts_with(source, lexer.left_delimiter) {
+            False -> FreeForm
+            True -> {
+              case
+                string.drop_start(source, string.length(lexer.left_delimiter))
+              {
+                "=" <> _ -> CustomizeDelimiters
+                "!" <> _ -> Comment
+                _ -> TagStart
+              }
+            }
           }
-        }
       }
   }
 }
@@ -185,15 +199,28 @@ fn scan_free_form(
   source: String,
   lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let #(text, rest) = splitter.split_before(lexer.tag_start_splitter, source)
+  let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
   Ok(#(Text(string.length(text), text), rest))
+}
+
+fn scan_line_end(
+  source: String,
+  _lexer: Lexer,
+) -> Result(#(Token, String), LexicalError) {
+  case source {
+    "\r\n" as newline <> rest | "\n" as newline <> rest -> {
+      let newline_length = string.length(newline)
+      Ok(#(Newline(newline_length), rest))
+    }
+    _ -> Error(UnexpectedCharacterError)
+  }
 }
 
 fn scan_tag_start(
   source: String,
   lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
-  let #(tag_open, tail) = splitter.split_after(lexer.tag_start_splitter, source)
+  let #(tag_open, tail) = splitter.split_after(lexer.free_form_splitter, source)
   Ok(#(LeftDelimiter(string.length(tag_open)), tail))
 }
 
@@ -280,7 +307,7 @@ fn scan_customize_delimiters(
   let tag_end_length = string.length(lexer.right_delimiter)
   use #(tag, value, rest) <- result.try(read_tag_and_value(
     source,
-    lexer.tag_start_splitter,
+    lexer.free_form_splitter,
     lexer.tag_end_splitter,
     tag_start_length + 1,
     tag_end_length + 1,
@@ -343,7 +370,7 @@ fn scan_comment(
 ) -> Result(#(Token, String), LexicalError) {
   use #(tag, rest) <- result.map(read_tag(
     source,
-    lexer.tag_start_splitter,
+    lexer.free_form_splitter,
     lexer.tag_end_splitter,
   ))
   #(Ignored(string.length(tag)), rest)
