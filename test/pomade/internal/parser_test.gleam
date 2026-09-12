@@ -137,7 +137,11 @@ pub fn parent_test() {
 }
 
 pub fn elide_comments_test() {
-  let assert Ok(parser.Template([parser.Text("Begin"), parser.Text("End")])) =
+  let assert Ok(parser.Template([
+    parser.Text("Begin"),
+    parser.Newline("\n"),
+    parser.Text("End"),
+  ])) =
     parser.parse([
       scanner.Text("Begin"),
       scanner.Newline("\n"),

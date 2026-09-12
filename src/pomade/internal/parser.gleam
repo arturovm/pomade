@@ -30,6 +30,7 @@ pub type Template {
 
 pub type Expression {
   Text(value: String)
+  Newline(value: String)
   Variable(path: List(String))
   RawVariable(path: List(String))
   Section(path: List(String), content: List(Expression))
@@ -97,8 +98,8 @@ fn expression(
     [scanner.LeftDelimiter, ..] -> map_expr(tokens, variable)
     [scanner.Text(_), scanner.Ignored, scanner.Newline(_), ..] ->
       check_comment(tokens)
-    [scanner.Newline(_), ..tail] | [scanner.Ignored, ..tail] ->
-      Ok(#(None, tail))
+    [scanner.Ignored, ..tail] -> Ok(#(None, tail))
+    [scanner.Newline(value), ..tail] -> Ok(#(Some(Newline(value)), tail))
     [scanner.Text(value), ..tail] -> Ok(#(Some(Text(value)), tail))
     _ -> Error(ExpectedExpressionError)
   }
