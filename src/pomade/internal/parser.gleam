@@ -2,7 +2,7 @@
 ////
 //// template                 -> expressions ;
 //// expressions              -> expression* ;
-//// expression               -> TEXT | variable | raw_variable | section | inverted_section | partial | block | parent ;
+//// expression               -> TEXT | NEWLINE | variable | raw_variable | section | inverted_section | partial | block | parent ;
 //// variable                 -> LEFT_DELIMITER name RIGHT_DELIMITER ;
 //// raw_variable             -> ("{{{" name "}}}") | (LEFT_DELIMITER "&" name RIGHT_DELIMITER) ;
 //// section                  -> section_opening expressions closing_tag ;
@@ -42,7 +42,9 @@ pub type Expression {
 pub type SyntaxError {
   SyntaxError
   UnexpectedTokenError(Token)
-  NonMatchingClosingTagError
+  ExpectedExpressionError
+  ExpectedMoreTokensError
+  NoMatchingClosingTagError
 }
 
 pub fn parse(tokens: List(Token)) -> Result(Template, SyntaxError) {
@@ -93,11 +95,12 @@ fn expression(
     [scanner.LeftDelimiter, scanner.ParentIndicator, ..] ->
       map_expr(tokens, parent)
     [scanner.LeftDelimiter, ..] -> map_expr(tokens, variable)
-    [scanner.Text(_), scanner.Ignored, scanner.Newline, ..] ->
+    [scanner.Text(_), scanner.Ignored, scanner.Newline(_), ..] ->
       check_comment(tokens)
-    [scanner.Newline, ..tail] | [scanner.Ignored, ..tail] -> Ok(#(None, tail))
+    [scanner.Newline(_), ..tail] | [scanner.Ignored, ..tail] ->
+      Ok(#(None, tail))
     [scanner.Text(value), ..tail] -> Ok(#(Some(Text(value)), tail))
-    _ -> Error(SyntaxError)
+    _ -> Error(ExpectedExpressionError)
   }
 }
 
@@ -263,14 +266,14 @@ fn parse_enclosed(
   use #(expressions, tail) <- result.try(expressions(tail, []))
   use #(closing_path, tail) <- result.try(closing_tag(tail))
   case path == closing_path {
-    False -> Error(NonMatchingClosingTagError)
+    False -> Error(NoMatchingClosingTagError)
     True -> Ok(#(expr_constructor(path, expressions), tail))
   }
 }
 
 fn check_comment(tokens) {
   case tokens {
-    [scanner.Text(content), scanner.Ignored, scanner.Newline, ..tail] -> {
+    [scanner.Text(content), scanner.Ignored, scanner.Newline(_), ..tail] -> {
       case is_blank(content) {
         False -> Ok(#(Some(Text(content)), tail))
         True -> Ok(#(None, tail))
@@ -298,6 +301,6 @@ fn expect(
         True -> Ok(#(head, tail))
         False -> Error(UnexpectedTokenError(head))
       }
-    [] -> Error(SyntaxError)
+    [] -> Error(ExpectedMoreTokensError)
   }
 }

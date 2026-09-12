@@ -142,19 +142,19 @@ pub fn scan_dotted_names_test() {
 pub fn scan_newline_test() {
   let assert Ok([
     scanner.Text("Begin"),
-    scanner.Newline,
+    scanner.Newline("\n"),
     scanner.Text("\t"),
     scanner.Ignored,
-    scanner.Newline,
+    scanner.Newline("\n"),
     scanner.Text("End"),
   ]) = scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
 
   let assert Ok([
     scanner.Text("Foo"),
-    scanner.Newline,
+    scanner.Newline("\r\n"),
     scanner.Text("\t"),
     scanner.Ignored,
-    scanner.Newline,
+    scanner.Newline("\n"),
     scanner.Text("Bar"),
   ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
 }

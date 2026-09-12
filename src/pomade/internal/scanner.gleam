@@ -34,7 +34,7 @@ type Mode {
 pub type Token {
   // general text
   Text(value: String)
-  Newline
+  Newline(value: String)
   // tags
   LeftDelimiter
   LeftTripleMustache
@@ -208,8 +208,8 @@ fn scan_line_end(
   _lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   case source {
-    "\r\n" <> rest | "\n" <> rest -> {
-      Ok(#(Newline, rest))
+    "\r\n" as value <> rest | "\n" as value <> rest -> {
+      Ok(#(Newline(value), rest))
     }
     _ -> Error(UnexpectedCharacterError)
   }
