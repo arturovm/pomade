@@ -53,7 +53,8 @@ pub fn parse(tokens: List(Token)) -> Result(Template, SyntaxError) {
 // rules
 
 fn template(tokens: List(Token)) -> Result(Template, SyntaxError) {
-  use #(expressions, _) <- result.map(expressions(tokens, []))
+  use #(expressions, tail) <- result.try(expressions(tokens, []))
+  use _ <- result.map(expect(tail, scanner.Eof))
   Template(expressions)
 }
 
@@ -62,7 +63,7 @@ fn expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [scanner.Eof] -> Ok(#(list.reverse(acc), [scanner.Eof]))
+    [scanner.Eof] -> Ok(#(list.reverse(acc), tokens))
     [scanner.LeftDelimiter, scanner.ClosingIndicator, ..] ->
       Ok(#(list.reverse(acc), tokens))
     non_empty -> {

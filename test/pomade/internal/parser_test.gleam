@@ -40,6 +40,15 @@ pub fn variable_single_dot_test() {
       scanner.RightDelimiter,
       scanner.Eof,
     ])
+
+  let assert Error(parser.UnexpectedTokenError(scanner.Identifier("foo"))) =
+    parser.parse([
+      scanner.LeftDelimiter,
+      scanner.Dot,
+      scanner.Identifier("foo"),
+      scanner.RightDelimiter,
+      scanner.Eof,
+    ])
 }
 
 pub fn raw_variable_test() {
