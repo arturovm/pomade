@@ -2,12 +2,12 @@ import pomade/internal/parser
 import pomade/internal/scanner
 
 pub fn empty_parser_test() {
-  let assert Ok(parser.Template([])) = parser.parse([])
+  let assert Ok(parser.Template([])) = parser.parse([scanner.Eof])
 }
 
 pub fn text_test() {
   let assert Ok(parser.Template([parser.Text("hello")])) =
-    parser.parse([scanner.Text("hello")])
+    parser.parse([scanner.Text("hello"), scanner.Eof])
 }
 
 pub fn variable_test() {
@@ -16,6 +16,7 @@ pub fn variable_test() {
       scanner.LeftDelimiter,
       scanner.Identifier("hello"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -27,6 +28,7 @@ pub fn dotted_variable_test() {
       scanner.Dot,
       scanner.Identifier("world"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -36,6 +38,7 @@ pub fn variable_single_dot_test() {
       scanner.LeftDelimiter,
       scanner.Dot,
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -46,6 +49,7 @@ pub fn raw_variable_test() {
       scanner.RawVariableIndicator,
       scanner.Identifier("hello"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 
   let assert Ok(parser.Template([parser.RawVariable(["goodbye"])])) =
@@ -53,6 +57,7 @@ pub fn raw_variable_test() {
       scanner.LeftTripleMustache,
       scanner.Identifier("goodbye"),
       scanner.RightTripleMustache,
+      scanner.Eof,
     ])
 }
 
@@ -72,6 +77,7 @@ pub fn section_test() {
       scanner.ClosingIndicator,
       scanner.Identifier("person"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -89,6 +95,7 @@ pub fn inverted_section_test() {
       scanner.ClosingIndicator,
       scanner.Identifier("person"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -99,6 +106,7 @@ pub fn partial_test() {
       scanner.PartialIndicator,
       scanner.Identifier("box"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -116,6 +124,7 @@ pub fn block_test() {
       scanner.ClosingIndicator,
       scanner.Identifier("title"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -133,6 +142,7 @@ pub fn parent_test() {
       scanner.ClosingIndicator,
       scanner.Identifier("title"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -149,6 +159,7 @@ pub fn elide_comments_test() {
       scanner.Ignored,
       scanner.Newline("\n"),
       scanner.Text("End"),
+      scanner.Eof,
     ])
 }
 
@@ -185,5 +196,6 @@ pub fn recursion_test() {
       scanner.ClosingIndicator,
       scanner.Identifier("a_section"),
       scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }

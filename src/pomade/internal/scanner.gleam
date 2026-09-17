@@ -53,6 +53,8 @@ pub type Token {
   // special forms
   SetDelimiters(tag_start: String, tag_end: String)
   Ignored
+  // eof
+  Eof
 }
 
 pub type LexicalError {
@@ -94,7 +96,10 @@ fn scan_loop(
   tokens: List(Token),
 ) -> Result(List(Token), LexicalError) {
   case source {
-    "" -> Ok(list.reverse(tokens))
+    "" -> {
+      let tokens = list.prepend(tokens, Eof)
+      Ok(list.reverse(tokens))
+    }
     non_empty -> {
       use #(lexer, token, tail) <- result.try(scan_token(lexer, non_empty, mode))
       let tokens = case token {

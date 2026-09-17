@@ -1,7 +1,7 @@
 import pomade/internal/scanner
 
 pub fn empty_scanner_test() {
-  assert Ok([]) == scanner.scan("")
+  assert Ok([scanner.Eof]) == scanner.scan("")
 }
 
 pub fn scan_variable_test() {
@@ -9,6 +9,7 @@ pub fn scan_variable_test() {
     scanner.LeftDelimiter,
     scanner.Identifier("person"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{person}}")
 }
 
@@ -18,6 +19,7 @@ pub fn scan_raw_variable_test() {
     scanner.RawVariableIndicator,
     scanner.Identifier("name"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{& name}}")
 }
 
@@ -27,6 +29,7 @@ pub fn scan_section_start_test() {
     scanner.SectionIndicator,
     scanner.Identifier("person"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{#person}}")
 }
 
@@ -36,6 +39,7 @@ pub fn scan_closing_tag_test() {
     scanner.ClosingIndicator,
     scanner.Identifier("person"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{/person}}")
 }
 
@@ -45,6 +49,7 @@ pub fn scan_inverted_section_start_test() {
     scanner.InvertedSectionIndicator,
     scanner.Identifier("person"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{^person}}")
 }
 
@@ -54,6 +59,7 @@ pub fn scan_partial_test_test() {
     scanner.PartialIndicator,
     scanner.Identifier("next_more"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{> next_more}}")
 }
 
@@ -63,6 +69,7 @@ pub fn scan_block_start_test() {
     scanner.BlockIndicator,
     scanner.Identifier("title"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{$title}}")
 }
 
@@ -72,6 +79,7 @@ pub fn scan_parent_start_test() {
     scanner.ParentIndicator,
     scanner.Identifier("article"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{<article}}")
 }
 
@@ -93,6 +101,7 @@ pub fn scan_set_delimiter_start_test() {
     scanner.LeftDelimiter,
     scanner.Identifier("finally"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) =
     scanner.scan(
       "{{=<% %>=}}<% variable %><%={{ }}=%>{{another_variable}}{{=||| |||=}}|||yet_another||||||={{ }}=|||{{finally}}",
@@ -104,6 +113,7 @@ pub fn scan_comments_test() {
     scanner.Text("Hello,"),
     scanner.Ignored,
     scanner.Text(" world!"),
+    scanner.Eof,
   ]) = scanner.scan("Hello,{{! this is a comment }} world!")
 }
 
@@ -123,6 +133,7 @@ pub fn scan_triple_mustache_test() {
     scanner.RightTripleMustache,
     scanner.SetDelimiters("<%", "%>"),
     scanner.Text("{{{no_triple_mustache}}}"),
+    scanner.Eof,
   ]) =
     scanner.scan(
       "{{some_variable}}{{{triple_mustache}}}{{=<% %>=}}{{{no_triple_mustache}}}",
@@ -136,6 +147,7 @@ pub fn scan_dotted_names_test() {
     scanner.Dot,
     scanner.Identifier("world"),
     scanner.RightDelimiter,
+    scanner.Eof,
   ]) = scanner.scan("{{hello.world}}")
 }
 
@@ -147,6 +159,7 @@ pub fn scan_newline_test() {
     scanner.Ignored,
     scanner.Newline("\n"),
     scanner.Text("End"),
+    scanner.Eof,
   ]) = scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
 
   let assert Ok([
@@ -156,5 +169,6 @@ pub fn scan_newline_test() {
     scanner.Ignored,
     scanner.Newline("\n"),
     scanner.Text("Bar"),
+    scanner.Eof,
   ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
 }

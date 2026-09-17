@@ -1,18 +1,17 @@
 //// Mustache syntactical grammar:
 ////
-//// template                 -> expressions ;
-//// expressions              -> expression* ;
+//// template                 -> expression* EOF ;
 //// expression               -> TEXT | NEWLINE | variable | raw_variable | section | inverted_section | partial | block | parent ;
 //// variable                 -> LEFT_DELIMITER name RIGHT_DELIMITER ;
 //// raw_variable             -> ("{{{" name "}}}") | (LEFT_DELIMITER "&" name RIGHT_DELIMITER) ;
-//// section                  -> section_opening expressions closing_tag ;
+//// section                  -> section_opening expression* closing_tag ;
 //// section_opening          -> LEFT_DELIMITER "#" name RIGHT_DELIMITER ;
-//// inverted_section         -> inverted_section_opening expressions closing_tag ;
+//// inverted_section         -> inverted_section_opening expression* closing_tag ;
 //// inverted_section_opening -> LEFT_DELIMITER "^" name RIGHT_DELIMITER ;
 //// partial                  -> LEFT_DELIMITER ">" name RIGHT_DELIMITER ;
-//// block                    -> block_opening expressions closing_tag ;
+//// block                    -> block_opening expression* closing_tag ;
 //// block_opening            -> LEFT_DELIMITER "$" name RIGHT_DELIMITER ;
-//// parent                   -> parent_opening expressions closing_tag ;
+//// parent                   -> parent_opening expression* closing_tag ;
 //// parent_opening           -> LEFT_DELIMITER "<" name RIGHT_DELIMITER ;
 //// closing_tag              -> LEFT_DELIMITER "/" name RIGHT_DELIMITER ;
 //// name                     -> "." | (IDENTIFIER? ("." IDENTIFIER)*)) ;
@@ -64,7 +63,7 @@ fn expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [] -> Ok(#(list.reverse(acc), []))
+    [scanner.Eof] -> Ok(#(list.reverse(acc), [scanner.Eof]))
     [scanner.LeftDelimiter, scanner.ClosingIndicator, ..] ->
       Ok(#(list.reverse(acc), tokens))
     non_empty -> {
