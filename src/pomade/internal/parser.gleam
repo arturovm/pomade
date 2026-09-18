@@ -33,7 +33,7 @@ pub type Expression {
   RawVariable(path: List(String))
   Section(path: List(String), content: List(Expression))
   InvertedSection(path: List(String), content: List(Expression))
-  Partial(name: List(String))
+  Partial(path: List(String))
   Block(path: List(String), content: List(Expression))
   Parent(path: List(String), content: List(Expression))
 }

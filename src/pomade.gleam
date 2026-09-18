@@ -1,5 +1,5 @@
 import gleam/io
 
 pub fn main() -> Nil {
-  io.println("Hello from wax!")
+  io.println("Hello from pomade!")
 }
