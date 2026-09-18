@@ -1,13 +1,17 @@
+import gleam/dict
 import pomade/internal/interpreter
 import pomade/internal/parser
 
 pub fn empty_test() {
-  let assert Ok("") = interpreter.interpret(parser.Template([]))
+  let assert Ok("") = interpreter.interpret(parser.Template([]), dict.new())
 }
 
 pub fn text_test() {
   let assert Ok("hello, world!") =
-    interpreter.interpret(parser.Template([parser.Text("hello, world!")]))
+    interpreter.interpret(
+      parser.Template([parser.Text("hello, world!")]),
+      dict.new(),
+    )
 }
 
 pub fn newline_test() {
@@ -20,5 +24,6 @@ pub fn newline_test() {
         parser.Newline("\r\n"),
         parser.Text("baz"),
       ]),
+      dict.new(),
     )
 }
