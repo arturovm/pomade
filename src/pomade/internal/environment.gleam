@@ -1,12 +1,8 @@
-import gleam/dict.{type Dict}
+import gleam/dict
 import gleam/int
 import gleam/result
 
-pub type Value {
-  Dict(Dict(String, Value))
-  Int(Int)
-  String(String)
-}
+import pomade/value.{type Value, Dict, Int, String}
 
 pub fn get(env: Value, path: List(String)) -> String {
   case get_path(env, path) {

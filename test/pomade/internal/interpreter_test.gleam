@@ -1,7 +1,8 @@
 import gleam/dict
-import pomade/internal/environment
+
 import pomade/internal/interpreter
 import pomade/internal/parser
+import pomade/value.{String}
 
 pub fn empty_test() {
   let assert Ok("") = interpreter.interpret(parser.Template([]), dict.new())
@@ -33,6 +34,6 @@ pub fn variable_test() {
   let assert Ok("hello, world!") =
     interpreter.interpret(
       parser.Template([parser.Variable(["foo"])]),
-      dict.from_list([#("foo", environment.String("hello, world!"))]),
+      dict.from_list([#("foo", String("hello, world!"))]),
     )
 }

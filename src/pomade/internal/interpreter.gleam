@@ -3,8 +3,9 @@ import gleam/list
 import gleam/result
 import gleam/string_tree.{type StringTree}
 
-import pomade/internal/environment.{type Value}
+import pomade/internal/environment
 import pomade/internal/parser
+import pomade/value.{type Value, Dict}
 
 pub type RuntimeError {
   UnknownExpressionError
@@ -52,7 +53,7 @@ fn evaluate_variable(
   env: Dict(String, Value),
 ) -> Result(StringTree, RuntimeError) {
   let assert parser.Variable(path) = expr
-  environment.Dict(env)
+  Dict(env)
   |> environment.get(path)
   |> string_tree.from_string()
   |> Ok()
