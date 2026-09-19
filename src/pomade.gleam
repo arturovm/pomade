@@ -1,23 +1,5 @@
-//// Mustache syntactical grammar:
-////
-//// template                 -> expression* EOF ;
-//// expression               -> parent
-//// parent                   -> parent_opening expression* closing_tag | block;
-//// parent_opening           -> LEFT_DELIMITER "<" name RIGHT_DELIMITER ;
-//// block                    -> block_opening expression* closing_tag | inverted_section ;
-//// block_opening            -> LEFT_DELIMITER "$" name RIGHT_DELIMITER ;
-//// inverted_section         -> inverted_section_opening expression* closing_tag | section;
-//// inverted_section_opening -> LEFT_DELIMITER "^" name RIGHT_DELIMITER ;
-//// section                  -> section_opening expression* closing_tag | partial ;
-//// section_opening          -> LEFT_DELIMITER "#" name RIGHT_DELIMITER ;
-//// closing_tag              -> LEFT_DELIMITER "/" name RIGHT_DELIMITER ;
-//// partial                  -> LEFT_DELIMITER ">" name RIGHT_DELIMITER | raw_variable ;
-//// raw_variable             -> ("{{{" name "}}}") | (LEFT_DELIMITER "&" name RIGHT_DELIMITER) | variable ;
-//// variable                 -> LEFT_DELIMITER name RIGHT_DELIMITER | primary ;
-//// name                     -> "." | (IDENTIFIER? ("." IDENTIFIER)*)) ;
-//// primary                  -> TEXT | NEWLINE
-
 import gleam/dict.{type Dict}
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/regexp
@@ -27,17 +9,24 @@ import gleam/string_tree.{type StringTree}
 
 import splitter
 
-import pomade/internal/environment
-
-import pomade/value.{type Value, Dict}
-
+/// `Template` represents a compiled template. Since this is a type alias to a
+/// function, simply pass it a dictionary of input values.
 pub type Template =
-  fn(Dict(String, Value)) -> Result(String, RuntimeError)
+  fn(Dict(String, Value)) -> Result(String, Error)
 
-pub type PomadeError {
-  PomadeError
+/// `Error` aggregates all the possible error types that can be emitted by the
+/// different rendering phases.
+pub type Error {
+  /// `ScannerError` reports a lexical error, encountered during scanning.
+  ScannerError(LexicalError)
+  /// `ParserError` reports a syntax error, encountered during parsing.
+  ParserError(SyntaxError)
+  /// `InterpreterError` reports a runtime error, encountered during interpreting.
+  InterpreterError(RuntimeError)
 }
 
+/// `render` renders a template source string directly. Useful when convenience
+/// is the priority.
 pub fn render(template: String, environment: Dict(String, Value)) -> String {
   case scan(template) {
     Error(_) -> ""
@@ -53,14 +42,15 @@ pub fn render(template: String, environment: Dict(String, Value)) -> String {
   }
 }
 
-pub fn compile(template: String) -> Result(Template, PomadeError) {
-  use tokens <- result.try(
-    scan(template) |> result.map_error(fn(_) { PomadeError }),
-  )
-  use ast <- result.map(
-    parse(tokens) |> result.map_error(fn(_) { PomadeError }),
-  )
-  interpret(ast, _)
+/// `compile` prepares a template for future application, to avoid the overhead
+/// of scanning and parsing a template from scratch every time. Prefer this
+/// when speed is important.
+pub fn compile(template: String) -> Result(Template, Error) {
+  use tokens <- result.try(scan(template) |> result.map_error(ScannerError))
+  use ast <- result.map(parse(tokens) |> result.map_error(ParserError))
+  fn(env: Dict(String, Value)) -> Result(String, Error) {
+    interpret(ast, env) |> result.map_error(InterpreterError)
+  }
 }
 
 // scanner
@@ -117,10 +107,21 @@ pub type Token {
   Eof
 }
 
+/// `LexicalError` represents an error encountered during scanning.
 pub type LexicalError {
+  /// `MalformedIdentifierError` is returned when the scanner attempted to
+  /// process an identifier inside a `{{tag}}`, but couldn't scan it
+  /// appropriately.
   MalformedIdentifierError
+  /// `UnterminatedTagError` is used to report that a `{{tag}}` does not have
+  /// the expected right-hand side delimiter (`}}` in this example).
   UnterminatedTagError
+  /// `MalformedSetDelimitersError` is returned when a set delimiters tag
+  /// (e.g. `{{=<% %>=}}`) is encountered, but the scanner is not able to
+  /// scan it appropriately.
   MalformedSetDelimitersError
+  /// `UnexpectedCharacterError` is used to report that a character was found
+  /// in a context where it was not expected.
   UnexpectedCharacterError
 }
 
@@ -443,6 +444,25 @@ fn scan_comment(
 
 // parser
 
+// Mustache syntactical grammar:
+//
+// template                 -> expression* EOF ;
+// expression               -> parent
+// parent                   -> parent_opening expression* closing_tag | block;
+// parent_opening           -> LEFT_DELIMITER "<" name RIGHT_DELIMITER ;
+// block                    -> block_opening expression* closing_tag | inverted_section ;
+// block_opening            -> LEFT_DELIMITER "$" name RIGHT_DELIMITER ;
+// inverted_section         -> inverted_section_opening expression* closing_tag | section;
+// inverted_section_opening -> LEFT_DELIMITER "^" name RIGHT_DELIMITER ;
+// section                  -> section_opening expression* closing_tag | partial ;
+// section_opening          -> LEFT_DELIMITER "#" name RIGHT_DELIMITER ;
+// closing_tag              -> LEFT_DELIMITER "/" name RIGHT_DELIMITER ;
+// partial                  -> LEFT_DELIMITER ">" name RIGHT_DELIMITER | raw_variable ;
+// raw_variable             -> ("{{{" name "}}}") | (LEFT_DELIMITER "&" name RIGHT_DELIMITER) | variable ;
+// variable                 -> LEFT_DELIMITER name RIGHT_DELIMITER | primary ;
+// name                     -> "." | (IDENTIFIER? ("." IDENTIFIER)*)) ;
+// primary                  -> TEXT | NEWLINE
+
 @internal
 pub type Expression {
   Text(value: String)
@@ -456,28 +476,35 @@ pub type Expression {
   Parent(path: List(String), content: List(Expression))
 }
 
+/// `SyntaxError` represents an error encountered during parsing.
 pub type SyntaxError {
-  SyntaxError
+  /// `UnexpectedTokenError` is returned when a token different from what the
+  /// grammar indicates is found.
   UnexpectedTokenError(Token)
-  ExpectedExpressionError
-  ExpectedMoreTokensError
+  /// `UnexpectedEndOfInputError` is used to report that more tokens were
+  /// expected, but the parser unexpectedly consumed the whole input.
+  UnexpectedEndOfInputError
+  /// `NoMatchingClosingTagError` is returned when a `{{/closing_tag}}` was
+  /// expected, but none was found.
   NoMatchingClosingTagError
 }
 
 @internal
 pub fn parse(tokens: List(Token)) -> Result(List(Expression), SyntaxError) {
-  template(tokens)
+  parse_template(tokens)
 }
 
 // rules
 
-fn template(tokens: List(Token)) -> Result(List(Expression), SyntaxError) {
-  use #(expressions, tail) <- result.try(expressions(tokens, []))
-  use _ <- result.map(expect(tail, Eof))
+fn parse_template(
+  tokens: List(Token),
+) -> Result(List(Expression), SyntaxError) {
+  use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
+  use _ <- result.map(expect_token(tail, Eof))
   expressions
 }
 
-fn expressions(
+fn parse_expressions(
   tokens: List(Token),
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(Token)), SyntaxError) {
@@ -485,83 +512,83 @@ fn expressions(
     [Eof] -> Ok(#(list.reverse(acc), tokens))
     [LeftDelimiter, ClosingIndicator, ..] -> Ok(#(list.reverse(acc), tokens))
     non_empty -> {
-      use #(expression, tail) <- result.try(expression(non_empty))
-      expressions(tail, list.prepend(acc, expression))
+      use #(expression, tail) <- result.try(parse_expression(non_empty))
+      parse_expressions(tail, list.prepend(acc, expression))
     }
   }
 }
 
-fn expression(
+fn parse_expression(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  parent(tokens)
+  parse_parent(tokens)
 }
 
-fn parent(
+fn parse_parent(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, ParentIndicator, ..] ->
-      parse_enclosed(tokens, parent_opening, Parent)
-    _ -> block(tokens)
+      parse_enclosed(tokens, parse_parent_opening, Parent)
+    _ -> parse_block(tokens)
   }
 }
 
-fn parent_opening(
+fn parse_parent_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   parse_tag_with_indicator(tokens, ParentIndicator)
 }
 
-fn block(
+fn parse_block(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, BlockIndicator, ..] ->
-      parse_enclosed(tokens, block_opening, Block)
-    _ -> inverted_section(tokens)
+      parse_enclosed(tokens, parse_block_opening, Block)
+    _ -> parse_inverted_section(tokens)
   }
 }
 
-fn block_opening(
+fn parse_block_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   parse_tag_with_indicator(tokens, BlockIndicator)
 }
 
-fn inverted_section(
+fn parse_inverted_section(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, InvertedSectionIndicator, ..] ->
-      parse_enclosed(tokens, inverted_section_opening, InvertedSection)
-    _ -> section(tokens)
+      parse_enclosed(tokens, parse_inverted_section_opening, InvertedSection)
+    _ -> parse_section(tokens)
   }
 }
 
-fn inverted_section_opening(
+fn parse_inverted_section_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   parse_tag_with_indicator(tokens, InvertedSectionIndicator)
 }
 
-fn section(
+fn parse_section(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, SectionIndicator, ..] ->
-      parse_enclosed(tokens, section_opening, Section)
-    _ -> partial(tokens)
+      parse_enclosed(tokens, parse_section_opening, Section)
+    _ -> parse_partial(tokens)
   }
 }
 
-fn section_opening(
+fn parse_section_opening(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   parse_tag_with_indicator(tokens, SectionIndicator)
 }
 
-fn closing_tag(
+fn parse_closing_tag(
   tokens: List(Token),
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
   use #(path, tail) <- result.map(parse_tag_with_indicator(
@@ -571,7 +598,7 @@ fn closing_tag(
   #(path, tail)
 }
 
-fn partial(
+fn parse_partial(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
@@ -582,33 +609,33 @@ fn partial(
       ))
       #(Partial(path), tail)
     }
-    _ -> raw_variable(tokens)
+    _ -> parse_raw_variable(tokens)
   }
 }
 
-fn raw_variable(
+fn parse_raw_variable(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftTripleMustache, ..] -> {
-      raw_variable_with_triple_mustache(tokens)
+      parse_raw_variable_with_triple_mustache(tokens)
     }
     [LeftDelimiter, RawVariableIndicator, ..] ->
-      raw_variable_with_delimiters(tokens)
-    _ -> variable(tokens)
+      parse_raw_variable_with_delimiters(tokens)
+    _ -> parse_variable(tokens)
   }
 }
 
-fn raw_variable_with_triple_mustache(
+fn parse_raw_variable_with_triple_mustache(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, LeftTripleMustache))
-  let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, RightTripleMustache))
+  use #(_, tail) <- result.try(expect_token(tokens, LeftTripleMustache))
+  let #(path, tail) = parse_name(tail)
+  use #(_, tail) <- result.map(expect_token(tail, RightTripleMustache))
   #(RawVariable(path), tail)
 }
 
-fn raw_variable_with_delimiters(
+fn parse_raw_variable_with_delimiters(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   use #(path, tail) <- result.map(parse_tag_with_indicator(
@@ -618,21 +645,21 @@ fn raw_variable_with_delimiters(
   #(RawVariable(path), tail)
 }
 
-fn variable(
+fn parse_variable(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, ..] -> {
-      use #(_, tail) <- result.try(expect(tokens, LeftDelimiter))
-      let #(path, tail) = name(tail)
-      use #(_, tail) <- result.map(expect(tail, RightDelimiter))
+      use #(_, tail) <- result.try(expect_token(tokens, LeftDelimiter))
+      let #(path, tail) = parse_name(tail)
+      use #(_, tail) <- result.map(expect_token(tail, RightDelimiter))
       #(Variable(path), tail)
     }
-    _ -> primary(tokens)
+    _ -> parse_primary(tokens)
   }
 }
 
-fn name(tokens: List(Token)) -> #(List(String), List(Token)) {
+fn parse_name(tokens: List(Token)) -> #(List(String), List(Token)) {
   case tokens {
     [Dot, ..tail] -> #(["."], tail)
     [Identifier(value), ..tail] -> {
@@ -655,20 +682,21 @@ fn name_loop(
   }
 }
 
-fn primary(
+fn parse_primary(
   tokens: List(Token),
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   case tokens {
     [TextLiteral(value), Ignored, NewlineLiteral(_), ..tail] -> {
       case is_blank(value) {
-        True -> primary(tail)
+        True -> parse_primary(tail)
         False -> Ok(#(Text(value), list.drop(tokens, 1)))
       }
     }
-    [Ignored, ..tail] -> primary(tail)
+    [Ignored, ..tail] -> parse_primary(tail)
     [TextLiteral(value), ..tail] -> Ok(#(Text(value), tail))
     [NewlineLiteral(value), ..tail] -> Ok(#(Newline(value), tail))
-    _ -> Error(ExpectedExpressionError)
+    [any, ..] -> Error(UnexpectedTokenError(any))
+    [] -> Error(UnexpectedEndOfInputError)
   }
 }
 
@@ -678,10 +706,10 @@ fn parse_tag_with_indicator(
   tokens: List(Token),
   indicator: Token,
 ) -> Result(#(List(String), List(Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect(tokens, LeftDelimiter))
-  use #(_, tail) <- result.try(expect(tail, indicator))
-  let #(path, tail) = name(tail)
-  use #(_, tail) <- result.map(expect(tail, RightDelimiter))
+  use #(_, tail) <- result.try(expect_token(tokens, LeftDelimiter))
+  use #(_, tail) <- result.try(expect_token(tail, indicator))
+  let #(path, tail) = parse_name(tail)
+  use #(_, tail) <- result.map(expect_token(tail, RightDelimiter))
   #(path, tail)
 }
 
@@ -692,8 +720,8 @@ fn parse_enclosed(
   expr_constructor: fn(List(String), List(Expression)) -> Expression,
 ) -> Result(#(Expression, List(Token)), SyntaxError) {
   use #(path, tail) <- result.try(opening_rule(tokens))
-  use #(expressions, tail) <- result.try(expressions(tail, []))
-  use #(closing_path, tail) <- result.try(closing_tag(tail))
+  use #(expressions, tail) <- result.try(parse_expressions(tail, []))
+  use #(closing_path, tail) <- result.try(parse_closing_tag(tail))
   case path == closing_path {
     False -> Error(NoMatchingClosingTagError)
     True -> Ok(#(expr_constructor(path, expressions), tail))
@@ -708,7 +736,7 @@ fn is_blank(string: String) -> Bool {
   }
 }
 
-fn expect(
+fn expect_token(
   tokens: List(Token),
   expected: Token,
 ) -> Result(#(Token, List(Token)), SyntaxError) {
@@ -718,16 +746,20 @@ fn expect(
         True -> Ok(#(head, tail))
         False -> Error(UnexpectedTokenError(head))
       }
-    [] -> Error(ExpectedMoreTokensError)
+    [] -> Error(UnexpectedEndOfInputError)
   }
 }
 
 // interpreter
 
+/// `RuntimeError` represents an error encountered during interpreting.
 pub type RuntimeError {
+  /// `UnknownExpressionError` is returned when the interpreter doesn't know
+  /// how to evaluate a given expression.
   UnknownExpressionError
 }
 
+@internal
 pub fn interpret(
   template: List(Expression),
   environment: Dict(String, Value),
@@ -769,7 +801,51 @@ fn evaluate_variable(
 ) -> Result(StringTree, RuntimeError) {
   let assert Variable(path) = expr
   Dict(env)
-  |> environment.get(path)
+  |> get(path)
   |> string_tree.from_string()
   |> Ok()
+}
+
+// environment
+
+/// `Value` represents any of the possible types that can be passed as the
+/// right-hand side of the dictionary used as input for Mustache templates
+/// (what Mustache calls a "hash" in its official documentation).
+pub type Value {
+  Dict(Dict(String, Value))
+  Int(Int)
+  String(String)
+}
+
+fn get(env: Value, path: List(String)) -> String {
+  case get_path(env, path) {
+    Ok(val) -> format(val)
+    Error(Nil) -> ""
+  }
+}
+
+fn get_path(env: Value, path: List(String)) -> Result(Value, Nil) {
+  case path {
+    [] -> Error(Nil)
+    [key] -> get_in_val(env, key)
+    [key, ..tail] -> {
+      use val <- result.try(get_in_val(env, key))
+      get_path(val, tail)
+    }
+  }
+}
+
+fn get_in_val(env: Value, key: String) -> Result(Value, Nil) {
+  case env {
+    Dict(dictionary) -> dict.get(dictionary, key)
+    _ -> Error(Nil)
+  }
+}
+
+fn format(val: Value) -> String {
+  case val {
+    Int(value) -> int.to_string(value)
+    String(value) -> value
+    _ -> ""
+  }
 }
