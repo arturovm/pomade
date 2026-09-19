@@ -1,3 +1,4 @@
+import houdini
 import gleam/dict.{type Dict}
 import gleam/int
 import gleam/list
@@ -513,20 +514,24 @@ fn parse_expressions(
     [LeftDelimiter, ClosingIndicator, ..] -> Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(parse_expression(non_empty))
-      parse_expressions(tail, list.prepend(acc, expression))
+      let acc = case expression {
+        Some(some) -> list.prepend(acc, some)
+        None -> acc
+      }
+      parse_expressions(tail, acc)
     }
   }
 }
 
 fn parse_expression(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   parse_parent(tokens)
 }
 
 fn parse_parent(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, ParentIndicator, ..] ->
       parse_enclosed(tokens, parse_parent_opening, Parent)
@@ -542,7 +547,7 @@ fn parse_parent_opening(
 
 fn parse_block(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, BlockIndicator, ..] ->
       parse_enclosed(tokens, parse_block_opening, Block)
@@ -558,7 +563,7 @@ fn parse_block_opening(
 
 fn parse_inverted_section(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, InvertedSectionIndicator, ..] ->
       parse_enclosed(tokens, parse_inverted_section_opening, InvertedSection)
@@ -574,7 +579,7 @@ fn parse_inverted_section_opening(
 
 fn parse_section(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, SectionIndicator, ..] ->
       parse_enclosed(tokens, parse_section_opening, Section)
@@ -600,14 +605,14 @@ fn parse_closing_tag(
 
 fn parse_partial(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, PartialIndicator, ..] -> {
       use #(path, tail) <- result.map(parse_tag_with_indicator(
         tokens,
         PartialIndicator,
       ))
-      #(Partial(path), tail)
+      emit_expr(Partial, path, tail)
     }
     _ -> parse_raw_variable(tokens)
   }
@@ -615,7 +620,7 @@ fn parse_partial(
 
 fn parse_raw_variable(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftTripleMustache, ..] -> {
       parse_raw_variable_with_triple_mustache(tokens)
@@ -628,32 +633,32 @@ fn parse_raw_variable(
 
 fn parse_raw_variable_with_triple_mustache(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   use #(_, tail) <- result.try(expect_token(tokens, LeftTripleMustache))
   let #(path, tail) = parse_name(tail)
   use #(_, tail) <- result.map(expect_token(tail, RightTripleMustache))
-  #(RawVariable(path), tail)
+  emit_expr(RawVariable, path, tail)
 }
 
 fn parse_raw_variable_with_delimiters(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   use #(path, tail) <- result.map(parse_tag_with_indicator(
     tokens,
     RawVariableIndicator,
   ))
-  #(RawVariable(path), tail)
+  emit_expr(RawVariable, path, tail)
 }
 
 fn parse_variable(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
     [LeftDelimiter, ..] -> {
       use #(_, tail) <- result.try(expect_token(tokens, LeftDelimiter))
       let #(path, tail) = parse_name(tail)
       use #(_, tail) <- result.map(expect_token(tail, RightDelimiter))
-      #(Variable(path), tail)
+      emit_expr(Variable, path, tail)
     }
     _ -> parse_primary(tokens)
   }
@@ -684,18 +689,30 @@ fn name_loop(
 
 fn parse_primary(
   tokens: List(Token),
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [TextLiteral(value), Ignored, NewlineLiteral(_), ..tail] -> {
+    [TextLiteral(value) as txt, Ignored, NewlineLiteral(_) as nl, ..tail] -> {
       case is_blank(value) {
         True -> parse_primary(tail)
-        False -> Ok(#(Text(value), list.drop(tokens, 1)))
+        False ->
+          tail
+          |> list.prepend(nl)
+          |> list.prepend(txt)
+          |> parse_primary()
       }
     }
-    [Ignored, ..tail] -> parse_primary(tail)
-    [TextLiteral(value), ..tail] -> Ok(#(Text(value), tail))
-    [NewlineLiteral(value), ..tail] -> Ok(#(Newline(value), tail))
-    [any, ..] -> Error(UnexpectedTokenError(any))
+    [TextLiteral(value), Ignored, Eof] -> {
+      case is_blank(value) {
+        True -> Ok(#(None, [Eof]))
+        False -> Ok(emit_expr(Text, value, list.drop(tokens, 1)))
+      }
+    }
+    [Ignored, NewlineLiteral(_), ..tail] | [Ignored, ..tail] ->
+      parse_primary(tail)
+    [TextLiteral(value), ..tail] -> Ok(emit_expr(Text, value, tail))
+    [NewlineLiteral(value), ..tail] -> Ok(emit_expr(Newline, value, tail))
+    [Eof] -> Ok(#(None, tokens))
+    [other, ..] -> Error(UnexpectedTokenError(other))
     [] -> Error(UnexpectedEndOfInputError)
   }
 }
@@ -718,13 +735,13 @@ fn parse_enclosed(
   opening_rule: fn(List(Token)) ->
     Result(#(List(String), List(Token)), SyntaxError),
   expr_constructor: fn(List(String), List(Expression)) -> Expression,
-) -> Result(#(Expression, List(Token)), SyntaxError) {
+) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   use #(path, tail) <- result.try(opening_rule(tokens))
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
   use #(closing_path, tail) <- result.try(parse_closing_tag(tail))
   case path == closing_path {
     False -> Error(NoMatchingClosingTagError)
-    True -> Ok(#(expr_constructor(path, expressions), tail))
+    True -> Ok(#(Some(expr_constructor(path, expressions)), tail))
   }
 }
 
@@ -748,6 +765,14 @@ fn expect_token(
       }
     [] -> Error(UnexpectedEndOfInputError)
   }
+}
+
+fn emit_expr(
+  expression: fn(x) -> Expression,
+  value: x,
+  tail: List(Token),
+) -> #(Option(Expression), List(Token)) {
+  #(Some(expression(value)), tail)
 }
 
 // interpreter
@@ -820,6 +845,11 @@ pub type Value {
 
 @internal
 pub fn get(env: Option(Value), path: List(String)) -> String {
+  get_raw(env, path) |> houdini.escape()
+}
+
+@internal
+pub fn get_raw(env: Option(Value), path: List(String)) -> String {
   case get_path(env, path) {
     Ok(val) -> format(val)
     Error(Nil) -> ""

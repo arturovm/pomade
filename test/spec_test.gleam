@@ -58,7 +58,8 @@ fn value_decoder() -> decode.Decoder(Option(Value)) {
 
 fn run(loaded_test: Test) {
   let assert Ok(template) = pomade.compile(loaded_test.template)
-  let assert Ok(result) = template(loaded_test.data)
+    as loaded_test.name
+  let assert Ok(result) = template(loaded_test.data) as loaded_test.name
   assert loaded_test.expected == result as loaded_test.name
 }
 
