@@ -1,4 +1,5 @@
 import gleam/dict
+import pomade/internal/environment
 import pomade/internal/interpreter
 import pomade/internal/parser
 
@@ -25,5 +26,13 @@ pub fn newline_test() {
         parser.Text("baz"),
       ]),
       dict.new(),
+    )
+}
+
+pub fn variable_test() {
+  let assert Ok("hello, world!") =
+    interpreter.interpret(
+      parser.Template([parser.Variable(["foo"])]),
+      dict.from_list([#("foo", environment.String("hello, world!"))]),
     )
 }
