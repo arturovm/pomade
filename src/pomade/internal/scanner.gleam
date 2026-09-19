@@ -33,8 +33,8 @@ type Mode {
 
 pub type Token {
   // general text
-  Text(value: String)
-  Newline(value: String)
+  Text(lexeme: String)
+  Newline(lexeme: String)
   // tags
   LeftDelimiter
   LeftTripleMustache
@@ -48,7 +48,7 @@ pub type Token {
   RightTripleMustache
   RightDelimiter
   // tag content
-  Identifier(value: String)
+  Identifier(lexeme: String)
   Dot
   // special forms
   SetDelimiters(tag_start: String, tag_end: String)

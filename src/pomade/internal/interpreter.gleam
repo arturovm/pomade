@@ -1,5 +1,6 @@
 import gleam/dict
 import gleam/dynamic
+import gleam/list
 import gleam/result
 import gleam/string_tree.{type StringTree}
 
@@ -14,19 +15,22 @@ pub fn interpret(
   environment: dict.Dict(String, dynamic.Dynamic),
 ) -> Result(String, RuntimeError) {
   let parser.Template(exprs) = template
-  evaluate_exprs(exprs, environment, string_tree.new())
+  use trees <- result.map(evaluate_exprs(exprs, environment, []))
+  trees
+  |> list.fold(string_tree.new(), string_tree.append_tree)
+  |> string_tree.to_string()
 }
 
 fn evaluate_exprs(
   exprs: List(parser.Expression),
   env: dict.Dict(String, dynamic.Dynamic),
-  acc: StringTree,
-) -> Result(String, RuntimeError) {
+  acc: List(StringTree),
+) -> Result(List(StringTree), RuntimeError) {
   case exprs {
-    [] -> Ok(string_tree.to_string(acc))
+    [] -> Ok(list.reverse(acc))
     [expr, ..tail] -> {
       use value <- result.try(evaluate(expr, env))
-      evaluate_exprs(tail, env, string_tree.append(acc, value))
+      evaluate_exprs(tail, env, list.prepend(acc, value))
     }
   }
 }
@@ -34,9 +38,10 @@ fn evaluate_exprs(
 fn evaluate(
   expr: parser.Expression,
   _env: dict.Dict(String, dynamic.Dynamic),
-) -> Result(String, RuntimeError) {
+) -> Result(StringTree, RuntimeError) {
   case expr {
-    parser.Text(value) | parser.Newline(value) -> Ok(value)
+    parser.Text(value) | parser.Newline(value) ->
+      Ok(string_tree.from_string(value))
     _ -> Error(UnknownExpressionError)
   }
 }

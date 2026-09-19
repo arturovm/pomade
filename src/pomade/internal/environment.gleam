@@ -1,23 +1,35 @@
-import gleam/dict
+import gleam/dict.{type Dict}
 import gleam/int
-
-pub opaque type Environment {
-  Environment(inner: dict.Dict(String, Value))
-}
+import gleam/result
 
 pub type Value {
+  Dict(Dict(String, Value))
   Int(Int)
   String(String)
 }
 
-pub fn new(data: dict.Dict(String, Value)) -> Environment {
-  Environment(data)
+pub fn get(env: Value, path: List(String)) -> String {
+  case get_path(env, path) {
+    Ok(val) -> format(val)
+    Error(Nil) -> ""
+  }
 }
 
-pub fn get(env: Environment, key: String) -> String {
-  case dict.get(env.inner, key) {
-    Error(Nil) -> ""
-    Ok(val) -> format(val)
+fn get_path(env: Value, path: List(String)) -> Result(Value, Nil) {
+  case path {
+    [] -> Error(Nil)
+    [key] -> get_in_val(env, key)
+    [key, ..tail] -> {
+      use val <- result.try(get_in_val(env, key))
+      get_path(val, tail)
+    }
+  }
+}
+
+fn get_in_val(env: Value, key: String) -> Result(Value, Nil) {
+  case env {
+    Dict(dictionary) -> dict.get(dictionary, key)
+    _ -> Error(Nil)
   }
 }
 
@@ -25,5 +37,6 @@ fn format(val: Value) -> String {
   case val {
     Int(value) -> int.to_string(value)
     String(value) -> value
+    _ -> ""
   }
 }
