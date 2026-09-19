@@ -1,14 +1,15 @@
 import gleam/dict
+import gleam/option.{Some}
 
-import pomade.{String}
+import pomade.{Dict, String}
 
 pub fn empty_test() {
-  let assert Ok("") = pomade.interpret([], dict.new())
+  let assert Ok("") = pomade.interpret([], Some(Dict(dict.new())))
 }
 
 pub fn text_test() {
   let assert Ok("hello, world!") =
-    pomade.interpret([pomade.Text("hello, world!")], dict.new())
+    pomade.interpret([pomade.Text("hello, world!")], Some(Dict(dict.new())))
 }
 
 pub fn newline_test() {
@@ -21,7 +22,7 @@ pub fn newline_test() {
         pomade.Newline("\r\n"),
         pomade.Text("baz"),
       ],
-      dict.new(),
+      Some(Dict(dict.new())),
     )
 }
 
@@ -29,6 +30,6 @@ pub fn variable_test() {
   let assert Ok("hello, world!") =
     pomade.interpret(
       [pomade.Variable(["foo"])],
-      dict.from_list([#("foo", String("hello, world!"))]),
+      Some(Dict(dict.from_list([#("foo", Some(String("hello, world!")))]))),
     )
 }

@@ -12,7 +12,7 @@ import splitter
 /// `Template` represents a compiled template. Since this is a type alias to a
 /// function, simply pass it a dictionary of input values.
 pub type Template =
-  fn(Dict(String, Value)) -> Result(String, Error)
+  fn(Option(Value)) -> Result(String, Error)
 
 /// `Error` aggregates all the possible error types that can be emitted by the
 /// different rendering phases.
@@ -27,7 +27,7 @@ pub type Error {
 
 /// `render` renders a template source string directly. Useful when convenience
 /// is the priority.
-pub fn render(template: String, environment: Dict(String, Value)) -> String {
+pub fn render(template: String, environment: Option(Value)) -> String {
   case scan(template) {
     Error(_) -> ""
     Ok(tokens) ->
@@ -48,7 +48,7 @@ pub fn render(template: String, environment: Dict(String, Value)) -> String {
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(scan(template) |> result.map_error(ScannerError))
   use ast <- result.map(parse(tokens) |> result.map_error(ParserError))
-  fn(env: Dict(String, Value)) -> Result(String, Error) {
+  fn(env: Option(Value)) -> Result(String, Error) {
     interpret(ast, env) |> result.map_error(InterpreterError)
   }
 }
@@ -762,7 +762,7 @@ pub type RuntimeError {
 @internal
 pub fn interpret(
   template: List(Expression),
-  environment: Dict(String, Value),
+  environment: Option(Value),
 ) -> Result(String, RuntimeError) {
   use trees <- result.map(evaluate_exprs(template, environment, []))
   trees
@@ -772,7 +772,7 @@ pub fn interpret(
 
 fn evaluate_exprs(
   exprs: List(Expression),
-  env: Dict(String, Value),
+  env: Option(Value),
   acc: List(StringTree),
 ) -> Result(List(StringTree), RuntimeError) {
   case exprs {
@@ -786,7 +786,7 @@ fn evaluate_exprs(
 
 fn evaluate(
   expr: Expression,
-  env: Dict(String, Value),
+  env: Option(Value),
 ) -> Result(StringTree, RuntimeError) {
   case expr {
     Text(value) | Newline(value) -> Ok(string_tree.from_string(value))
@@ -797,10 +797,10 @@ fn evaluate(
 
 fn evaluate_variable(
   expr: Expression,
-  env: Dict(String, Value),
+  env: Option(Value),
 ) -> Result(StringTree, RuntimeError) {
   let assert Variable(path) = expr
-  Dict(env)
+  env
   |> get(path)
   |> string_tree.from_string()
   |> Ok()
@@ -812,22 +812,27 @@ fn evaluate_variable(
 /// right-hand side of the dictionary used as input for Mustache templates
 /// (what Mustache calls a "hash" in its official documentation).
 pub type Value {
-  Dict(Dict(String, Value))
+  Dict(Dict(String, Option(Value)))
   Int(Int)
+  Float(Float)
   String(String)
 }
 
 @internal
-pub fn get(env: Value, path: List(String)) -> String {
+pub fn get(env: Option(Value), path: List(String)) -> String {
   case get_path(env, path) {
     Ok(val) -> format(val)
     Error(Nil) -> ""
   }
 }
 
-fn get_path(env: Value, path: List(String)) -> Result(Value, Nil) {
+fn get_path(
+  env: Option(Value),
+  path: List(String),
+) -> Result(Option(Value), Nil) {
   case path {
     [] -> Error(Nil)
+    ["."] -> Ok(env)
     [key] -> get_in_val(env, key)
     [key, ..tail] -> {
       use val <- result.try(get_in_val(env, key))
@@ -836,17 +841,21 @@ fn get_path(env: Value, path: List(String)) -> Result(Value, Nil) {
   }
 }
 
-fn get_in_val(env: Value, key: String) -> Result(Value, Nil) {
+fn get_in_val(env: Option(Value), key: String) -> Result(Option(Value), Nil) {
   case env {
-    Dict(dictionary) -> dict.get(dictionary, key)
+    Some(Dict(dictionary)) -> dict.get(dictionary, key)
     _ -> Error(Nil)
   }
 }
 
-fn format(val: Value) -> String {
+fn format(val: Option(Value)) -> String {
   case val {
-    Int(value) -> int.to_string(value)
-    String(value) -> value
-    _ -> ""
+    Some(some) ->
+      case some {
+        Int(value) -> int.to_string(value)
+        String(value) -> value
+        _ -> ""
+      }
+    None -> ""
   }
 }
