@@ -817,7 +817,8 @@ pub type Value {
   String(String)
 }
 
-fn get(env: Value, path: List(String)) -> String {
+@internal
+pub fn get(env: Value, path: List(String)) -> String {
   case get_path(env, path) {
     Ok(val) -> format(val)
     Error(Nil) -> ""
