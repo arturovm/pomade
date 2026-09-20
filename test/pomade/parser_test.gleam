@@ -159,6 +159,16 @@ pub fn elide_comments_test() {
       pomade.TextLiteral("End"),
       pomade.Eof,
     ])
+  let assert Ok([pomade.Text("Begin"), pomade.Newline("\n"), pomade.Text("End")]) =
+    pomade.parse([
+      pomade.TextLiteral("Begin"),
+      pomade.NewlineLiteral("\n"),
+      pomade.TextLiteral("\t  "),
+      pomade.Ignored,
+      pomade.NewlineLiteral("\n"),
+      pomade.TextLiteral("End"),
+      pomade.Eof,
+    ])
 }
 
 pub fn recursion_test() {

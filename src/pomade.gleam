@@ -1,5 +1,5 @@
-import houdini
 import gleam/dict.{type Dict}
+import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
@@ -7,6 +7,7 @@ import gleam/regexp
 import gleam/result
 import gleam/string
 import gleam/string_tree.{type StringTree}
+import houdini
 
 import splitter
 
@@ -816,6 +817,7 @@ fn evaluate(
   case expr {
     Text(value) | Newline(value) -> Ok(string_tree.from_string(value))
     Variable(_) -> evaluate_variable(expr, env)
+    RawVariable(_) -> evaluate_raw_variable(expr, env)
     _ -> Error(UnknownExpressionError)
   }
 }
@@ -826,7 +828,18 @@ fn evaluate_variable(
 ) -> Result(StringTree, RuntimeError) {
   let assert Variable(path) = expr
   env
-  |> get(path)
+  |> get_and_format(path)
+  |> string_tree.from_string()
+  |> Ok()
+}
+
+fn evaluate_raw_variable(
+  expr: Expression,
+  env: Option(Value),
+) -> Result(StringTree, RuntimeError) {
+  let assert RawVariable(path) = expr
+  env
+  |> get_and_format_raw(path)
   |> string_tree.from_string()
   |> Ok()
 }
@@ -844,37 +857,32 @@ pub type Value {
 }
 
 @internal
-pub fn get(env: Option(Value), path: List(String)) -> String {
-  get_raw(env, path) |> houdini.escape()
+pub fn get_and_format(env: Option(Value), path: List(String)) -> String {
+  get_and_format_raw(env, path) |> houdini.escape()
 }
 
 @internal
-pub fn get_raw(env: Option(Value), path: List(String)) -> String {
-  case get_path(env, path) {
-    Ok(val) -> format(val)
-    Error(Nil) -> ""
-  }
+pub fn get_and_format_raw(env: Option(Value), path: List(String)) -> String {
+  get(env, path) |> format()
 }
 
-fn get_path(
-  env: Option(Value),
-  path: List(String),
-) -> Result(Option(Value), Nil) {
+@internal
+pub fn get(env: Option(Value), path: List(String)) -> Option(Value) {
   case path {
-    [] -> Error(Nil)
-    ["."] -> Ok(env)
+    [] -> None
+    ["."] -> env
     [key] -> get_in_val(env, key)
     [key, ..tail] -> {
-      use val <- result.try(get_in_val(env, key))
-      get_path(val, tail)
+      let val = get_in_val(env, key)
+      get(val, tail)
     }
   }
 }
 
-fn get_in_val(env: Option(Value), key: String) -> Result(Option(Value), Nil) {
+fn get_in_val(env: Option(Value), key: String) -> Option(Value) {
   case env {
-    Some(Dict(dictionary)) -> dict.get(dictionary, key)
-    _ -> Error(Nil)
+    Some(Dict(dictionary)) -> dict.get(dictionary, key) |> result.unwrap(None)
+    _ -> None
   }
 }
 
@@ -883,6 +891,7 @@ fn format(val: Option(Value)) -> String {
     Some(some) ->
       case some {
         Int(value) -> int.to_string(value)
+        Float(value) -> float.to_string(value)
         String(value) -> value
         _ -> ""
       }
