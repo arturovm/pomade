@@ -790,22 +790,25 @@ pub fn interpret(
   template: List(Expression),
   environment: Option(Value),
 ) -> Result(String, RuntimeError) {
-  use trees <- result.map(evaluate_exprs(template, environment, []))
-  trees
-  |> list.fold(string_tree.new(), string_tree.append_tree)
+  use tree <- result.map(evaluate_exprs(
+    template,
+    environment,
+    string_tree.new(),
+  ))
+  tree
   |> string_tree.to_string()
 }
 
 fn evaluate_exprs(
   exprs: List(Expression),
   env: Option(Value),
-  acc: List(StringTree),
-) -> Result(List(StringTree), RuntimeError) {
+  acc: StringTree,
+) -> Result(StringTree, RuntimeError) {
   case exprs {
-    [] -> Ok(list.reverse(acc))
+    [] -> Ok(acc)
     [expr, ..tail] -> {
       use value <- result.try(evaluate(expr, env))
-      evaluate_exprs(tail, env, list.prepend(acc, value))
+      evaluate_exprs(tail, env, string_tree.append_tree(acc, value))
     }
   }
 }
@@ -851,8 +854,7 @@ fn evaluate_section(
 ) -> Result(StringTree, RuntimeError) {
   let assert Section(path, content) = expr
   let env = get(env, path)
-  use string_trees <- result.map(evaluate_exprs(content, env, []))
-  list.fold(string_trees, string_tree.new(), string_tree.append_tree)
+  evaluate_exprs(content, env, string_tree.new())
 }
 
 // environment
