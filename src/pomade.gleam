@@ -1,3 +1,4 @@
+import gleam/bool
 import gleam/dict.{type Dict}
 import gleam/float
 import gleam/int
@@ -14,7 +15,7 @@ import splitter
 /// `Template` represents a compiled template. Since this is a type alias to a
 /// function, simply pass it a dictionary of input values.
 pub type Template =
-  fn(Option(Value)) -> Result(String, Error)
+  fn(Value) -> Result(String, Error)
 
 /// `Error` aggregates all the possible error types that can be emitted by the
 /// different rendering phases.
@@ -29,7 +30,7 @@ pub type Error {
 
 /// `render` renders a template source string directly. Useful when convenience
 /// is the priority.
-pub fn render(template: String, environment: Option(Value)) -> String {
+pub fn render(template: String, environment: Value) -> String {
   case scan(template) {
     Error(_) -> ""
     Ok(tokens) ->
@@ -50,7 +51,7 @@ pub fn render(template: String, environment: Option(Value)) -> String {
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(scan(template) |> result.map_error(ScannerError))
   use ast <- result.map(parse(tokens) |> result.map_error(ParserError))
-  fn(env: Option(Value)) -> Result(String, Error) {
+  fn(env: Value) -> Result(String, Error) {
     interpret(ast, env) |> result.map_error(InterpreterError)
   }
 }
@@ -708,12 +709,12 @@ fn parse_primary(
         False -> Ok(emit_expr(Text, value, list.drop(tokens, 1)))
       }
     }
-    [Ignored, NewlineLiteral(_), ..tail] | [Ignored, ..tail] ->
-      parse_primary(tail)
+    [Ignored, NewlineLiteral(_), ..tail]
+    | [Ignored, ..tail]
+    | [SetDelimiters(_, _), ..tail] -> parse_primary(tail)
     [TextLiteral(value), ..tail] -> Ok(emit_expr(Text, value, tail))
     [NewlineLiteral(value), ..tail] -> Ok(emit_expr(Newline, value, tail))
-    [Eof] -> Ok(#(None, tokens))
-    [other, ..] -> Error(UnexpectedTokenError(other))
+    [Eof] | [_, ..] -> Ok(#(None, tokens))
     [] -> Error(UnexpectedEndOfInputError)
   }
 }
@@ -788,7 +789,7 @@ pub type RuntimeError {
 @internal
 pub fn interpret(
   template: List(Expression),
-  environment: Option(Value),
+  environment: Value,
 ) -> Result(String, RuntimeError) {
   use tree <- result.map(evaluate_exprs(
     template,
@@ -801,7 +802,7 @@ pub fn interpret(
 
 fn evaluate_exprs(
   exprs: List(Expression),
-  env: Option(Value),
+  env: Value,
   acc: StringTree,
 ) -> Result(StringTree, RuntimeError) {
   case exprs {
@@ -813,10 +814,7 @@ fn evaluate_exprs(
   }
 }
 
-fn evaluate(
-  expr: Expression,
-  env: Option(Value),
-) -> Result(StringTree, RuntimeError) {
+fn evaluate(expr: Expression, env: Value) -> Result(StringTree, RuntimeError) {
   case expr {
     Text(value) | Newline(value) -> Ok(string_tree.from_string(value))
     Variable(_) -> evaluate_variable(expr, env)
@@ -828,7 +826,7 @@ fn evaluate(
 
 fn evaluate_variable(
   expr: Expression,
-  env: Option(Value),
+  env: Value,
 ) -> Result(StringTree, RuntimeError) {
   let assert Variable(path) = expr
   env
@@ -839,7 +837,7 @@ fn evaluate_variable(
 
 fn evaluate_raw_variable(
   expr: Expression,
-  env: Option(Value),
+  env: Value,
 ) -> Result(StringTree, RuntimeError) {
   let assert RawVariable(path) = expr
   env
@@ -850,51 +848,99 @@ fn evaluate_raw_variable(
 
 fn evaluate_section(
   expr: Expression,
-  env: Option(Value),
+  env: Value,
 ) -> Result(StringTree, RuntimeError) {
   let assert Section(path, content) = expr
-  let env = get(env, path)
-  evaluate_exprs(content, env, string_tree.new())
+  let context = get_with_path(env, path)
+  case context {
+    None | Some(Bool(False)) -> Ok(string_tree.new())
+    Some(val) -> evaluate_exprs(content, val, string_tree.new())
+  }
 }
 
-// environment
+// value
 
 /// `Value` represents any of the possible types that can be passed as the
 /// right-hand side of the dictionary used as input for Mustache templates
 /// (what Mustache calls a "hash" in its official documentation).
 pub type Value {
-  Dict(Dict(String, Option(Value)))
+  Dict(Dict(String, Value))
   Int(Int)
   Float(Float)
   String(String)
+  Bool(Bool)
+  List(List(Value))
+}
+
+pub fn from_dict(value: Dict(String, Value)) -> Value {
+  Dict(value)
+}
+
+pub fn from_int(value: Int) -> Value {
+  Int(value)
+}
+
+pub fn from_float(value: Float) -> Value {
+  Float(value)
+}
+
+pub fn from_string(value: String) -> Value {
+  String(value)
+}
+
+pub fn from_bool(value: Bool) -> Value {
+  Bool(value)
+}
+
+pub fn from_list(value: List(Value)) -> Value {
+  List(value)
+}
+
+// environment
+
+@internal
+pub type Environment {
+  Environment(value: Value, parent: Option(Environment))
 }
 
 @internal
-pub fn get_and_format(env: Option(Value), path: List(String)) -> String {
+pub fn get_and_format(env: Value, path: List(String)) -> String {
   get_and_format_raw(env, path) |> houdini.escape()
 }
 
 @internal
-pub fn get_and_format_raw(env: Option(Value), path: List(String)) -> String {
-  get(env, path) |> format()
+pub fn get_and_format_raw(env: Value, path: List(String)) -> String {
+  get_with_path(env, path) |> format()
 }
 
 @internal
-pub fn get(env: Option(Value), path: List(String)) -> Option(Value) {
+pub fn get(env: Environment, path: List(String)) -> Option(Value) {
+  case get_with_path(env.value, path) {
+    Some(_) as found -> found
+    None ->
+      case env.parent {
+        Some(parent) -> get(parent, path)
+        None -> None
+      }
+  }
+}
+
+@internal
+pub fn get_with_path(env: Value, path: List(String)) -> Option(Value) {
   case path {
     [] -> None
-    ["."] -> env
+    ["."] -> Some(env)
     [key] -> get_in_val(env, key)
     [key, ..tail] -> {
-      let val = get_in_val(env, key)
-      get(val, tail)
+      use val <- option.then(get_in_val(env, key))
+      get_with_path(val, tail)
     }
   }
 }
 
-fn get_in_val(env: Option(Value), key: String) -> Option(Value) {
+fn get_in_val(env: Value, key: String) -> Option(Value) {
   case env {
-    Some(Dict(dictionary)) -> dict.get(dictionary, key) |> result.unwrap(None)
+    Dict(dictionary) -> dict.get(dictionary, key) |> option.from_result()
     _ -> None
   }
 }
@@ -906,6 +952,7 @@ fn format(val: Option(Value)) -> String {
         Int(value) -> int.to_string(value)
         Float(value) -> float.to_string(value)
         String(value) -> value
+        Bool(value) -> bool.to_string(value)
         _ -> ""
       }
     None -> ""

@@ -1,18 +1,19 @@
+import gleam/dict
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
-import gleam/option.{type Option}
+import gleam/option.{type Option, None, Some}
 
 import filepath
 import simplifile
 
-import pomade.{type Value}
+import pomade.{type Value, Dict, List}
 
 type Test {
   Test(
     name: String,
     desc: String,
-    data: Option(Value),
+    data: Value,
     template: String,
     expected: String,
   )
@@ -45,15 +46,41 @@ fn test_decoder() {
   decode.success(Test(name:, desc:, data:, template:, expected:))
 }
 
-fn value_decoder() -> decode.Decoder(Option(Value)) {
+fn value_decoder() -> decode.Decoder(Value) {
   use <- decode.recursive
-  decode.optional(
-    decode.one_of(decode.int |> decode.map(pomade.Int), [
-      decode.float |> decode.map(pomade.Float),
-      decode.string |> decode.map(pomade.String),
-      decode.dict(decode.string, value_decoder()) |> decode.map(pomade.Dict),
-    ]),
-  )
+  decode.one_of(decode.int |> decode.map(pomade.Int), [
+    decode.float |> decode.map(pomade.Float),
+    decode.string |> decode.map(pomade.String),
+    decode.bool |> decode.map(pomade.Bool),
+    list_decoder(),
+    dict_decoder(),
+  ])
+}
+
+fn dict_decoder() -> decode.Decoder(Value) {
+  decode.dict(decode.string, decode.optional(value_decoder()))
+  |> decode.map(fn(d) {
+    dict.to_list(d)
+    |> dict_list_values([])
+    |> dict.from_list()
+    |> Dict()
+  })
+}
+
+fn dict_list_values(
+  list: List(#(String, Option(Value))),
+  acc: List(#(String, Value)),
+) -> List(#(String, Value)) {
+  case list {
+    [] -> list.reverse(acc)
+    [#(_, None), ..rest] -> dict_list_values(rest, acc)
+    [#(k, Some(val)), ..rest] -> dict_list_values(rest, [#(k, val), ..acc])
+  }
+}
+
+fn list_decoder() -> decode.Decoder(Value) {
+  decode.list(decode.optional(value_decoder()))
+  |> decode.map(fn(l) { option.values(l) |> List() })
 }
 
 fn run(loaded_test: Test) {
@@ -74,5 +101,15 @@ pub fn comments_test() {
 
 pub fn interpolation_test() {
   let tests = load_tests_from_file("interpolation.json")
+  run_all(tests)
+}
+
+pub fn sections_test() {
+  let tests = load_tests_from_file("sections.json")
+  run_all(tests)
+}
+
+pub fn delimiters_test() {
+  let tests = load_tests_from_file("delimiters.json")
   run_all(tests)
 }
