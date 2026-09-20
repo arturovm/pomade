@@ -818,6 +818,7 @@ fn evaluate(
     Text(value) | Newline(value) -> Ok(string_tree.from_string(value))
     Variable(_) -> evaluate_variable(expr, env)
     RawVariable(_) -> evaluate_raw_variable(expr, env)
+    Section(_, _) -> evaluate_section(expr, env)
     _ -> Error(UnknownExpressionError)
   }
 }
@@ -842,6 +843,16 @@ fn evaluate_raw_variable(
   |> get_and_format_raw(path)
   |> string_tree.from_string()
   |> Ok()
+}
+
+fn evaluate_section(
+  expr: Expression,
+  env: Option(Value),
+) -> Result(StringTree, RuntimeError) {
+  let assert Section(path, content) = expr
+  let env = get(env, path)
+  use string_trees <- result.map(evaluate_exprs(content, env, []))
+  list.fold(string_trees, string_tree.new(), string_tree.append_tree)
 }
 
 // environment
