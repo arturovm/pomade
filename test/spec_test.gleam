@@ -32,12 +32,12 @@ fn load_tests_from_file(file_name: String) -> List(Test) {
   loaded_tests.tests
 }
 
-fn tests_decoder() {
+fn tests_decoder() -> decode.Decoder(Tests) {
   use tests <- decode.field("tests", decode.list(test_decoder()))
   decode.success(Tests(tests:))
 }
 
-fn test_decoder() {
+fn test_decoder() -> decode.Decoder(Test) {
   use name <- decode.field("name", decode.string)
   use desc <- decode.field("desc", decode.string)
   use data <- decode.field("data", value_decoder())

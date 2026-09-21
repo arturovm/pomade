@@ -46,3 +46,42 @@ pub fn raw_variable_test() {
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
     )
 }
+
+pub fn section_with_parent_context_test() {
+  let parent_env =
+    pomade.from_dict(
+      dict.from_list([
+        #("a", pomade.from_string("foo")),
+        #("b", pomade.from_string("wrong")),
+        #(
+          "sec",
+          pomade.from_dict(
+            dict.from_list([
+              #("b", pomade.from_string("bar")),
+            ]),
+          ),
+        ),
+        #(
+          "c",
+          pomade.from_dict(
+            dict.from_list([
+              #("d", pomade.from_string("baz")),
+            ]),
+          ),
+        ),
+      ]),
+    )
+  let assert Ok("foo, bar, baz") =
+    pomade.interpret(
+      [
+        pomade.Section(["sec"], [
+          pomade.Variable(["a"]),
+          pomade.Text(", "),
+          pomade.Variable(["b"]),
+          pomade.Text(", "),
+          pomade.Variable(["c", "d"]),
+        ]),
+      ],
+      parent_env,
+    )
+}

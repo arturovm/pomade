@@ -4,6 +4,7 @@ import gleam/float
 import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/pair
 import gleam/regexp
 import gleam/result
 import gleam/string
@@ -63,6 +64,7 @@ type Lexer {
     left_delimiter: String,
     right_delimiter: String,
     free_form_splitter: splitter.Splitter,
+    whitespace_splitter: splitter.Splitter,
     triple_mustache_start_splitter: splitter.Splitter,
     identifier_splitter: splitter.Splitter,
     triple_mustache_end_splitter: splitter.Splitter,
@@ -87,6 +89,7 @@ type Mode {
 pub type Token {
   // general text
   TextLiteral(lexeme: String)
+  WhitespaceLiteral(lexeme: String)
   NewlineLiteral(lexeme: String)
   // tags
   LeftDelimiter
@@ -147,6 +150,7 @@ fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
     left_delimiter: left_delimiter,
     right_delimiter: right_delimiter,
     free_form_splitter: splitter.new(["\r\n", "\n", left_delimiter]),
+    whitespace_splitter: splitter.new([" ", "\t"]),
     triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
     identifier_splitter: splitter.new([".", right_delimiter]),
     triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
@@ -270,7 +274,22 @@ fn scan_free_form(
   lexer: Lexer,
 ) -> Result(#(Token, String), LexicalError) {
   let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
-  Ok(#(TextLiteral(text), rest))
+  case longest_whitespace_match(text, "") {
+    #("", _) -> {
+      let #(text, remainder) =
+        splitter.split_before(lexer.whitespace_splitter, text)
+      Ok(#(TextLiteral(text), remainder <> rest))
+    }
+    #(match, remainder) -> Ok(#(WhitespaceLiteral(match), remainder <> rest))
+  }
+}
+
+fn longest_whitespace_match(input: String, acc: String) -> #(String, String) {
+  case input {
+    "\t" as ws <> rest | " " as ws <> rest ->
+      longest_whitespace_match(rest, acc <> ws)
+    _ -> #(acc, input)
+  }
 }
 
 fn scan_line_end(
@@ -281,7 +300,10 @@ fn scan_line_end(
     "\r\n" as value <> rest | "\n" as value <> rest -> {
       Ok(#(NewlineLiteral(value), rest))
     }
-    _ -> Error(UnexpectedCharacterError)
+    _ -> {
+      echo "unexpected on line end"
+      Error(UnexpectedCharacterError)
+    }
   }
 }
 
@@ -449,26 +471,28 @@ fn scan_comment(
 
 // Mustache syntactical grammar:
 //
-// template                 -> expression* EOF ;
+// template                 -> line* EOF;
+// line                     -> expression* NEWLINE? ;
 // expression               -> parent
-// parent                   -> parent_opening expression* closing_tag | block;
+// parent                   -> parent_opening line* closing_tag | block;
 // parent_opening           -> LEFT_DELIMITER "<" name RIGHT_DELIMITER ;
-// block                    -> block_opening expression* closing_tag | inverted_section ;
+// block                    -> block_opening line* closing_tag | inverted_section ;
 // block_opening            -> LEFT_DELIMITER "$" name RIGHT_DELIMITER ;
-// inverted_section         -> inverted_section_opening expression* closing_tag | section;
+// inverted_section         -> inverted_section_opening line* closing_tag | section;
 // inverted_section_opening -> LEFT_DELIMITER "^" name RIGHT_DELIMITER ;
-// section                  -> section_opening expression* closing_tag | partial ;
+// section                  -> section_opening line* closing_tag | partial ;
 // section_opening          -> LEFT_DELIMITER "#" name RIGHT_DELIMITER ;
 // closing_tag              -> LEFT_DELIMITER "/" name RIGHT_DELIMITER ;
 // partial                  -> LEFT_DELIMITER ">" name RIGHT_DELIMITER | raw_variable ;
 // raw_variable             -> ("{{{" name "}}}") | (LEFT_DELIMITER "&" name RIGHT_DELIMITER) | variable ;
 // variable                 -> LEFT_DELIMITER name RIGHT_DELIMITER | primary ;
 // name                     -> "." | (IDENTIFIER? ("." IDENTIFIER)*)) ;
-// primary                  -> TEXT | NEWLINE
+// primary                  -> TEXT | WHITESPACE
 
 @internal
 pub type Expression {
   Text(value: String)
+  Whitespace(value: String)
   Newline(value: String)
   Variable(path: List(String))
   RawVariable(path: List(String))
@@ -502,9 +526,37 @@ pub fn parse(tokens: List(Token)) -> Result(List(Expression), SyntaxError) {
 fn parse_template(
   tokens: List(Token),
 ) -> Result(List(Expression), SyntaxError) {
-  use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
+  use #(lines, tail) <- result.try(parse_lines(tokens, []))
   use _ <- result.map(expect_token(tail, Eof))
-  expressions
+  list.flatten(lines)
+}
+
+fn parse_lines(
+  tokens: List(Token),
+  acc: List(List(Expression)),
+) -> Result(#(List(List(Expression)), List(Token)), SyntaxError) {
+  case tokens {
+    [Eof] -> Ok(#(list.reverse(acc), tokens))
+    non_empty -> {
+      use #(line, tail) <- result.try(parse_line(non_empty))
+      parse_lines(tail, list.prepend(acc, line))
+    }
+  }
+}
+
+fn parse_line(
+  tokens: List(Token),
+) -> Result(#(List(Expression), List(Token)), SyntaxError) {
+  use #(expressions, tail) <- result.map(parse_expressions(tokens, []))
+  case tail {
+    [NewlineLiteral(nl), ..tail] ->
+      expressions
+      |> list.reverse()
+      |> list.prepend(Newline(nl))
+      |> list.reverse()
+      |> pair.new(tail)
+    _ -> #(expressions, tail)
+  }
 }
 
 fn parse_expressions(
@@ -512,8 +564,8 @@ fn parse_expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [Eof] -> Ok(#(list.reverse(acc), tokens))
-    [LeftDelimiter, ClosingIndicator, ..] -> Ok(#(list.reverse(acc), tokens))
+    [Eof] | [NewlineLiteral(_), ..] | [LeftDelimiter, ClosingIndicator, ..] ->
+      Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(parse_expression(non_empty))
       let acc = case expression {
@@ -693,28 +745,15 @@ fn parse_primary(
   tokens: List(Token),
 ) -> Result(#(Option(Expression), List(Token)), SyntaxError) {
   case tokens {
-    [TextLiteral(value) as txt, Ignored, NewlineLiteral(_) as nl, ..tail] -> {
-      case is_blank(value) {
-        True -> parse_primary(tail)
-        False ->
-          tail
-          |> list.prepend(nl)
-          |> list.prepend(txt)
-          |> parse_primary()
-      }
-    }
-    [TextLiteral(value), Ignored, Eof] -> {
-      case is_blank(value) {
-        True -> Ok(#(None, [Eof]))
-        False -> Ok(emit_expr(Text, value, list.drop(tokens, 1)))
-      }
-    }
+    [WhitespaceLiteral(_), Ignored, NewlineLiteral(_), ..tail] ->
+      parse_primary(tail)
+    [WhitespaceLiteral(_), Ignored, Eof] -> Ok(#(None, [Eof]))
     [Ignored, NewlineLiteral(_), ..tail]
     | [Ignored, ..tail]
     | [SetDelimiters(_, _), ..tail] -> parse_primary(tail)
     [TextLiteral(value), ..tail] -> Ok(emit_expr(Text, value, tail))
-    [NewlineLiteral(value), ..tail] -> Ok(emit_expr(Newline, value, tail))
-    [Eof] | [_, ..] -> Ok(#(None, tokens))
+    [WhitespaceLiteral(value), ..tail] -> Ok(emit_expr(Whitespace, value, tail))
+    [Eof] | [NewlineLiteral(_), ..] | [_, ..] -> Ok(#(None, tokens))
     [] -> Error(UnexpectedEndOfInputError)
   }
 }
@@ -744,14 +783,6 @@ fn parse_enclosed(
   case path == closing_path {
     False -> Error(NoMatchingClosingTagError)
     True -> Ok(#(Some(expr_constructor(path, expressions)), tail))
-  }
-}
-
-fn is_blank(string: String) -> Bool {
-  case string {
-    "" -> True
-    " " <> tail | "\t" <> tail -> is_blank(tail)
-    _ -> False
   }
 }
 
@@ -793,16 +824,15 @@ pub fn interpret(
 ) -> Result(String, RuntimeError) {
   use tree <- result.map(evaluate_exprs(
     template,
-    environment,
+    Environment(environment, None),
     string_tree.new(),
   ))
-  tree
-  |> string_tree.to_string()
+  string_tree.to_string(tree)
 }
 
 fn evaluate_exprs(
   exprs: List(Expression),
-  env: Value,
+  env: Environment,
   acc: StringTree,
 ) -> Result(StringTree, RuntimeError) {
   case exprs {
@@ -814,9 +844,13 @@ fn evaluate_exprs(
   }
 }
 
-fn evaluate(expr: Expression, env: Value) -> Result(StringTree, RuntimeError) {
+fn evaluate(
+  expr: Expression,
+  env: Environment,
+) -> Result(StringTree, RuntimeError) {
   case expr {
-    Text(value) | Newline(value) -> Ok(string_tree.from_string(value))
+    Text(value) | Whitespace(value) | Newline(value) ->
+      Ok(string_tree.from_string(value))
     Variable(_) -> evaluate_variable(expr, env)
     RawVariable(_) -> evaluate_raw_variable(expr, env)
     Section(_, _) -> evaluate_section(expr, env)
@@ -826,7 +860,7 @@ fn evaluate(expr: Expression, env: Value) -> Result(StringTree, RuntimeError) {
 
 fn evaluate_variable(
   expr: Expression,
-  env: Value,
+  env: Environment,
 ) -> Result(StringTree, RuntimeError) {
   let assert Variable(path) = expr
   env
@@ -837,7 +871,7 @@ fn evaluate_variable(
 
 fn evaluate_raw_variable(
   expr: Expression,
-  env: Value,
+  env: Environment,
 ) -> Result(StringTree, RuntimeError) {
   let assert RawVariable(path) = expr
   env
@@ -848,13 +882,25 @@ fn evaluate_raw_variable(
 
 fn evaluate_section(
   expr: Expression,
-  env: Value,
+  env: Environment,
 ) -> Result(StringTree, RuntimeError) {
   let assert Section(path, content) = expr
-  let context = get_with_path(env, path)
-  case context {
+  case get(env, path) {
     None | Some(Bool(False)) -> Ok(string_tree.new())
-    Some(val) -> evaluate_exprs(content, val, string_tree.new())
+    Some(List(l)) ->
+      list.map(l, fn(c) {
+        evaluate_exprs(content, Environment(c, Some(env)), string_tree.new())
+      })
+      |> result.all()
+      |> result.map(fn(trees) {
+        list.fold(trees, string_tree.new(), string_tree.append_tree)
+      })
+    Some(context) ->
+      evaluate_exprs(
+        content,
+        Environment(context, Some(env)),
+        string_tree.new(),
+      )
   }
 }
 
@@ -904,44 +950,62 @@ pub type Environment {
 }
 
 @internal
-pub fn get_and_format(env: Value, path: List(String)) -> String {
+pub fn get_and_format(env: Environment, path: List(String)) -> String {
   get_and_format_raw(env, path) |> houdini.escape()
 }
 
 @internal
-pub fn get_and_format_raw(env: Value, path: List(String)) -> String {
-  get_with_path(env, path) |> format()
+pub fn get_and_format_raw(env: Environment, path: List(String)) -> String {
+  get(env, path) |> format()
 }
 
 @internal
 pub fn get(env: Environment, path: List(String)) -> Option(Value) {
-  case get_with_path(env.value, path) {
-    Some(_) as found -> found
-    None ->
-      case env.parent {
-        Some(parent) -> get(parent, path)
-        None -> None
+  case find_path_root_in_stack(env, path) {
+    Some(#(val, [])) -> Some(val)
+    Some(#(val, tail)) -> get_with_path(val, tail)
+    None -> None
+  }
+}
+
+fn find_path_root_in_stack(
+  env: Environment,
+  path: List(String),
+) -> Option(#(Value, List(String))) {
+  case path {
+    [head, ..tail] ->
+      case get_in_val(env.value, head) {
+        Some(found) -> Some(#(found, tail))
+        None ->
+          case env.parent {
+            Some(parent) -> find_path_root_in_stack(parent, path)
+            None -> None
+          }
       }
+    [] -> None
   }
 }
 
 @internal
-pub fn get_with_path(env: Value, path: List(String)) -> Option(Value) {
+pub fn get_with_path(val: Value, path: List(String)) -> Option(Value) {
   case path {
     [] -> None
-    ["."] -> Some(env)
-    [key] -> get_in_val(env, key)
+    [key] -> get_in_val(val, key)
     [key, ..tail] -> {
-      use val <- option.then(get_in_val(env, key))
+      use val <- option.then(get_in_val(val, key))
       get_with_path(val, tail)
     }
   }
 }
 
-fn get_in_val(env: Value, key: String) -> Option(Value) {
-  case env {
-    Dict(dictionary) -> dict.get(dictionary, key) |> option.from_result()
-    _ -> None
+fn get_in_val(val: Value, key: String) -> Option(Value) {
+  case key {
+    "." -> Some(val)
+    any ->
+      case val {
+        Dict(dictionary) -> dict.get(dictionary, any) |> option.from_result()
+        _ -> None
+      }
   }
 }
 

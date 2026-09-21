@@ -37,3 +37,45 @@ pub fn passing_value_as_env_test() {
 
   assert Ok("This is great") == template(String("great"))
 }
+
+pub fn indented_standalone_test() {
+  let assert Ok(tokens) = pomade.scan("Begin.\n  {{! Indented Comment Block! }}\nEnd.\n")
+  assert [
+    pomade.TextLiteral("Begin."),
+    pomade.NewlineLiteral("\n"),
+    pomade.WhitespaceLiteral("  "),
+    pomade.Ignored,
+    pomade.NewlineLiteral("\n"),
+    pomade.TextLiteral("End."),
+    pomade.NewlineLiteral("\n"),
+    pomade.Eof,
+  ] == tokens
+
+  let assert Ok(ast) = pomade.parse(tokens)
+  assert [
+    pomade.Text("Begin."),
+    pomade.Newline("\n"),
+    pomade.Text("End."),
+    pomade.Newline("\n"),
+  ] == ast
+}
+
+pub fn indented_inline_test() {
+  let assert Ok(tokens) = pomade.scan("  12 {{! 34 }}\n")
+  assert [
+    pomade.WhitespaceLiteral("  "),
+    pomade.TextLiteral("12"),
+    pomade.WhitespaceLiteral(" "),
+    pomade.Ignored,
+    pomade.NewlineLiteral("\n"),
+    pomade.Eof,
+  ] == tokens
+
+  let assert Ok(ast) = pomade.parse(tokens)
+  assert [
+    pomade.Whitespace("  "),
+    pomade.Text("12"),
+    pomade.Whitespace(" "),
+    pomade.Newline("\n"),
+  ] == ast
+}

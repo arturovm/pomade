@@ -5,8 +5,17 @@ pub fn empty_parser_test() {
 }
 
 pub fn text_test() {
-  let assert Ok([pomade.Text("hello")]) =
-    pomade.parse([pomade.TextLiteral("hello"), pomade.Eof])
+  let assert Ok([
+    pomade.Text("hello,"),
+    pomade.Whitespace(" "),
+    pomade.Text("world!"),
+  ]) =
+    pomade.parse([
+      pomade.TextLiteral("hello,"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("world!"),
+      pomade.Eof,
+    ])
 }
 
 pub fn variable_test() {
@@ -89,14 +98,27 @@ pub fn section_test() {
 
 pub fn inverted_section_test() {
   let assert Ok([
-    pomade.InvertedSection(["person"], [pomade.Text("no repos :(")]),
+    pomade.InvertedSection(
+      ["person"],
+      [
+        pomade.Text("no"),
+        pomade.Whitespace(" "),
+        pomade.Text("repos"),
+        pomade.Whitespace(" "),
+        pomade.Text(":("),
+      ],
+    ),
   ]) =
     pomade.parse([
       pomade.LeftDelimiter,
       pomade.InvertedSectionIndicator,
       pomade.Identifier("person"),
       pomade.RightDelimiter,
-      pomade.TextLiteral("no repos :("),
+      pomade.TextLiteral("no"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("repos"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral(":("),
       pomade.LeftDelimiter,
       pomade.ClosingIndicator,
       pomade.Identifier("person"),
@@ -153,17 +175,7 @@ pub fn elide_comments_test() {
     pomade.parse([
       pomade.TextLiteral("Begin"),
       pomade.NewlineLiteral("\n"),
-      pomade.TextLiteral("\t  "),
-      pomade.Ignored,
-      pomade.NewlineLiteral("\n"),
-      pomade.TextLiteral("End"),
-      pomade.Eof,
-    ])
-  let assert Ok([pomade.Text("Begin"), pomade.Newline("\n"), pomade.Text("End")]) =
-    pomade.parse([
-      pomade.TextLiteral("Begin"),
-      pomade.NewlineLiteral("\n"),
-      pomade.TextLiteral("\t  "),
+      pomade.WhitespaceLiteral("\t  "),
       pomade.Ignored,
       pomade.NewlineLiteral("\n"),
       pomade.TextLiteral("End"),

@@ -4,6 +4,29 @@ pub fn empty_scanner_test() {
   assert Ok([pomade.Eof]) == pomade.scan("")
 }
 
+pub fn scan_whitespace_test() {
+  assert Ok([pomade.WhitespaceLiteral(" "), pomade.Eof]) == pomade.scan(" ")
+  assert Ok([
+      pomade.WhitespaceLiteral("\t    "),
+      pomade.TextLiteral("indented"),
+      pomade.Eof,
+    ])
+    == pomade.scan("\t    indented")
+  assert Ok([
+      pomade.TextLiteral("hello,"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("this"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("is"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("a"),
+      pomade.WhitespaceLiteral(" "),
+      pomade.TextLiteral("message"),
+      pomade.Eof,
+    ])
+    == pomade.scan("hello, this is a message")
+}
+
 pub fn scan_variable_test() {
   let assert Ok([
     pomade.LeftDelimiter,
@@ -112,7 +135,8 @@ pub fn scan_comments_test() {
   let assert Ok([
     pomade.TextLiteral("Hello,"),
     pomade.Ignored,
-    pomade.TextLiteral(" world!"),
+    pomade.WhitespaceLiteral(" "),
+    pomade.TextLiteral("world!"),
     pomade.Eof,
   ]) = pomade.scan("Hello,{{! this is a comment }} world!")
 }
@@ -155,7 +179,7 @@ pub fn scan_newline_test() {
   let assert Ok([
     pomade.TextLiteral("Begin"),
     pomade.NewlineLiteral("\n"),
-    pomade.TextLiteral("\t"),
+    pomade.WhitespaceLiteral("\t"),
     pomade.Ignored,
     pomade.NewlineLiteral("\n"),
     pomade.TextLiteral("End"),
@@ -165,7 +189,7 @@ pub fn scan_newline_test() {
   let assert Ok([
     pomade.TextLiteral("Foo"),
     pomade.NewlineLiteral("\r\n"),
-    pomade.TextLiteral("\t"),
+    pomade.WhitespaceLiteral("\t"),
     pomade.Ignored,
     pomade.NewlineLiteral("\n"),
     pomade.TextLiteral("Bar"),
