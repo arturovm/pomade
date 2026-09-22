@@ -1,7 +1,9 @@
+import pomade/internal/scanner
+
 import pomade
 
 pub fn empty_parser_test() {
-  let assert Ok([]) = pomade.parse([pomade.Eof])
+  let assert Ok([]) = pomade.parse([scanner.Eof])
 }
 
 pub fn text_test() {
@@ -11,88 +13,88 @@ pub fn text_test() {
     pomade.Text("world!"),
   ]) =
     pomade.parse([
-      pomade.TextLiteral("hello,"),
-      pomade.WhitespaceLiteral(" "),
-      pomade.TextLiteral("world!"),
-      pomade.Eof,
+      scanner.TextLiteral("hello,"),
+      scanner.WhitespaceLiteral(" "),
+      scanner.TextLiteral("world!"),
+      scanner.Eof,
     ])
 }
 
 pub fn variable_test() {
   let assert Ok([pomade.Variable(["hello"])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.Identifier("hello"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.Identifier("hello"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn dotted_variable_test() {
   let assert Ok([pomade.Variable(["hello", "world"])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.Identifier("hello"),
-      pomade.Dot,
-      pomade.Identifier("world"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.Identifier("hello"),
+      scanner.Dot,
+      scanner.Identifier("world"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn variable_single_dot_test() {
   let assert Ok([pomade.Variable(["."])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.Dot,
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.Dot,
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 
-  let assert Error(pomade.UnexpectedTokenError(pomade.Identifier("foo"))) =
+  let assert Error(pomade.UnexpectedTokenError(scanner.Identifier("foo"))) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.Dot,
-      pomade.Identifier("foo"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.Dot,
+      scanner.Identifier("foo"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn raw_variable_test() {
   let assert Ok([pomade.RawVariable(["hello"])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.RawVariableIndicator,
-      pomade.Identifier("hello"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.RawVariableIndicator,
+      scanner.Identifier("hello"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 
   let assert Ok([pomade.RawVariable(["goodbye"])]) =
     pomade.parse([
-      pomade.LeftTripleMustache,
-      pomade.Identifier("goodbye"),
-      pomade.RightTripleMustache,
-      pomade.Eof,
+      scanner.LeftTripleMustache,
+      scanner.Identifier("goodbye"),
+      scanner.RightTripleMustache,
+      scanner.Eof,
     ])
 }
 
 pub fn section_test() {
   let assert Ok([pomade.Section(["person"], [pomade.Variable(["name"])])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.SectionIndicator,
-      pomade.Identifier("person"),
-      pomade.RightDelimiter,
-      pomade.LeftDelimiter,
-      pomade.Identifier("name"),
-      pomade.RightDelimiter,
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("person"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.SectionIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.Identifier("name"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
@@ -110,76 +112,76 @@ pub fn inverted_section_test() {
     ),
   ]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.InvertedSectionIndicator,
-      pomade.Identifier("person"),
-      pomade.RightDelimiter,
-      pomade.TextLiteral("no"),
-      pomade.WhitespaceLiteral(" "),
-      pomade.TextLiteral("repos"),
-      pomade.WhitespaceLiteral(" "),
-      pomade.TextLiteral(":("),
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("person"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.InvertedSectionIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.TextLiteral("no"),
+      scanner.WhitespaceLiteral(" "),
+      scanner.TextLiteral("repos"),
+      scanner.WhitespaceLiteral(" "),
+      scanner.TextLiteral(":("),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("person"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn partial_test() {
   let assert Ok([pomade.Partial(["box"])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.PartialIndicator,
-      pomade.Identifier("box"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.PartialIndicator,
+      scanner.Identifier("box"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn block_test() {
   let assert Ok([pomade.Block(["title"], [pomade.Text("hello, world!")])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.BlockIndicator,
-      pomade.Identifier("title"),
-      pomade.RightDelimiter,
-      pomade.TextLiteral("hello, world!"),
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("title"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.BlockIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.TextLiteral("hello, world!"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn parent_test() {
   let assert Ok([pomade.Parent(["title"], [pomade.Text("foo, bar, baz")])]) =
     pomade.parse([
-      pomade.LeftDelimiter,
-      pomade.ParentIndicator,
-      pomade.Identifier("title"),
-      pomade.RightDelimiter,
-      pomade.TextLiteral("foo, bar, baz"),
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("title"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.LeftDelimiter,
+      scanner.ParentIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.TextLiteral("foo, bar, baz"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("title"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
 
 pub fn elide_comments_test() {
   let assert Ok([pomade.Text("Begin"), pomade.Newline("\n"), pomade.Text("End")]) =
     pomade.parse([
-      pomade.TextLiteral("Begin"),
-      pomade.NewlineLiteral("\n"),
-      pomade.WhitespaceLiteral("\t  "),
-      pomade.Ignored,
-      pomade.NewlineLiteral("\n"),
-      pomade.TextLiteral("End"),
-      pomade.Eof,
+      scanner.TextLiteral("Begin"),
+      scanner.NewlineLiteral("\n"),
+      scanner.WhitespaceLiteral("\t  "),
+      scanner.Ignored,
+      scanner.NewlineLiteral("\n"),
+      scanner.TextLiteral("End"),
+      scanner.Eof,
     ])
 }
 
@@ -195,27 +197,27 @@ pub fn recursion_test() {
     ),
   ]) =
     pomade.parse([
-      pomade.TextLiteral("some text"),
-      pomade.LeftDelimiter,
-      pomade.SectionIndicator,
-      pomade.Identifier("a_section"),
-      pomade.RightDelimiter,
-      pomade.LeftDelimiter,
-      pomade.Identifier("some_variable"),
-      pomade.RightDelimiter,
-      pomade.LeftDelimiter,
-      pomade.InvertedSectionIndicator,
-      pomade.Identifier("inner_section"),
-      pomade.RightDelimiter,
-      pomade.TextLiteral("inner text"),
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("inner_section"),
-      pomade.RightDelimiter,
-      pomade.LeftDelimiter,
-      pomade.ClosingIndicator,
-      pomade.Identifier("a_section"),
-      pomade.RightDelimiter,
-      pomade.Eof,
+      scanner.TextLiteral("some text"),
+      scanner.LeftDelimiter,
+      scanner.SectionIndicator,
+      scanner.Identifier("a_section"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.Identifier("some_variable"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.InvertedSectionIndicator,
+      scanner.Identifier("inner_section"),
+      scanner.RightDelimiter,
+      scanner.TextLiteral("inner text"),
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("inner_section"),
+      scanner.RightDelimiter,
+      scanner.LeftDelimiter,
+      scanner.ClosingIndicator,
+      scanner.Identifier("a_section"),
+      scanner.RightDelimiter,
+      scanner.Eof,
     ])
 }
