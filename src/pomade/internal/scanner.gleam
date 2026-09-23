@@ -97,7 +97,7 @@ pub type LexicalError {
   MalformedSetDelimitersError
   /// `UnexpectedCharacterError` is used to report that a character was found
   /// in a context where it was not expected.
-  UnexpectedCharacterError
+  UnexpectedCharacterError(character: String)
   Unimplemented
 }
 
@@ -221,7 +221,12 @@ fn scan_top_level(
             False ->
               case is_text(lexer, source) {
                 True -> scan_text(lexer, source, acc)
-                False -> Error(UnexpectedCharacterError)
+                False -> {
+                  echo "TOP LEVEL ERROR"
+                  Error(UnexpectedCharacterError(
+                    string.first(source) |> result.unwrap(""),
+                  ))
+                }
               }
           }
       }
@@ -256,7 +261,8 @@ fn scan_left_triple_mustache(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
     "{{{" <> tail -> Ok(#(lexer, list.prepend(acc, LeftTripleMustache), tail))
-    _ -> Error(UnexpectedCharacterError)
+    _ ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
@@ -303,7 +309,8 @@ fn scan_dot(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
     "." <> tail -> Ok(#(lexer, list.prepend(acc, Dot), tail))
-    _ -> Error(UnexpectedCharacterError)
+    _ ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
@@ -352,7 +359,8 @@ fn scan_right_triple_mustache(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
     "}}}" <> tail -> Ok(#(lexer, list.prepend(acc, RightTripleMustache), tail))
-    _ -> Error(UnexpectedCharacterError)
+    _ ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
@@ -377,7 +385,8 @@ fn scan_tag_start(
       let #(_, rest) = splitter.split_after(lexer.tag_start_splitter, source)
       Ok(#(lexer, list.prepend(acc, LeftDelimiter), rest))
     }
-    False -> Error(UnexpectedCharacterError)
+    False ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
@@ -405,10 +414,8 @@ fn scan_comment(
   source: String,
   acc: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case splitter.split(lexer.tag_end_splitter, source) {
-    #(_, "", "") -> Error(UnterminatedTagError)
-    #(_, _, rest) -> Ok(#(lexer, list.prepend(acc, Ignored), rest))
-  }
+  let #(_, rest) = splitter.split_before(lexer.tag_end_splitter, source)
+  Ok(#(lexer, list.prepend(acc, Ignored), rest))
 }
 
 fn scan_set_delimiters(
@@ -424,7 +431,6 @@ fn scan_special(
   source: String,
   acc: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  echo "special"
   use #(acc, tail) <- result.try(scan_indicator(source, acc))
   let #(lexer, acc, tail) = scan_optional(lexer, tail, scan_whitespace, acc)
   use #(lexer, acc, tail) <- result.map(scan_name(lexer, tail, acc))
@@ -436,9 +442,14 @@ fn scan_indicator(
   source: String,
   acc: List(Token),
 ) -> Result(#(List(Token), String), LexicalError) {
-  echo "indicator"
   case source {
     "&" <> _ -> scan_single(source, RawVariableIndicator, acc)
+    "#" <> _ -> scan_single(source, SectionIndicator, acc)
+    "/" <> _ -> scan_single(source, ClosingIndicator, acc)
+    "^" <> _ -> scan_single(source, InvertedSectionIndicator, acc)
+    ">" <> _ -> scan_single(source, PartialIndicator, acc)
+    "$" <> _ -> scan_single(source, BlockIndicator, acc)
+    "<" <> _ -> scan_single(source, ParentIndicator, acc)
     _ -> Error(Unimplemented)
   }
 }
@@ -448,7 +459,6 @@ fn scan_single(
   token: Token,
   acc: List(Token),
 ) -> Result(#(List(Token), String), LexicalError) {
-  echo "singl"
   Ok(#(list.prepend(acc, token), string.drop_start(source, 1)))
 }
 
@@ -473,7 +483,8 @@ fn scan_tag_end(
       let #(_, rest) = splitter.split_after(lexer.tag_end_splitter, source)
       Ok(#(lexer, list.prepend(acc, RightDelimiter), rest))
     }
-    False -> Error(UnexpectedCharacterError)
+    False ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
@@ -492,7 +503,8 @@ fn consume_whitespace(
 ) -> Result(#(String, String), LexicalError) {
   case input {
     " " as ws <> rest | "\t" as ws <> rest -> Ok(#(ws, rest))
-    _ -> Error(UnexpectedCharacterError)
+    _ ->
+      Error(UnexpectedCharacterError(string.first(input) |> result.unwrap("")))
   }
 }
 
@@ -657,10 +669,8 @@ fn scan_line_end(
     "\r\n" as value <> rest | "\n" as value <> rest -> {
       Ok(#(NewlineLiteral(value), rest))
     }
-    _ -> {
-      echo "unexpected on line end"
-      Error(UnexpectedCharacterError)
-    }
+    _ ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
