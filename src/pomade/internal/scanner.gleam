@@ -28,6 +28,7 @@ import splitter
 
 type Lexer {
   Lexer(
+    line: Int,
     left_delimiter: String,
     right_delimiter: String,
     free_form_splitter: splitter.Splitter,
@@ -43,9 +44,9 @@ type Lexer {
 
 pub type Token {
   // general text
-  TextLiteral(lexeme: String)
-  WhitespaceLiteral(lexeme: String)
-  NewlineLiteral(lexeme: String)
+  Text(lexeme: String)
+  Whitespace(lexeme: String)
+  Newline(lexeme: String)
   // tags
   LeftDelimiter
   LeftTripleMustache
@@ -97,7 +98,6 @@ const right_triple_mustache: String = "}}}"
 
 pub fn scan(source: String) -> Result(List(Token), LexicalError) {
   let lexer = new_lexer(default_left_delimiter, default_right_delimiter)
-  //scan_loop(lexer, source, Base, [])
   scan_template(lexer, source)
 }
 
@@ -460,7 +460,7 @@ fn consume_whitespace(
 ) -> Result(#(Lexer, Token, String), LexicalError) {
   use #(ws, tail) <- result.map(read_whitespace(source))
   let #(ws, tail) = whitespace_repetition(tail, ws)
-  #(lexer, WhitespaceLiteral(ws), tail)
+  #(lexer, Whitespace(ws), tail)
 }
 
 fn read_whitespace(input: String) -> Result(#(String, String), LexicalError) {
@@ -485,7 +485,7 @@ fn scan_text(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
-  Ok(#(lexer, list.prepend(stream, TextLiteral(text)), rest))
+  Ok(#(lexer, list.prepend(stream, Text(text)), rest))
 }
 
 fn is_newline(_lexer: Lexer, source: String) -> Bool {
@@ -523,7 +523,11 @@ fn scan_newline(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
     "\r\n" as nl <> tail | "\n" as nl <> tail ->
-      Ok(#(lexer, list.prepend(stream, NewlineLiteral(nl)), tail))
+      Ok(#(
+        Lexer(..lexer, line: lexer.line + 1),
+        list.prepend(stream, Newline(nl)),
+        tail,
+      ))
     _ ->
       Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
@@ -533,6 +537,7 @@ fn scan_newline(
 
 fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
   Lexer(
+    line: 1,
     left_delimiter: left_delimiter,
     right_delimiter: right_delimiter,
     free_form_splitter: splitter.new([" ", "\t", "\r\n", "\n", left_delimiter]),

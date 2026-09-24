@@ -42,7 +42,7 @@ fn line_loop(
 ) -> #(List(scanner.Token), List(scanner.Token)) {
   case tokens {
     [] -> #(list.reverse(line), tokens)
-    [scanner.NewlineLiteral(_) as nl, ..tail] -> #(
+    [scanner.Newline(_) as nl, ..tail] -> #(
       list.prepend(line, nl) |> list.reverse(),
       tail,
     )
@@ -64,14 +64,14 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
-      scanner.NewlineLiteral(_),
+      scanner.Newline(_),
     ]
     | [
-        scanner.WhitespaceLiteral(_),
+        scanner.Whitespace(_),
         scanner.LeftDelimiter,
         scanner.Ignored,
         scanner.RightDelimiter,
-        scanner.NewlineLiteral(_),
+        scanner.Newline(_),
       ] -> []
     // standalone comments with eof
     [
@@ -81,7 +81,7 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       scanner.Eof,
     ]
     | [
-        scanner.WhitespaceLiteral(_),
+        scanner.Whitespace(_),
         scanner.LeftDelimiter,
         scanner.Ignored,
         scanner.RightDelimiter,

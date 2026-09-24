@@ -13,9 +13,9 @@ pub fn text_test() {
     pomade.Text("world!"),
   ]) =
     pomade.parse([
-      scanner.TextLiteral("hello,"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("world!"),
+      scanner.Text("hello,"),
+      scanner.Whitespace(" "),
+      scanner.Text("world!"),
       scanner.Eof,
     ])
 }
@@ -116,11 +116,11 @@ pub fn inverted_section_test() {
       scanner.InvertedSectionIndicator,
       scanner.Identifier("person"),
       scanner.RightDelimiter,
-      scanner.TextLiteral("no"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("repos"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral(":("),
+      scanner.Text("no"),
+      scanner.Whitespace(" "),
+      scanner.Text("repos"),
+      scanner.Whitespace(" "),
+      scanner.Text(":("),
       scanner.LeftDelimiter,
       scanner.ClosingIndicator,
       scanner.Identifier("person"),
@@ -147,7 +147,7 @@ pub fn block_test() {
       scanner.BlockIndicator,
       scanner.Identifier("title"),
       scanner.RightDelimiter,
-      scanner.TextLiteral("hello, world!"),
+      scanner.Text("hello, world!"),
       scanner.LeftDelimiter,
       scanner.ClosingIndicator,
       scanner.Identifier("title"),
@@ -163,7 +163,7 @@ pub fn parent_test() {
       scanner.ParentIndicator,
       scanner.Identifier("title"),
       scanner.RightDelimiter,
-      scanner.TextLiteral("foo, bar, baz"),
+      scanner.Text("foo, bar, baz"),
       scanner.LeftDelimiter,
       scanner.ClosingIndicator,
       scanner.Identifier("title"),
@@ -175,12 +175,12 @@ pub fn parent_test() {
 pub fn elide_comments_test() {
   let assert Ok([pomade.Text("Begin"), pomade.Newline("\n"), pomade.Text("End")]) =
     pomade.parse([
-      scanner.TextLiteral("Begin"),
-      scanner.NewlineLiteral("\n"),
-      scanner.WhitespaceLiteral("\t  "),
+      scanner.Text("Begin"),
+      scanner.Newline("\n"),
+      scanner.Whitespace("\t  "),
       scanner.Ignored,
-      scanner.NewlineLiteral("\n"),
-      scanner.TextLiteral("End"),
+      scanner.Newline("\n"),
+      scanner.Text("End"),
       scanner.Eof,
     ])
 }
@@ -197,7 +197,7 @@ pub fn recursion_test() {
     ),
   ]) =
     pomade.parse([
-      scanner.TextLiteral("some text"),
+      scanner.Text("some text"),
       scanner.LeftDelimiter,
       scanner.SectionIndicator,
       scanner.Identifier("a_section"),
@@ -209,7 +209,7 @@ pub fn recursion_test() {
       scanner.InvertedSectionIndicator,
       scanner.Identifier("inner_section"),
       scanner.RightDelimiter,
-      scanner.TextLiteral("inner text"),
+      scanner.Text("inner text"),
       scanner.LeftDelimiter,
       scanner.ClosingIndicator,
       scanner.Identifier("inner_section"),

@@ -135,7 +135,7 @@ fn parse_line(
 ) -> Result(#(List(Expression), List(scanner.Token)), SyntaxError) {
   use #(expressions, tail) <- result.map(parse_expressions(tokens, []))
   case tail {
-    [scanner.NewlineLiteral(nl), ..tail] ->
+    [scanner.Newline(nl), ..tail] ->
       expressions
       |> list.reverse()
       |> list.prepend(Newline(nl))
@@ -151,7 +151,7 @@ fn parse_expressions(
 ) -> Result(#(List(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
     [scanner.Eof]
-    | [scanner.NewlineLiteral(_), ..]
+    | [scanner.Newline(_), ..]
     | [scanner.LeftDelimiter, scanner.ClosingIndicator, ..] ->
       Ok(#(list.reverse(acc), tokens))
     non_empty -> {
@@ -335,22 +335,17 @@ fn parse_primary(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [
-      scanner.WhitespaceLiteral(_),
-      scanner.Ignored,
-      scanner.NewlineLiteral(_),
-      ..tail
-    ] -> parse_primary(tail)
-    [scanner.WhitespaceLiteral(_), scanner.Ignored, scanner.Eof] ->
+    [scanner.Whitespace(_), scanner.Ignored, scanner.Newline(_), ..tail] ->
+      parse_primary(tail)
+    [scanner.Whitespace(_), scanner.Ignored, scanner.Eof] ->
       Ok(#(None, [scanner.Eof]))
-    [scanner.Ignored, scanner.NewlineLiteral(_), ..tail]
+    [scanner.Ignored, scanner.Newline(_), ..tail]
     | [scanner.Ignored, ..tail]
     | [scanner.SetDelimiters(_, _), ..tail] -> parse_primary(tail)
-    [scanner.TextLiteral(value), ..tail] -> Ok(emit_expr(Text, value, tail))
-    [scanner.WhitespaceLiteral(value), ..tail] ->
+    [scanner.Text(value), ..tail] -> Ok(emit_expr(Text, value, tail))
+    [scanner.Whitespace(value), ..tail] ->
       Ok(emit_expr(Whitespace, value, tail))
-    [scanner.Eof] | [scanner.NewlineLiteral(_), ..] | [_, ..] ->
-      Ok(#(None, tokens))
+    [scanner.Eof] | [scanner.Newline(_), ..] | [_, ..] -> Ok(#(None, tokens))
     [] -> Error(UnexpectedEndOfInputError)
   }
 }

@@ -5,23 +5,23 @@ pub fn empty_scanner_test() {
 }
 
 pub fn scan_whitespace_test() {
-  assert Ok([scanner.WhitespaceLiteral(" "), scanner.Eof]) == scanner.scan(" ")
+  assert Ok([scanner.Whitespace(" "), scanner.Eof]) == scanner.scan(" ")
   assert Ok([
-      scanner.WhitespaceLiteral("\t    "),
-      scanner.TextLiteral("indented"),
+      scanner.Whitespace("\t    "),
+      scanner.Text("indented"),
       scanner.Eof,
     ])
     == scanner.scan("\t    indented")
   assert Ok([
-      scanner.TextLiteral("hello,"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("this"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("is"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("a"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("message"),
+      scanner.Text("hello,"),
+      scanner.Whitespace(" "),
+      scanner.Text("this"),
+      scanner.Whitespace(" "),
+      scanner.Text("is"),
+      scanner.Whitespace(" "),
+      scanner.Text("a"),
+      scanner.Whitespace(" "),
+      scanner.Text("message"),
       scanner.Eof,
     ])
     == scanner.scan("hello, this is a message")
@@ -141,12 +141,12 @@ pub fn scan_set_delimiter_start_test() {
 
 pub fn scan_comments_test() {
   let assert Ok([
-    scanner.TextLiteral("Hello,"),
+    scanner.Text("Hello,"),
     scanner.LeftDelimiter,
     scanner.Ignored,
     scanner.RightDelimiter,
-    scanner.WhitespaceLiteral(" "),
-    scanner.TextLiteral("world!"),
+    scanner.Whitespace(" "),
+    scanner.Text("world!"),
     scanner.Eof,
   ]) = scanner.scan("Hello,{{! this is a comment }} world!")
 }
@@ -168,7 +168,7 @@ pub fn scan_triple_mustache_test() {
     scanner.LeftDelimiter,
     scanner.SetDelimiters("<%", "%>"),
     scanner.RightDelimiter,
-    scanner.TextLiteral("{{{no_triple_mustache}}}"),
+    scanner.Text("{{{no_triple_mustache}}}"),
     scanner.Eof,
   ]) =
     scanner.scan(
@@ -189,26 +189,26 @@ pub fn scan_dotted_names_test() {
 
 pub fn scan_newline_test() {
   let assert Ok([
-    scanner.TextLiteral("Begin"),
-    scanner.NewlineLiteral("\n"),
-    scanner.WhitespaceLiteral("\t"),
+    scanner.Text("Begin"),
+    scanner.Newline("\n"),
+    scanner.Whitespace("\t"),
     scanner.LeftDelimiter,
     scanner.Ignored,
     scanner.RightDelimiter,
-    scanner.NewlineLiteral("\n"),
-    scanner.TextLiteral("End"),
+    scanner.Newline("\n"),
+    scanner.Text("End"),
     scanner.Eof,
   ]) = scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
 
   let assert Ok([
-    scanner.TextLiteral("Foo"),
-    scanner.NewlineLiteral("\r\n"),
-    scanner.WhitespaceLiteral("\t"),
+    scanner.Text("Foo"),
+    scanner.Newline("\r\n"),
+    scanner.Whitespace("\t"),
     scanner.LeftDelimiter,
     scanner.Ignored,
     scanner.RightDelimiter,
-    scanner.NewlineLiteral("\n"),
-    scanner.TextLiteral("Bar"),
+    scanner.Newline("\n"),
+    scanner.Text("Bar"),
     scanner.Eof,
   ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
 }

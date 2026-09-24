@@ -7,76 +7,76 @@ pub fn empty_test() {
 
 pub fn elide_set_delimiters_test() {
   assert [
-      scanner.TextLiteral("random"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("text"),
-      scanner.NewlineLiteral("\n"),
-      scanner.TextLiteral("foo"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("random"),
+      scanner.Whitespace(" "),
+      scanner.Text("text"),
+      scanner.Newline("\n"),
+      scanner.Text("foo"),
+      scanner.Newline("\n"),
     ]
     == filter.filter([
-      scanner.TextLiteral("random"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("text"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("random"),
+      scanner.Whitespace(" "),
+      scanner.Text("text"),
+      scanner.Newline("\n"),
       scanner.LeftDelimiter,
       scanner.SetDelimiters("<", ">"),
       scanner.RightDelimiter,
-      scanner.TextLiteral("foo"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("foo"),
+      scanner.Newline("\n"),
     ])
 }
 
 pub fn elide_comment_test() {
   assert [
-      scanner.TextLiteral("random"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("text"),
-      scanner.NewlineLiteral("\n"),
-      scanner.TextLiteral("foo"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("random"),
+      scanner.Whitespace(" "),
+      scanner.Text("text"),
+      scanner.Newline("\n"),
+      scanner.Text("foo"),
+      scanner.Newline("\n"),
     ]
     == filter.filter([
-      scanner.TextLiteral("random"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.TextLiteral("text"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("random"),
+      scanner.Whitespace(" "),
+      scanner.Text("text"),
+      scanner.Newline("\n"),
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
-      scanner.TextLiteral("foo"),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("foo"),
+      scanner.Newline("\n"),
     ])
 }
 
 pub fn indented_standalone_test() {
   assert [
-      scanner.TextLiteral("Begin."),
-      scanner.NewlineLiteral("\n"),
-      scanner.TextLiteral("End."),
-      scanner.NewlineLiteral("\n"),
+      scanner.Text("Begin."),
+      scanner.Newline("\n"),
+      scanner.Text("End."),
+      scanner.Newline("\n"),
       scanner.Eof,
     ]
     == filter.filter([
-      scanner.TextLiteral("Begin."),
-      scanner.NewlineLiteral("\n"),
-      scanner.WhitespaceLiteral("  "),
+      scanner.Text("Begin."),
+      scanner.Newline("\n"),
+      scanner.Whitespace("  "),
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
-      scanner.NewlineLiteral("\n"),
-      scanner.TextLiteral("End."),
-      scanner.NewlineLiteral("\n"),
+      scanner.Newline("\n"),
+      scanner.Text("End."),
+      scanner.Newline("\n"),
       scanner.Eof,
     ])
 }
 
 pub fn standalone_without_newline_test() {
-  assert [scanner.TextLiteral("!"), scanner.NewlineLiteral("\n"), scanner.Eof]
+  assert [scanner.Text("!"), scanner.Newline("\n"), scanner.Eof]
     == filter.filter([
-      scanner.TextLiteral("!"),
-      scanner.NewlineLiteral("\n"),
-      scanner.WhitespaceLiteral("  "),
+      scanner.Text("!"),
+      scanner.Newline("\n"),
+      scanner.Whitespace("  "),
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
@@ -87,23 +87,23 @@ pub fn standalone_without_newline_test() {
 pub fn indented_inline_test() {
   let assert Ok(tokens) = scanner.scan("  12 {{! 34 }}\n")
   assert [
-      scanner.WhitespaceLiteral("  "),
-      scanner.TextLiteral("12"),
-      scanner.WhitespaceLiteral(" "),
+      scanner.Whitespace("  "),
+      scanner.Text("12"),
+      scanner.Whitespace(" "),
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
-      scanner.NewlineLiteral("\n"),
+      scanner.Newline("\n"),
       scanner.Eof,
     ]
     == tokens
 
   let ast = filter.filter(tokens)
   assert [
-      scanner.WhitespaceLiteral("  "),
-      scanner.TextLiteral("12"),
-      scanner.WhitespaceLiteral(" "),
-      scanner.NewlineLiteral("\n"),
+      scanner.Whitespace("  "),
+      scanner.Text("12"),
+      scanner.Whitespace(" "),
+      scanner.Newline("\n"),
       scanner.Eof,
     ]
     == ast
