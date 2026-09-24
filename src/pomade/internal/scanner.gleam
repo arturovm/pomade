@@ -101,21 +101,6 @@ pub fn scan(source: String) -> Result(List(Token), LexicalError) {
   scan_template(lexer, source)
 }
 
-fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
-  Lexer(
-    left_delimiter: left_delimiter,
-    right_delimiter: right_delimiter,
-    free_form_splitter: splitter.new([" ", "\t", "\r\n", "\n", left_delimiter]),
-    whitespace_splitter: splitter.new([" ", "\t"]),
-    tag_start_splitter: splitter.new([left_delimiter]),
-    triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
-    identifier_splitter: splitter.new([".", " ", right_delimiter]),
-    triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
-    tag_end_splitter: splitter.new([right_delimiter]),
-    set_right_delimiter_splitter: splitter.new(["="]),
-  )
-}
-
 fn scan_template(
   lexer: Lexer,
   source: String,
@@ -124,7 +109,7 @@ fn scan_template(
     scan_repetition(
       lexer,
       source,
-      is_one_of(lexer, [
+      is_one_of([
         is_triple_mustache_start,
         is_tag_start,
         is_whitespace,
@@ -143,60 +128,6 @@ fn scan_template(
   ))
   list.prepend(tokens, Eof)
   |> list.reverse()
-}
-
-fn scan_repetition(
-  lexer: Lexer,
-  source: String,
-  predicate: fn(String) -> Bool,
-  scanner: fn(Lexer, String, List(Token)) ->
-    Result(#(Lexer, List(Token), String), LexicalError),
-  stream: List(Token),
-) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case predicate(source) {
-    False -> Ok(#(lexer, stream, source))
-    True -> {
-      use #(lexer, tokens, tail) <- result.try(scanner(lexer, source, stream))
-      scan_repetition(lexer, tail, predicate, scanner, tokens)
-    }
-  }
-}
-
-fn is_one_of(
-  lexer: Lexer,
-  predicates: List(fn(Lexer, String) -> Bool),
-) -> fn(String) -> Bool {
-  fn(source: String) {
-    list.map(predicates, fn(p) { p(lexer, source) })
-    |> list.fold(False, fn(acc, v) { v || acc })
-  }
-}
-
-fn is_triple_mustache_start(lexer: Lexer, source: String) -> Bool {
-  lexer.left_delimiter == default_left_delimiter
-  && string.starts_with(source, left_triple_mustache)
-}
-
-fn is_tag_start(lexer: Lexer, source: String) -> Bool {
-  string.starts_with(source, lexer.left_delimiter)
-}
-
-fn is_whitespace(_lexer: Lexer, source: String) -> Bool {
-  case source {
-    " " <> _ | "\t" <> _ -> True
-    _ -> False
-  }
-}
-
-fn is_text(lexer: Lexer, source: String) -> Bool {
-  case is_tag_start(lexer, source) {
-    True -> False
-    False ->
-      case source {
-        "" | " " <> _ | "\t" <> _ | "\n" <> _ | "\r\n" <> _ -> False
-        _ -> True
-      }
-  }
 }
 
 fn scan_top_level(
@@ -259,23 +190,12 @@ fn scan_left_triple_mustache(
   }
 }
 
-fn discard_optional(
-  lexer: Lexer,
-  source: String,
-  consumer: fn(Lexer, String) -> Result(#(Lexer, Token, String), LexicalError),
-) -> String {
-  case consumer(lexer, source) {
-    Ok(#(_, _, tail)) -> tail
-    Error(_) -> source
-  }
-}
-
 fn scan_name(
   lexer: Lexer,
   source: String,
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case is_dot(source) {
+  case is_dot(lexer, source) {
     True -> scan_dot(lexer, source, stream)
     False -> {
       use #(lexer, stream, tail) <- result.try(scan_identifier(
@@ -293,10 +213,6 @@ fn scan_name(
       #(lexer, stream, tail)
     }
   }
-}
-
-fn is_dot(source: String) -> Bool {
-  string.starts_with(source, ".")
 }
 
 fn scan_dot(
@@ -373,7 +289,7 @@ fn scan_tag(
     tail,
     stream,
   ))
-  use #(_lexer, stream, tail) <- result.map(scan_tag_end(lexer, tail, stream))
+  use #(_, stream, tail) <- result.map(scan_tag_end(lexer, tail, stream))
   #(new_lexer, stream, tail)
 }
 
@@ -503,14 +419,6 @@ fn scan_indicator(
   }
 }
 
-fn scan_single(
-  source: String,
-  token: Token,
-  stream: List(Token),
-) -> Result(#(List(Token), String), LexicalError) {
-  Ok(#(list.prepend(stream, token), string.drop_start(source, 1)))
-}
-
 fn scan_variable(
   lexer: Lexer,
   source: String,
@@ -580,7 +488,7 @@ fn scan_text(
   Ok(#(lexer, list.prepend(stream, TextLiteral(text)), rest))
 }
 
-fn is_newline(source: String) -> Bool {
+fn is_newline(_lexer: Lexer, source: String) -> Bool {
   case source {
     "\r\n" <> _ | "\n" <> _ -> True
     _ -> False
@@ -596,7 +504,7 @@ fn scan_newline_top_level(
   use #(lexer, stream, tail) <- result.map(scan_repetition(
     lexer,
     tail,
-    is_one_of(lexer, [
+    is_one_of([
       is_triple_mustache_start,
       is_tag_start,
       is_whitespace,
@@ -619,4 +527,97 @@ fn scan_newline(
     _ ->
       Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
+}
+
+// helpers
+
+fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
+  Lexer(
+    left_delimiter: left_delimiter,
+    right_delimiter: right_delimiter,
+    free_form_splitter: splitter.new([" ", "\t", "\r\n", "\n", left_delimiter]),
+    whitespace_splitter: splitter.new([" ", "\t"]),
+    tag_start_splitter: splitter.new([left_delimiter]),
+    triple_mustache_start_splitter: splitter.new([left_triple_mustache]),
+    identifier_splitter: splitter.new([".", " ", right_delimiter]),
+    triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
+    tag_end_splitter: splitter.new([right_delimiter]),
+    set_right_delimiter_splitter: splitter.new(["="]),
+  )
+}
+
+fn scan_repetition(
+  lexer: Lexer,
+  source: String,
+  predicate: fn(Lexer, String) -> Bool,
+  scanner: fn(Lexer, String, List(Token)) ->
+    Result(#(Lexer, List(Token), String), LexicalError),
+  stream: List(Token),
+) -> Result(#(Lexer, List(Token), String), LexicalError) {
+  case predicate(lexer, source) {
+    False -> Ok(#(lexer, stream, source))
+    True -> {
+      use #(lexer, tokens, tail) <- result.try(scanner(lexer, source, stream))
+      scan_repetition(lexer, tail, predicate, scanner, tokens)
+    }
+  }
+}
+
+fn discard_optional(
+  lexer: Lexer,
+  source: String,
+  consumer: fn(Lexer, String) -> Result(#(Lexer, Token, String), LexicalError),
+) -> String {
+  case consumer(lexer, source) {
+    Ok(#(_, _, tail)) -> tail
+    Error(_) -> source
+  }
+}
+
+fn scan_single(
+  source: String,
+  token: Token,
+  stream: List(Token),
+) -> Result(#(List(Token), String), LexicalError) {
+  Ok(#(list.prepend(stream, token), string.drop_start(source, 1)))
+}
+
+fn is_one_of(
+  predicates: List(fn(Lexer, String) -> Bool),
+) -> fn(Lexer, String) -> Bool {
+  fn(lexer: Lexer, source: String) {
+    list.map(predicates, fn(p) { p(lexer, source) })
+    |> list.fold(False, fn(acc, v) { v || acc })
+  }
+}
+
+fn is_triple_mustache_start(lexer: Lexer, source: String) -> Bool {
+  lexer.left_delimiter == default_left_delimiter
+  && string.starts_with(source, left_triple_mustache)
+}
+
+fn is_tag_start(lexer: Lexer, source: String) -> Bool {
+  string.starts_with(source, lexer.left_delimiter)
+}
+
+fn is_whitespace(_lexer: Lexer, source: String) -> Bool {
+  case source {
+    " " <> _ | "\t" <> _ -> True
+    _ -> False
+  }
+}
+
+fn is_text(lexer: Lexer, source: String) -> Bool {
+  case is_tag_start(lexer, source) {
+    True -> False
+    False ->
+      case source {
+        "" | " " <> _ | "\t" <> _ | "\n" <> _ | "\r\n" <> _ -> False
+        _ -> True
+      }
+  }
+}
+
+fn is_dot(_lexer: Lexer, source: String) -> Bool {
+  string.starts_with(source, ".")
 }
