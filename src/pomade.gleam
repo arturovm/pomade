@@ -8,6 +8,7 @@ import gleam/pair
 import gleam/result
 import gleam/string_tree.{type StringTree}
 import houdini
+import pomade/internal/filter
 
 import pomade/internal/scanner
 
@@ -29,19 +30,9 @@ pub type Error {
 
 /// `render` renders a template source string directly. Useful when convenience
 /// is the priority.
-pub fn render(template: String, environment: Value) -> String {
-  case scanner.scan(template) {
-    Error(_) -> ""
-    Ok(tokens) ->
-      case parse(tokens) {
-        Error(_) -> ""
-        Ok(ast) ->
-          case interpret(ast, environment) {
-            Error(_) -> ""
-            Ok(result) -> result
-          }
-      }
-  }
+pub fn render(template: String, environment: Value) -> Result(String, Error) {
+  use template <- result.try(compile(template))
+  template(environment)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -49,7 +40,9 @@ pub fn render(template: String, environment: Value) -> String {
 /// when speed is important.
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
-    scanner.scan(template) |> result.map_error(ScannerError),
+    scanner.scan(template)
+    |> result.map_error(ScannerError)
+    |> result.map(filter.filter),
   )
   use ast <- result.map(parse(tokens) |> result.map_error(ParserError))
   fn(env: Value) -> Result(String, Error) {
