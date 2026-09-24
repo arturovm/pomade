@@ -7,7 +7,8 @@ import pomade/internal/scanner
 
 pub fn filter(tokens: List(scanner.Token)) -> List(scanner.Token) {
   split_lines(tokens)
-  |> list.map(elide)
+  |> elide(standalone)
+  |> elide(other)
   |> list.flatten()
 }
 
@@ -49,24 +50,17 @@ fn line_loop(
   }
 }
 
-fn elide(line: List(scanner.Token)) -> List(scanner.Token) {
-  elide_loop(line, [])
+fn elide(
+  lines: List(List(scanner.Token)),
+  with: fn(List(scanner.Token)) -> List(scanner.Token),
+) -> List(List(scanner.Token)) {
+  list.map(lines, with)
 }
 
-fn elide_loop(
-  input: List(scanner.Token),
-  output: List(scanner.Token),
-) -> List(scanner.Token) {
-  case input {
-    [] -> list.reverse(output)
+fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
+  case line {
+    // standalone comments with newline
     [
-      scanner.LeftDelimiter,
-      scanner.SetDelimiters(_, _),
-      scanner.RightDelimiter,
-      ..tail
-    ] -> elide_loop(tail, output)
-    [
-      scanner.WhitespaceLiteral(_),
       scanner.LeftDelimiter,
       scanner.Ignored,
       scanner.RightDelimiter,
@@ -77,9 +71,49 @@ fn elide_loop(
         scanner.LeftDelimiter,
         scanner.Ignored,
         scanner.RightDelimiter,
-      ] -> elide_loop([], output)
+        scanner.NewlineLiteral(_),
+      ] -> []
+    // standalone comments with eof
+    [
+      scanner.LeftDelimiter,
+      scanner.Ignored,
+      scanner.RightDelimiter,
+      scanner.Eof,
+    ]
+    | [
+        scanner.WhitespaceLiteral(_),
+        scanner.LeftDelimiter,
+        scanner.Ignored,
+        scanner.RightDelimiter,
+        scanner.Eof,
+      ] -> [scanner.Eof]
+    // continue
+    any -> any
+  }
+}
+
+fn other(line: List(scanner.Token)) -> List(scanner.Token) {
+  other_loop(line, [])
+}
+
+fn other_loop(
+  input: List(scanner.Token),
+  output: List(scanner.Token),
+) -> List(scanner.Token) {
+  case input {
+    // base case
+    [] -> list.reverse(output)
+    // comments
     [scanner.LeftDelimiter, scanner.Ignored, scanner.RightDelimiter, ..tail] ->
-      elide_loop(tail, output)
-    [head, ..tail] -> elide_loop(tail, list.prepend(output, head))
+      other_loop(tail, output)
+    // set delimiters
+    [
+      scanner.LeftDelimiter,
+      scanner.SetDelimiters(_, _),
+      scanner.RightDelimiter,
+      ..tail
+    ] -> other_loop(tail, output)
+    // continue
+    [head, ..tail] -> other_loop(tail, list.prepend(output, head))
   }
 }

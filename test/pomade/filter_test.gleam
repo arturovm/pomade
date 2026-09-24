@@ -70,26 +70,41 @@ pub fn indented_standalone_test() {
       scanner.Eof,
     ])
 }
-// pub fn indented_inline_test() {
-//   let assert Ok(tokens) = scanner.scan("  12 {{! 34 }}\n")
-//   assert [
-//       scanner.WhitespaceLiteral("  "),
-//       scanner.TextLiteral("12"),
-//       scanner.WhitespaceLiteral(" "),
-//       scanner.LeftDelimiter,
-//       scanner.Ignored,
-//       scanner.RightDelimiter,
-//       scanner.NewlineLiteral("\n"),
-//       scanner.Eof,
-//     ]
-//     == tokens
-//
-//   let assert Ok(ast) = pomade.parse(tokens)
-//   assert [
-//       pomade.Whitespace("  "),
-//       pomade.Text("12"),
-//       pomade.Whitespace(" "),
-//       pomade.Newline("\n"),
-//     ]
-//     == ast
-// }
+
+pub fn standalone_without_newline_test() {
+  assert [scanner.TextLiteral("!"), scanner.NewlineLiteral("\n"), scanner.Eof]
+    == filter.filter([
+      scanner.TextLiteral("!"),
+      scanner.NewlineLiteral("\n"),
+      scanner.WhitespaceLiteral("  "),
+      scanner.LeftDelimiter,
+      scanner.Ignored,
+      scanner.RightDelimiter,
+      scanner.Eof,
+    ])
+}
+
+pub fn indented_inline_test() {
+  let assert Ok(tokens) = scanner.scan("  12 {{! 34 }}\n")
+  assert [
+      scanner.WhitespaceLiteral("  "),
+      scanner.TextLiteral("12"),
+      scanner.WhitespaceLiteral(" "),
+      scanner.LeftDelimiter,
+      scanner.Ignored,
+      scanner.RightDelimiter,
+      scanner.NewlineLiteral("\n"),
+      scanner.Eof,
+    ]
+    == tokens
+
+  let ast = filter.filter(tokens)
+  assert [
+      scanner.WhitespaceLiteral("  "),
+      scanner.TextLiteral("12"),
+      scanner.WhitespaceLiteral(" "),
+      scanner.NewlineLiteral("\n"),
+      scanner.Eof,
+    ]
+    == ast
+}
