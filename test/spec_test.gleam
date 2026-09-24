@@ -93,22 +93,23 @@ fn run(loaded_test: Test) {
 fn run_all(tests: List(Test)) {
   list.each(tests, run)
 }
-// pub fn comments_test() {
-//   let tests = load_tests_from_file("comments.json")
-//   run_all(tests)
-// }
-//
-// pub fn interpolation_test() {
-//   let tests = load_tests_from_file("interpolation.json")
-//   run_all(tests)
-// }
-//
-// pub fn sections_test() {
-//   let tests = load_tests_from_file("sections.json")
-//   run_all(tests)
-// }
-//
-// pub fn delimiters_test() {
-//   let tests = load_tests_from_file("delimiters.json")
-//   run_all(tests)
-// }
+
+pub fn comments_test() {
+  let tests = load_tests_from_file("comments.json")
+  run_all(tests)
+}
+
+pub fn interpolation_test() {
+  let tests = load_tests_from_file("interpolation.json")
+  run_all(tests)
+}
+
+pub fn sections_test() {
+  let tests = load_tests_from_file("sections.json")
+  run_all(tests)
+}
+
+pub fn delimiters_test() {
+  let tests = load_tests_from_file("delimiters.json")
+  run_all(tests)
+}
