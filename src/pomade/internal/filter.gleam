@@ -1,6 +1,9 @@
 //// Elision rules for Mustache:
 ////
-//// _set_delimiters -> LEFT_DELIMITER SET_DELIMITERS RIGHT_DELIMITER ;
+//// _standalone_comment                 -> LEFT_DELIMITER IGNORED RIGHT_DELIMITER (NEWLINE | EOF) ;
+//// _standalone_comment_with_whitespace -> WHITESPACE LEFT_DELIMITER IGNORED RIGHT_DELIMITER (NEWLINE | EOF) ;
+//// _set_delimiters                     -> {any} LEFT_DELIMITER SET_DELIMITERS RIGHT_DELIMITER {any} ;
+//// _comment                            -> {any} LEFT_DELIMITER IGNORED RIGHT_DELIMITER {any} ;
 
 import gleam/list
 import pomade/internal/scanner
@@ -62,28 +65,28 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     // standalone comments with newline
     [
       scanner.LeftDelimiter,
-      scanner.Ignored,
+      scanner.Comment,
       scanner.RightDelimiter,
       scanner.Newline(_),
     ]
     | [
         scanner.Whitespace(_),
         scanner.LeftDelimiter,
-        scanner.Ignored,
+        scanner.Comment,
         scanner.RightDelimiter,
         scanner.Newline(_),
       ] -> []
     // standalone comments with eof
     [
       scanner.LeftDelimiter,
-      scanner.Ignored,
+      scanner.Comment,
       scanner.RightDelimiter,
       scanner.Eof,
     ]
     | [
         scanner.Whitespace(_),
         scanner.LeftDelimiter,
-        scanner.Ignored,
+        scanner.Comment,
         scanner.RightDelimiter,
         scanner.Eof,
       ] -> [scanner.Eof]
@@ -104,7 +107,7 @@ fn other_loop(
     // base case
     [] -> list.reverse(output)
     // comments
-    [scanner.LeftDelimiter, scanner.Ignored, scanner.RightDelimiter, ..tail] ->
+    [scanner.LeftDelimiter, scanner.Comment, scanner.RightDelimiter, ..tail] ->
       other_loop(tail, output)
     // set delimiters
     [

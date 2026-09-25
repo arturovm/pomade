@@ -29,79 +29,56 @@ pub fn scan_whitespace_test() {
 
 pub fn scan_variable_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.Identifier("person"),
-    scanner.RightDelimiter,
+    scanner.Variable(["person"]),
     scanner.Eof,
   ]) = scanner.scan("{{person}}")
 }
 
 pub fn scan_raw_variable_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.RawVariableIndicator,
-    scanner.Identifier("name"),
-    scanner.RightDelimiter,
+    scanner.RawVariable(["name"]),
     scanner.Eof,
   ]) = scanner.scan("{{& name}}")
 }
 
 pub fn scan_section_start_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.SectionIndicator,
-    scanner.Identifier("person"),
-    scanner.RightDelimiter,
+    scanner.SectionStart(["person"]),
     scanner.Eof,
   ]) = scanner.scan("{{#person}}")
 }
 
 pub fn scan_closing_tag_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.ClosingIndicator,
-    scanner.Identifier("person"),
-    scanner.RightDelimiter,
+    scanner.End(["person"]),
     scanner.Eof,
   ]) = scanner.scan("{{/person}}")
 }
 
 pub fn scan_inverted_section_start_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.InvertedSectionIndicator,
-    scanner.Identifier("person"),
-    scanner.RightDelimiter,
+    scanner.InvertedSectionStart(["person"]),
     scanner.Eof,
   ]) = scanner.scan("{{^person}}")
 }
 
 pub fn scan_partial_test_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.PartialIndicator,
-    scanner.Identifier("next_more"),
-    scanner.RightDelimiter,
+    scanner.Partial(["next_more"]),
     scanner.Eof,
   ]) = scanner.scan("{{> next_more}}")
 }
 
 pub fn scan_block_start_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.BlockIndicator,
-    scanner.Identifier("title"),
-    scanner.RightDelimiter,
+    scanner.BlockStart(["title"]),
     scanner.Eof,
   ]) = scanner.scan("{{$title}}")
 }
 
 pub fn scan_parent_start_test() {
   let assert Ok([
-    scanner.LeftDelimiter,
-    scanner.ParentIndicator,
-    scanner.Identifier("article"),
-    scanner.RightDelimiter,
+    scanner.ParentStart(["article"]),
     scanner.Eof,
   ]) = scanner.scan("{{<article}}")
 }
@@ -143,7 +120,7 @@ pub fn scan_comments_test() {
   let assert Ok([
     scanner.Text("Hello,"),
     scanner.LeftDelimiter,
-    scanner.Ignored,
+    scanner.Comment,
     scanner.RightDelimiter,
     scanner.Whitespace(" "),
     scanner.Text("world!"),
@@ -193,7 +170,7 @@ pub fn scan_newline_test() {
     scanner.Newline("\n"),
     scanner.Whitespace("\t"),
     scanner.LeftDelimiter,
-    scanner.Ignored,
+    scanner.Comment,
     scanner.RightDelimiter,
     scanner.Newline("\n"),
     scanner.Text("End"),
@@ -205,10 +182,15 @@ pub fn scan_newline_test() {
     scanner.Newline("\r\n"),
     scanner.Whitespace("\t"),
     scanner.LeftDelimiter,
-    scanner.Ignored,
+    scanner.Comment,
     scanner.RightDelimiter,
     scanner.Newline("\n"),
     scanner.Text("Bar"),
     scanner.Eof,
   ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
+}
+
+pub fn scan_multiline_comment_test() {
+  let assert Ok([]) =
+    scanner.scan("12345{{!\n  This is a\n  multi-line comment...\n}}67890\n")
 }
