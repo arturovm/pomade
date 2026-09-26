@@ -2,7 +2,8 @@ import gleam/dict
 
 import gleeunit
 
-import pomade.{Dict, String}
+import pomade
+import pomade/value.{Dict, String}
 
 pub fn main() -> Nil {
   gleeunit.main()

@@ -6,6 +6,7 @@
 //// _comment                            -> {any} COMMENT {any} ;
 
 import gleam/list
+
 import pomade/internal/scanner
 
 pub fn filter(tokens: List(scanner.Token)) -> List(scanner.Token) {

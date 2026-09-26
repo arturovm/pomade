@@ -1,35 +1,37 @@
 import gleam/dict.{type Dict}
-import gleam/option.{type Option, Some}
 
+/// `Value` represents any of the possible types that can be passed as the
+/// right-hand side of the dictionary used as input for Mustache templates
+/// (what Mustache calls a "hash" in its official documentation).
 pub type Value {
-  Dict(Dict(String, Option(Value)))
+  Dict(Dict(String, Value))
   Int(Int)
   Float(Float)
   String(String)
   Bool(Bool)
-  List(List(Option(Value)))
+  List(List(Value))
 }
 
-pub fn from_dict(value: Dict(String, Option(Value))) -> Option(Value) {
-  Some(Dict(value))
+pub fn from_dict(value: Dict(String, Value)) -> Value {
+  Dict(value)
 }
 
-pub fn from_int(value: Int) -> Option(Value) {
-  Some(Int(value))
+pub fn from_int(value: Int) -> Value {
+  Int(value)
 }
 
-pub fn from_float(value: Float) -> Option(Value) {
-  Some(Float(value))
+pub fn from_float(value: Float) -> Value {
+  Float(value)
 }
 
-pub fn from_string(value: String) -> Option(Value) {
-  Some(String(value))
+pub fn from_string(value: String) -> Value {
+  String(value)
 }
 
-pub fn from_bool(value: Bool) -> Option(Value) {
-  Some(Bool(value))
+pub fn from_bool(value: Bool) -> Value {
+  Bool(value)
 }
 
-pub fn from_list(value: List(Option(Value))) -> Option(Value) {
-  Some(List(value))
+pub fn from_list(value: List(Value)) -> Value {
+  List(value)
 }

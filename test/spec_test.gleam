@@ -7,7 +7,8 @@ import gleam/option.{type Option, None, Some}
 import filepath
 import simplifile
 
-import pomade.{type Value, Dict, List}
+import pomade
+import pomade/value.{type Value, Bool, Dict, Float, Int, List, String}
 
 type Test {
   Test(
@@ -48,10 +49,10 @@ fn test_decoder() -> decode.Decoder(Test) {
 
 fn value_decoder() -> decode.Decoder(Value) {
   use <- decode.recursive
-  decode.one_of(decode.int |> decode.map(pomade.Int), [
-    decode.float |> decode.map(pomade.Float),
-    decode.string |> decode.map(pomade.String),
-    decode.bool |> decode.map(pomade.Bool),
+  decode.one_of(decode.int |> decode.map(Int), [
+    decode.float |> decode.map(Float),
+    decode.string |> decode.map(String),
+    decode.bool |> decode.map(Bool),
     list_decoder(),
     dict_decoder(),
   ])
