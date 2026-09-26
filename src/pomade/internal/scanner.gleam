@@ -193,14 +193,6 @@ fn read_name(
   }
 }
 
-fn discard_dot(_lexer: Lexer, source: String) -> Result(String, LexicalError) {
-  case source {
-    "." <> tail -> Ok(tail)
-    _ ->
-      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
-  }
-}
-
 fn read_identifier(
   lexer: Lexer,
   source: String,
