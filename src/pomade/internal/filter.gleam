@@ -68,6 +68,25 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     // standalone comments with eof
     [scanner.Comment, scanner.Eof]
     | [scanner.Whitespace(_), scanner.Comment, scanner.Eof] -> [scanner.Eof]
+    // standalone section start with newline
+    [scanner.SectionStart(_) as ss, scanner.Newline(_)]
+    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Newline(_)] -> [
+      ss,
+    ]
+    // standalone section start with eof
+    [scanner.SectionStart(_) as ss, scanner.Eof]
+    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Eof] -> [
+      ss,
+    ]
+    // standalone end tag with newline
+    [scanner.End(_) as end, scanner.Newline(_)]
+    | [scanner.Whitespace(_), scanner.End(_) as end, scanner.Newline(_)] -> [
+      end,
+    ]
+    // standalone end tag with eof
+    [scanner.Whitespace(_), scanner.End(_) as end, scanner.Eof as eof] -> [
+      end, eof,
+    ]
     // continue
     any -> any
   }
