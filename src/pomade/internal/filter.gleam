@@ -87,6 +87,8 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     [scanner.Whitespace(_), scanner.End(_) as end, scanner.Eof as eof] -> [
       end, eof,
     ]
+    // standalone set delimiters with newline
+    [scanner.SetDelimiters(_, _), scanner.Newline(_)] -> []
     // continue
     any -> any
   }

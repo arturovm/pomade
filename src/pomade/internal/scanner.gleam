@@ -4,7 +4,7 @@
 //// TRIPLE_MUSTACHE        -> "{{{" [WHITESPACE] name [WHITESPACE] "}}}" ;
 //// tag                    -> COMMENT | SET_DELIMITERS | SECTION | INVERTED_SECTION | BLOCK | CLOSING_TAG | PARTIAL | PARENT | RAW_VARIABLE | VARIABLE ;
 //// COMMENT                -> left_delimiter "!" {any - right_delimiter} right_delimiter ;
-//// SET_DELIMITERS         -> left_delimiter "=" user_defined_left_delimiter [WHITESPACE] user_defined_right_delimiter "=" right_delimiter ;
+//// SET_DELIMITERS         -> left_delimiter [WHITESPACE] "=" user_defined_left_delimiter WHITESPACE user_defined_right_delimiter "=" [WHITESPACE] right_delimiter ;
 //// SECTION_START          -> left_delimiter "#" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// INVERTED_SECTION_START -> left_delimiter "^" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// BLOCK_START            -> left_delimiter "$" [WHITESPACE] name [WHITESPACE] right_delimiter ;
@@ -299,6 +299,7 @@ fn scan_set_delimiters(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   use tail <- result.try(discard(source, "="))
+  let tail = discard_optional(tail, read_whitespace)
   use #(left_delimiter, tail) <- result.try(read_custom_left_delimiter_value(
     lexer,
     tail,
@@ -308,6 +309,7 @@ fn scan_set_delimiters(
     lexer,
     tail,
   ))
+  let tail = discard_optional(tail, read_whitespace)
   use tail <- result.map(discard(tail, "="))
   #(
     new_lexer(left_delimiter, right_delimiter),
@@ -468,7 +470,7 @@ fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
     identifier_splitter: splitter.new([".", " ", right_delimiter]),
     triple_mustache_end_splitter: splitter.new([right_triple_mustache]),
     tag_end_splitter: splitter.new([right_delimiter]),
-    set_right_delimiter_splitter: splitter.new(["="]),
+    set_right_delimiter_splitter: splitter.new(["=", " ", "\t"]),
   )
 }
 
