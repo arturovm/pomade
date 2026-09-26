@@ -1,9 +1,9 @@
 //// Elision rules for Mustache:
 ////
-//// _standalone_comment                 -> LEFT_DELIMITER IGNORED RIGHT_DELIMITER (NEWLINE | EOF) ;
-//// _standalone_comment_with_whitespace -> WHITESPACE LEFT_DELIMITER IGNORED RIGHT_DELIMITER (NEWLINE | EOF) ;
-//// _set_delimiters                     -> {any} LEFT_DELIMITER SET_DELIMITERS RIGHT_DELIMITER {any} ;
-//// _comment                            -> {any} LEFT_DELIMITER IGNORED RIGHT_DELIMITER {any} ;
+//// _standalone_comment                 -> COMMENT (NEWLINE | EOF) ;
+//// _standalone_comment_with_whitespace -> WHITESPACE COMMENT (NEWLINE | EOF) ;
+//// _set_delimiters                     -> {any} SET_DELIMITERS {any} ;
+//// _comment                            -> {any} COMMENT {any} ;
 
 import gleam/list
 import pomade/internal/scanner
@@ -63,33 +63,11 @@ fn elide(
 fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
   case line {
     // standalone comments with newline
-    [
-      scanner.LeftDelimiter,
-      scanner.Comment,
-      scanner.RightDelimiter,
-      scanner.Newline(_),
-    ]
-    | [
-        scanner.Whitespace(_),
-        scanner.LeftDelimiter,
-        scanner.Comment,
-        scanner.RightDelimiter,
-        scanner.Newline(_),
-      ] -> []
+    [scanner.Comment, scanner.Newline(_)]
+    | [scanner.Whitespace(_), scanner.Comment, scanner.Newline(_)] -> []
     // standalone comments with eof
-    [
-      scanner.LeftDelimiter,
-      scanner.Comment,
-      scanner.RightDelimiter,
-      scanner.Eof,
-    ]
-    | [
-        scanner.Whitespace(_),
-        scanner.LeftDelimiter,
-        scanner.Comment,
-        scanner.RightDelimiter,
-        scanner.Eof,
-      ] -> [scanner.Eof]
+    [scanner.Comment, scanner.Eof]
+    | [scanner.Whitespace(_), scanner.Comment, scanner.Eof] -> [scanner.Eof]
     // continue
     any -> any
   }
@@ -107,15 +85,9 @@ fn other_loop(
     // base case
     [] -> list.reverse(output)
     // comments
-    [scanner.LeftDelimiter, scanner.Comment, scanner.RightDelimiter, ..tail] ->
-      other_loop(tail, output)
+    [scanner.Comment, ..tail] -> other_loop(tail, output)
     // set delimiters
-    [
-      scanner.LeftDelimiter,
-      scanner.SetDelimiters(_, _),
-      scanner.RightDelimiter,
-      ..tail
-    ] -> other_loop(tail, output)
+    [scanner.SetDelimiters(_, _), ..tail] -> other_loop(tail, output)
     // continue
     [head, ..tail] -> other_loop(tail, list.prepend(output, head))
   }

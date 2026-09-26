@@ -22,9 +22,7 @@ pub fn text_test() {
 pub fn variable_test() {
   let assert Ok([parser.Variable(["hello"])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.Identifier("hello"),
-      scanner.RightDelimiter,
+      scanner.Variable(["hello"]),
       scanner.Eof,
     ])
 }
@@ -32,11 +30,7 @@ pub fn variable_test() {
 pub fn dotted_variable_test() {
   let assert Ok([parser.Variable(["hello", "world"])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.Identifier("hello"),
-      scanner.Dot,
-      scanner.Identifier("world"),
-      scanner.RightDelimiter,
+      scanner.Variable(["hello", "world"]),
       scanner.Eof,
     ])
 }
@@ -44,18 +38,7 @@ pub fn dotted_variable_test() {
 pub fn variable_single_dot_test() {
   let assert Ok([parser.Variable(["."])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.Dot,
-      scanner.RightDelimiter,
-      scanner.Eof,
-    ])
-
-  let assert Error(parser.UnexpectedTokenError(scanner.Identifier("foo"))) =
-    parser.parse([
-      scanner.LeftDelimiter,
-      scanner.Dot,
-      scanner.Identifier("foo"),
-      scanner.RightDelimiter,
+      scanner.Variable(["."]),
       scanner.Eof,
     ])
 }
@@ -63,18 +46,13 @@ pub fn variable_single_dot_test() {
 pub fn raw_variable_test() {
   let assert Ok([parser.RawVariable(["hello"])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.RawVariable,
-      scanner.Identifier("hello"),
-      scanner.RightDelimiter,
+      scanner.RawVariable(["hello"]),
       scanner.Eof,
     ])
 
   let assert Ok([parser.RawVariable(["goodbye"])]) =
     parser.parse([
-      scanner.LeftTripleMustache,
-      scanner.Identifier("goodbye"),
-      scanner.RightTripleMustache,
+      scanner.RawVariable(["goodbye"]),
       scanner.Eof,
     ])
 }
@@ -82,17 +60,9 @@ pub fn raw_variable_test() {
 pub fn section_test() {
   let assert Ok([parser.Section(["person"], [parser.Variable(["name"])])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.SectionStart,
-      scanner.Identifier("person"),
-      scanner.RightDelimiter,
-      scanner.LeftDelimiter,
-      scanner.Identifier("name"),
-      scanner.RightDelimiter,
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("person"),
-      scanner.RightDelimiter,
+      scanner.SectionStart(["person"]),
+      scanner.Variable(["name"]),
+      scanner.End(["person"]),
       scanner.Eof,
     ])
 }
@@ -111,19 +81,13 @@ pub fn inverted_section_test() {
     ),
   ]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.InvertedSectionStart,
-      scanner.Identifier("person"),
-      scanner.RightDelimiter,
+      scanner.InvertedSectionStart(["person"]),
       scanner.Text("no"),
       scanner.Whitespace(" "),
       scanner.Text("repos"),
       scanner.Whitespace(" "),
       scanner.Text(":("),
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("person"),
-      scanner.RightDelimiter,
+      scanner.End(["person"]),
       scanner.Eof,
     ])
 }
@@ -131,10 +95,7 @@ pub fn inverted_section_test() {
 pub fn partial_test() {
   let assert Ok([parser.Partial(["box"])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.Partial,
-      scanner.Identifier("box"),
-      scanner.RightDelimiter,
+      scanner.Partial(["box"]),
       scanner.Eof,
     ])
 }
@@ -142,15 +103,9 @@ pub fn partial_test() {
 pub fn block_test() {
   let assert Ok([parser.Block(["title"], [parser.Text("hello, world!")])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.BlockStart,
-      scanner.Identifier("title"),
-      scanner.RightDelimiter,
+      scanner.BlockStart(["title"]),
       scanner.Text("hello, world!"),
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("title"),
-      scanner.RightDelimiter,
+      scanner.End(["title"]),
       scanner.Eof,
     ])
 }
@@ -158,15 +113,9 @@ pub fn block_test() {
 pub fn parent_test() {
   let assert Ok([parser.Parent(["title"], [parser.Text("foo, bar, baz")])]) =
     parser.parse([
-      scanner.LeftDelimiter,
-      scanner.ParentStart,
-      scanner.Identifier("title"),
-      scanner.RightDelimiter,
+      scanner.ParentStart(["title"]),
       scanner.Text("foo, bar, baz"),
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("title"),
-      scanner.RightDelimiter,
+      scanner.End(["title"]),
       scanner.Eof,
     ])
 }
@@ -184,26 +133,12 @@ pub fn recursion_test() {
   ]) =
     parser.parse([
       scanner.Text("some text"),
-      scanner.LeftDelimiter,
-      scanner.SectionStart,
-      scanner.Identifier("a_section"),
-      scanner.RightDelimiter,
-      scanner.LeftDelimiter,
-      scanner.Identifier("some_variable"),
-      scanner.RightDelimiter,
-      scanner.LeftDelimiter,
-      scanner.InvertedSectionStart,
-      scanner.Identifier("inner_section"),
-      scanner.RightDelimiter,
+      scanner.SectionStart(["a_section"]),
+      scanner.Variable(["some_variable"]),
+      scanner.InvertedSectionStart(["inner_section"]),
       scanner.Text("inner text"),
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("inner_section"),
-      scanner.RightDelimiter,
-      scanner.LeftDelimiter,
-      scanner.End,
-      scanner.Identifier("a_section"),
-      scanner.RightDelimiter,
+      scanner.End(["inner_section"]),
+      scanner.End(["a_section"]),
       scanner.Eof,
     ])
 }

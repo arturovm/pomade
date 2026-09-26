@@ -19,9 +19,7 @@ pub fn elide_set_delimiters_test() {
       scanner.Whitespace(" "),
       scanner.Text("text"),
       scanner.Newline("\n"),
-      scanner.LeftDelimiter,
       scanner.SetDelimiters("<", ">"),
-      scanner.RightDelimiter,
       scanner.Text("foo"),
       scanner.Newline("\n"),
     ])
@@ -41,9 +39,7 @@ pub fn elide_comment_test() {
       scanner.Whitespace(" "),
       scanner.Text("text"),
       scanner.Newline("\n"),
-      scanner.LeftDelimiter,
       scanner.Comment,
-      scanner.RightDelimiter,
       scanner.Text("foo"),
       scanner.Newline("\n"),
     ])
@@ -61,9 +57,7 @@ pub fn indented_standalone_test() {
       scanner.Text("Begin."),
       scanner.Newline("\n"),
       scanner.Whitespace("  "),
-      scanner.LeftDelimiter,
       scanner.Comment,
-      scanner.RightDelimiter,
       scanner.Newline("\n"),
       scanner.Text("End."),
       scanner.Newline("\n"),
@@ -77,9 +71,7 @@ pub fn standalone_without_newline_test() {
       scanner.Text("!"),
       scanner.Newline("\n"),
       scanner.Whitespace("  "),
-      scanner.LeftDelimiter,
       scanner.Comment,
-      scanner.RightDelimiter,
       scanner.Eof,
     ])
 }
@@ -90,9 +82,7 @@ pub fn indented_inline_test() {
       scanner.Whitespace("  "),
       scanner.Text("12"),
       scanner.Whitespace(" "),
-      scanner.LeftDelimiter,
       scanner.Comment,
-      scanner.RightDelimiter,
       scanner.Newline("\n"),
       scanner.Eof,
     ]

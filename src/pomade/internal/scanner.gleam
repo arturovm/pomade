@@ -51,21 +51,14 @@ pub type Token {
   Whitespace(lexeme: String)
   Newline(lexeme: String)
   // tags
-  LeftDelimiter
-  RightDelimiter
-  LeftTripleMustache
-  RightTripleMustache
-  SectionStart(List(String))
-  InvertedSectionStart(List(String))
-  BlockStart(List(String))
-  ParentStart(List(String))
+  SectionStart(path: List(String))
+  InvertedSectionStart(path: List(String))
+  BlockStart(path: List(String))
+  ParentStart(path: List(String))
   End(path: List(String))
   Partial(path: List(String))
   RawVariable(path: List(String))
   Variable(path: List(String))
-  // tag content
-  Identifier(lexeme: String)
-  Dot
   // special forms
   SetDelimiters(tag_start: String, tag_end: String)
   Comment
@@ -165,31 +158,18 @@ fn scan_triple_mustache(
   source: String,
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  use #(lexer, stream, tail) <- result.try(scan_left_triple_mustache(
-    lexer,
-    source,
-    stream,
-  ))
-  let tail = discard_optional(lexer, tail, consume_whitespace)
+  use tail <- result.try(discard(source, left_triple_mustache))
+  let tail = discard_optional(tail, read_whitespace)
   use #(path, tail) <- result.try(read_name(lexer, tail))
-  let tail = discard_optional(lexer, tail, consume_whitespace)
-  use #(lexer, stream, tail) <- result.map(scan_right_triple_mustache(
-    lexer,
-    tail,
-    stream,
-  ))
+  let tail = discard_optional(tail, read_whitespace)
+  use tail <- result.map(discard(tail, right_triple_mustache))
   #(lexer, list.prepend(stream, RawVariable(path)), tail)
 }
 
-fn scan_left_triple_mustache(
-  lexer: Lexer,
-  source: String,
-  stream: List(Token),
-) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case source {
-    "{{{" <> tail ->
-      Ok(#(lexer, list.prepend(stream, LeftTripleMustache), tail))
-    _ ->
+fn discard(source: String, lexeme: String) -> Result(String, LexicalError) {
+  case string.starts_with(source, lexeme) {
+    True -> Ok(string.drop_start(source, string.length(lexeme)))
+    False ->
       Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
@@ -200,7 +180,7 @@ fn read_name(
 ) -> Result(#(List(String), String), LexicalError) {
   case is_dot(lexer, source) {
     True -> {
-      use tail <- result.map(discard_dot(lexer, source))
+      use tail <- result.map(discard(source, "."))
       #(["."], tail)
     }
     False -> {
@@ -245,7 +225,7 @@ fn read_repetition(
   acc: List(String),
 ) -> Result(#(List(String), String), LexicalError) {
   case predicate(lexer, source) {
-    False -> Ok(#(acc, source))
+    False -> Ok(#(list.reverse(acc), source))
     True -> {
       use #(lexeme, tail) <- result.try(reader(lexer, source))
       read_repetition(lexer, tail, predicate, reader, list.prepend(acc, lexeme))
@@ -257,22 +237,9 @@ fn read_dot_identifier(
   lexer: Lexer,
   source: String,
 ) -> Result(#(String, String), LexicalError) {
-  use tail <- result.try(discard_dot(lexer, source))
+  use tail <- result.try(discard(source, "."))
   use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
   #(identifier, tail)
-}
-
-fn scan_right_triple_mustache(
-  lexer: Lexer,
-  source: String,
-  stream: List(Token),
-) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case source {
-    "}}}" <> tail ->
-      Ok(#(lexer, list.prepend(stream, RightTripleMustache), tail))
-    _ ->
-      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
-  }
 }
 
 fn scan_tag(
@@ -310,8 +277,8 @@ fn scan_tag_content(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
-    "!" <> tail -> scan_comment(lexer, tail, stream)
-    "=" <> tail -> scan_set_delimiters(lexer, tail, stream)
+    "!" <> _ -> scan_comment(lexer, source, stream)
+    "=" <> _ -> scan_set_delimiters(lexer, source, stream)
     "#" <> tail -> scan_special(lexer, tail, stream, SectionStart)
     "^" <> tail -> scan_special(lexer, tail, stream, InvertedSectionStart)
     "$" <> tail -> scan_special(lexer, tail, stream, BlockStart)
@@ -339,7 +306,7 @@ fn scan_set_delimiters(
   source: String,
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  use tail <- result.try(discard_set_delimiters_indicator(source))
+  use tail <- result.try(discard(source, "="))
   use #(left_delimiter, tail) <- result.try(read_custom_left_delimiter_value(
     lexer,
     tail,
@@ -349,22 +316,12 @@ fn scan_set_delimiters(
     lexer,
     tail,
   ))
-  use tail <- result.map(discard_set_delimiters_indicator(tail))
+  use tail <- result.map(discard(tail, "="))
   #(
     new_lexer(left_delimiter, right_delimiter),
     list.prepend(stream, SetDelimiters(left_delimiter, right_delimiter)),
     tail,
   )
-}
-
-fn discard_set_delimiters_indicator(
-  source: String,
-) -> Result(String, LexicalError) {
-  case source {
-    "=" <> tail -> Ok(tail)
-    _ ->
-      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
-  }
 }
 
 fn read_custom_left_delimiter_value(
@@ -393,9 +350,9 @@ fn scan_special(
   stream: List(Token),
   constructor: fn(List(String)) -> Token,
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  let tail = discard_optional(lexer, source, consume_whitespace)
+  let tail = discard_optional(source, read_whitespace)
   use #(path, tail) <- result.map(read_name(lexer, tail))
-  let tail = discard_optional(lexer, tail, consume_whitespace)
+  let tail = discard_optional(tail, read_whitespace)
   #(lexer, list.prepend(stream, constructor(path)), tail)
 }
 
@@ -404,9 +361,9 @@ fn scan_variable(
   source: String,
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  let tail = discard_optional(lexer, source, consume_whitespace)
+  let tail = discard_optional(source, read_whitespace)
   use #(path, tail) <- result.try(read_name(lexer, tail))
-  let tail = discard_optional(lexer, tail, consume_whitespace)
+  let tail = discard_optional(tail, read_whitespace)
   Ok(#(lexer, list.prepend(stream, Variable(path)), tail))
 }
 
@@ -438,23 +395,23 @@ fn consume_whitespace(
   source: String,
 ) -> Result(#(Lexer, Token, String), LexicalError) {
   use #(ws, tail) <- result.map(read_whitespace(source))
-  let #(ws, tail) = whitespace_repetition(tail, ws)
   #(lexer, Whitespace(ws), tail)
 }
 
 fn read_whitespace(input: String) -> Result(#(String, String), LexicalError) {
   case input {
-    " " as ws <> rest | "\t" as ws <> rest -> Ok(#(ws, rest))
+    " " as ws <> rest | "\t" as ws <> rest ->
+      Ok(whitespace_repetition(rest, ws))
     _ ->
       Error(UnexpectedCharacterError(string.first(input) |> result.unwrap("")))
   }
 }
 
-fn whitespace_repetition(input: String, stream: String) -> #(String, String) {
+fn whitespace_repetition(input: String, acc: String) -> #(String, String) {
   case input {
     " " as ws <> rest | "\t" as ws <> rest ->
-      whitespace_repetition(rest, stream <> ws)
-    _ -> #(stream, input)
+      whitespace_repetition(rest, acc <> ws)
+    _ -> #(acc, input)
   }
 }
 
@@ -465,13 +422,6 @@ fn scan_text(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
   Ok(#(lexer, list.prepend(stream, Text(text)), rest))
-}
-
-fn is_newline(_lexer: Lexer, source: String) -> Bool {
-  case source {
-    "\r\n" <> _ | "\n" <> _ -> True
-    _ -> False
-  }
 }
 
 fn scan_newline_top_level(
@@ -548,12 +498,11 @@ fn scan_repetition(
 }
 
 fn discard_optional(
-  lexer: Lexer,
   source: String,
-  consumer: fn(Lexer, String) -> Result(#(Lexer, Token, String), LexicalError),
+  reader: fn(String) -> Result(#(String, String), LexicalError),
 ) -> String {
-  case consumer(lexer, source) {
-    Ok(#(_, _, tail)) -> tail
+  case reader(source) {
+    Ok(#(_, tail)) -> tail
     Error(_) -> source
   }
 }
@@ -596,4 +545,11 @@ fn is_text(lexer: Lexer, source: String) -> Bool {
 
 fn is_dot(_lexer: Lexer, source: String) -> Bool {
   string.starts_with(source, ".")
+}
+
+fn is_newline(_lexer: Lexer, source: String) -> Bool {
+  case source {
+    "\r\n" <> _ | "\n" <> _ -> True
+    _ -> False
+  }
 }

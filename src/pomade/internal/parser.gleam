@@ -64,8 +64,7 @@ fn parse_expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Eof] | [scanner.LeftDelimiter, scanner.End, ..] ->
-      Ok(#(list.reverse(acc), tokens))
+    [scanner.Eof] | [scanner.End(_), ..] -> Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(parse_expression(non_empty))
       let acc = case expression {
@@ -87,7 +86,7 @@ fn parse_parent(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, scanner.ParentStart, ..] ->
+    [scanner.ParentStart(_), ..] ->
       parse_enclosed(tokens, parse_parent_opening, Parent)
     _ -> parse_block(tokens)
   }
@@ -96,14 +95,18 @@ fn parse_parent(
 fn parse_parent_opening(
   tokens: List(scanner.Token),
 ) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, scanner.ParentStart)
+  case tokens {
+    [scanner.ParentStart(path), ..tail] -> Ok(#(path, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_block(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, scanner.BlockStart, ..] ->
+    [scanner.BlockStart(_), ..] ->
       parse_enclosed(tokens, parse_block_opening, Block)
     _ -> parse_inverted_section(tokens)
   }
@@ -112,14 +115,18 @@ fn parse_block(
 fn parse_block_opening(
   tokens: List(scanner.Token),
 ) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, scanner.BlockStart)
+  case tokens {
+    [scanner.BlockStart(path), ..tail] -> Ok(#(path, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_inverted_section(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, scanner.InvertedSectionStart, ..] ->
+    [scanner.InvertedSectionStart(_), ..] ->
       parse_enclosed(tokens, parse_inverted_section_opening, InvertedSection)
     _ -> parse_section(tokens)
   }
@@ -128,14 +135,18 @@ fn parse_inverted_section(
 fn parse_inverted_section_opening(
   tokens: List(scanner.Token),
 ) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, scanner.InvertedSectionStart)
+  case tokens {
+    [scanner.InvertedSectionStart(path), ..tail] -> Ok(#(path, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_section(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, scanner.SectionStart, ..] ->
+    [scanner.SectionStart(_), ..] ->
       parse_enclosed(tokens, parse_section_opening, Section)
     _ -> parse_partial(tokens)
   }
@@ -144,26 +155,29 @@ fn parse_section(
 fn parse_section_opening(
   tokens: List(scanner.Token),
 ) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  parse_tag_with_indicator(tokens, scanner.SectionStart)
+  case tokens {
+    [scanner.SectionStart(path), ..tail] -> Ok(#(path, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_closing_tag(
   tokens: List(scanner.Token),
 ) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  use #(path, tail) <- result.map(parse_tag_with_indicator(tokens, scanner.End))
-  #(path, tail)
+  case tokens {
+    [scanner.End(path), ..tail] -> Ok(#(path, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_partial(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, scanner.Partial, ..] -> {
-      use #(path, tail) <- result.map(parse_tag_with_indicator(
-        tokens,
-        scanner.Partial,
-      ))
-      emit_expr(Partial, path, tail)
+    [scanner.Partial(path), ..tail] -> {
+      Ok(emit_expr(Partial, path, tail))
     }
     _ -> parse_raw_variable(tokens)
   }
@@ -173,70 +187,19 @@ fn parse_raw_variable(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftTripleMustache, ..] -> {
-      parse_raw_variable_with_triple_mustache(tokens)
-    }
-    [scanner.LeftDelimiter, scanner.RawVariable, ..] ->
-      parse_raw_variable_with_delimiters(tokens)
+    [scanner.RawVariable(path), ..tail] ->
+      Ok(emit_expr(RawVariable, path, tail))
     _ -> parse_variable(tokens)
   }
-}
-
-fn parse_raw_variable_with_triple_mustache(
-  tokens: List(scanner.Token),
-) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect_token(tokens, scanner.LeftTripleMustache))
-  let #(path, tail) = parse_name(tail)
-  use #(_, tail) <- result.map(expect_token(tail, scanner.RightTripleMustache))
-  emit_expr(RawVariable, path, tail)
-}
-
-fn parse_raw_variable_with_delimiters(
-  tokens: List(scanner.Token),
-) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  use #(path, tail) <- result.map(parse_tag_with_indicator(
-    tokens,
-    scanner.RawVariable,
-  ))
-  emit_expr(RawVariable, path, tail)
 }
 
 fn parse_variable(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.LeftDelimiter, ..] -> {
-      use #(_, tail) <- result.try(expect_token(tokens, scanner.LeftDelimiter))
-      let #(path, tail) = parse_name(tail)
-      use #(_, tail) <- result.map(expect_token(tail, scanner.RightDelimiter))
-      emit_expr(Variable, path, tail)
-    }
+    [scanner.Variable(path), ..tail] -> Ok(emit_expr(Variable, path, tail))
+
     _ -> parse_primary(tokens)
-  }
-}
-
-fn parse_name(
-  tokens: List(scanner.Token),
-) -> #(List(String), List(scanner.Token)) {
-  case tokens {
-    [scanner.Dot, ..tail] -> #(["."], tail)
-    [scanner.Identifier(value), ..tail] -> {
-      name_loop(tail, [value])
-    }
-    _ -> #([], tokens)
-  }
-}
-
-fn name_loop(
-  tokens: List(scanner.Token),
-  path: List(String),
-) -> #(List(String), List(scanner.Token)) {
-  case tokens {
-    [scanner.Dot, scanner.Identifier(value), ..tail] ->
-      name_loop(tail, list.prepend(path, value))
-    any -> {
-      #(list.reverse(path), any)
-    }
   }
 }
 
@@ -254,17 +217,6 @@ fn parse_primary(
 }
 
 // helpers
-
-fn parse_tag_with_indicator(
-  tokens: List(scanner.Token),
-  indicator: scanner.Token,
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
-  use #(_, tail) <- result.try(expect_token(tokens, scanner.LeftDelimiter))
-  use #(_, tail) <- result.try(expect_token(tail, indicator))
-  let #(path, tail) = parse_name(tail)
-  use #(_, tail) <- result.map(expect_token(tail, scanner.RightDelimiter))
-  #(path, tail)
-}
 
 fn parse_enclosed(
   tokens: List(scanner.Token),
