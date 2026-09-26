@@ -51,6 +51,7 @@ fn evaluate(
     parser.Variable(_) -> evaluate_variable(expr, env)
     parser.RawVariable(_) -> evaluate_raw_variable(expr, env)
     parser.Section(_, _) -> evaluate_section(expr, env)
+    parser.InvertedSection(_, _) -> evaluate_inverted_section(expr, env)
     _ -> Error(UnknownExpressionError)
   }
 }
@@ -98,5 +99,17 @@ fn evaluate_section(
         Environment(context, Some(env)),
         string_tree.new(),
       )
+  }
+}
+
+fn evaluate_inverted_section(
+  expr: parser.Expression,
+  env: Environment,
+) -> Result(StringTree, RuntimeError) {
+  let assert parser.InvertedSection(path, content) = expr
+  case environment.get(env, path) {
+    None | Some(value.Bool(False)) | Some(value.List([])) ->
+      evaluate_exprs(content, env, string_tree.new())
+    _ -> Ok(string_tree.new())
   }
 }

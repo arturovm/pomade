@@ -88,3 +88,19 @@ pub fn section_with_parent_context_test() {
       parent_env,
     )
 }
+
+pub fn inverted_variable_test() {
+  let assert Ok("No repos :(") =
+    interpreter.interpret(
+      [
+        parser.Section(["repo"], [
+          parser.Whitespace("  "),
+          parser.Text("<b>"),
+          parser.Variable(["name"]),
+          parser.Text("</b>"),
+        ]),
+        parser.InvertedSection(["repo"], [parser.Text("No repos :(")]),
+      ],
+      Dict(dict.from_list([#("repo", value.from_list([]))])),
+    )
+}

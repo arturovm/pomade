@@ -79,6 +79,24 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Eof] -> [
       ss,
     ]
+    // standalone inverted section start with newline
+    [scanner.InvertedSectionStart(_) as iss, scanner.Newline(_)]
+    | [
+        scanner.Whitespace(_),
+        scanner.InvertedSectionStart(_) as iss,
+        scanner.Newline(_),
+      ] -> [
+      iss,
+    ]
+    // standalone inverted section start with eof
+    [scanner.InvertedSectionStart(_) as iss, scanner.Eof]
+    | [
+        scanner.Whitespace(_),
+        scanner.InvertedSectionStart(_) as iss,
+        scanner.Eof,
+      ] -> [
+      iss,
+    ]
     // standalone end tag with newline
     [scanner.End(_) as end, scanner.Newline(_)]
     | [scanner.Whitespace(_), scanner.End(_) as end, scanner.Newline(_)] -> [
