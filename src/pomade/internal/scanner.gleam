@@ -166,14 +166,6 @@ fn scan_triple_mustache(
   #(lexer, list.prepend(stream, RawVariable(path)), tail)
 }
 
-fn discard(source: String, lexeme: String) -> Result(String, LexicalError) {
-  case string.starts_with(source, lexeme) {
-    True -> Ok(string.drop_start(source, string.length(lexeme)))
-    False ->
-      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
-  }
-}
-
 fn read_name(
   lexer: Lexer,
   source: String,
@@ -205,22 +197,6 @@ fn read_identifier(
         True -> Error(MalformedIdentifierError)
         False -> Ok(#(value, rest))
       }
-    }
-  }
-}
-
-fn read_repetition(
-  lexer: Lexer,
-  source: String,
-  predicate: fn(Lexer, String) -> Bool,
-  reader: fn(Lexer, String) -> Result(#(String, String), LexicalError),
-  acc: List(String),
-) -> Result(#(List(String), String), LexicalError) {
-  case predicate(lexer, source) {
-    False -> Ok(#(list.reverse(acc), source))
-    True -> {
-      use #(lexeme, tail) <- result.try(reader(lexer, source))
-      read_repetition(lexer, tail, predicate, reader, list.prepend(acc, lexeme))
     }
   }
 }
@@ -488,6 +464,30 @@ fn scan_repetition(
       use #(lexer, tokens, tail) <- result.try(scanner(lexer, source, stream))
       scan_repetition(lexer, tail, predicate, scanner, tokens)
     }
+  }
+}
+
+fn read_repetition(
+  lexer: Lexer,
+  source: String,
+  predicate: fn(Lexer, String) -> Bool,
+  reader: fn(Lexer, String) -> Result(#(String, String), LexicalError),
+  acc: List(String),
+) -> Result(#(List(String), String), LexicalError) {
+  case predicate(lexer, source) {
+    False -> Ok(#(list.reverse(acc), source))
+    True -> {
+      use #(lexeme, tail) <- result.try(reader(lexer, source))
+      read_repetition(lexer, tail, predicate, reader, list.prepend(acc, lexeme))
+    }
+  }
+}
+
+fn discard(source: String, lexeme: String) -> Result(String, LexicalError) {
+  case string.starts_with(source, lexeme) {
+    True -> Ok(string.drop_start(source, string.length(lexeme)))
+    False ->
+      Error(UnexpectedCharacterError(string.first(source) |> result.unwrap("")))
   }
 }
 
