@@ -10,7 +10,7 @@
 //// BLOCK_START            -> left_delimiter "$" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// PARENT_START           -> left_delimiter "<" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// END                    -> left_delimiter "/" [WHITESPACE] name [WHITESPACE] right_delimiter ;
-//// PARTIAL                -> left_delimiter ">" [WHITESPACE] name [WHITESPACE] right_delimiter ;
+//// PARTIAL                -> left_delimiter ">" [WHITESPACE] identifier [WHITESPACE] right_delimiter ;
 //// RAW_VARIABLE           -> left_delimiter "&" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// VARIABLE               -> left_delimiter [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// WHITESPACE             -> (" " | "\t") {" " | "\t"} ;
@@ -56,7 +56,7 @@ pub type Token {
   BlockStart(path: List(String))
   ParentStart(path: List(String))
   End(path: List(String))
-  Partial(path: List(String))
+  Partial(path: String)
   RawVariable(path: List(String))
   Variable(path: List(String))
   // special forms
@@ -252,7 +252,7 @@ fn scan_tag_content(
     "$" <> tail -> scan_special(lexer, tail, stream, BlockStart)
     "<" <> tail -> scan_special(lexer, tail, stream, ParentStart)
     "/" <> tail -> scan_special(lexer, tail, stream, End)
-    ">" <> tail -> scan_special(lexer, tail, stream, Partial)
+    ">" <> tail -> scan_partial(lexer, tail, stream, Partial)
     "&" <> tail -> scan_special(lexer, tail, stream, RawVariable)
     _ -> scan_variable(lexer, source, stream)
   }
@@ -324,6 +324,18 @@ fn scan_special(
   use #(path, tail) <- result.map(read_name(lexer, tail))
   let tail = discard_optional(tail, read_whitespace)
   #(lexer, list.prepend(stream, constructor(path)), tail)
+}
+
+fn scan_partial(
+  lexer: Lexer,
+  source: String,
+  stream: List(Token),
+  constructor: fn(String) -> Token,
+) -> Result(#(Lexer, List(Token), String), LexicalError) {
+  let tail = discard_optional(source, read_whitespace)
+  use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
+  let tail = discard_optional(tail, read_whitespace)
+  #(lexer, list.prepend(stream, constructor(identifier)), tail)
 }
 
 fn scan_variable(

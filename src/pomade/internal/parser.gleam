@@ -25,7 +25,7 @@ pub type Expression {
   RawVariable(path: List(String))
   Section(path: List(String), content: List(Expression))
   InvertedSection(path: List(String), content: List(Expression))
-  Partial(path: List(String))
+  Partial(name: String)
   Block(path: List(String), content: List(Expression))
   Parent(path: List(String), content: List(Expression))
 }
@@ -176,8 +176,8 @@ fn parse_partial(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Partial(path), ..tail] -> {
-      Ok(emit_expr(Partial, path, tail))
+    [scanner.Partial(name), ..tail] -> {
+      Ok(#(Some(Partial(name)), tail))
     }
     _ -> parse_raw_variable(tokens)
   }

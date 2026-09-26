@@ -94,18 +94,8 @@ fn format(val: Option(Value)) -> String {
   }
 }
 
-pub fn get_partial(env: Environment, path: List(String)) -> Option(String) {
-  option.then(env.partials, get_partial_with_path(_, path))
-}
-
-pub fn get_partial_with_path(
-  partials: Dict(String, String),
-  path: List(String),
-) -> Option(String) {
-  case path {
-    [] -> None
-    [key, ..] -> {
-      dict.get(partials, key) |> option.from_result()
-    }
-  }
+pub fn get_partial(env: Environment, name: String) -> Option(String) {
+  option.then(env.partials, fn(partials) {
+    dict.get(partials, name) |> option.from_result()
+  })
 }

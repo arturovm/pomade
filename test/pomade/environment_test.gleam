@@ -170,5 +170,5 @@ pub fn get_partial_test() {
       Some(dict.from_list([#("some_partial", "foo")])),
       None,
     )
-  assert Some("foo") == environment.get_partial(env, ["some_partial"])
+  assert Some("foo") == environment.get_partial(env, "some_partial")
 }

@@ -122,7 +122,7 @@ pub fn partial_test() {
       [
         parser.Text("Hello,"),
         parser.Whitespace(" "),
-        parser.Partial(["other_template"]),
+        parser.Partial("other_template"),
       ],
       value.Dict(dict.new()),
       Some(dict.from_list([#("other_template", "world!")])),
@@ -132,7 +132,7 @@ pub fn partial_test() {
       [
         parser.Text("Hello,"),
         parser.Whitespace(" "),
-        parser.Partial(["other_template"]),
+        parser.Partial("other_template"),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       Some(dict.from_list([#("other_template", "{{greeting}}")])),

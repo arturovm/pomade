@@ -93,9 +93,9 @@ pub fn inverted_section_test() {
 }
 
 pub fn partial_test() {
-  let assert Ok([parser.Partial(["box"])]) =
+  let assert Ok([parser.Partial("box")]) =
     parser.parse([
-      scanner.Partial(["box"]),
+      scanner.Partial("box"),
       scanner.Eof,
     ])
 }

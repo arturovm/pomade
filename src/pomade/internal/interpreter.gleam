@@ -133,8 +133,8 @@ fn evaluate_partial(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Partial(path) = expr
-  case environment.get_partial(env, path) {
+  let assert parser.Partial(name) = expr
+  case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(
         scanner.scan(source) |> result.map_error(fn(_) { PartialError("") }),

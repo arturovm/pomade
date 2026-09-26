@@ -52,8 +52,8 @@ pub fn scan_inverted_section_start_test() {
     scanner.scan("{{^person}}")
 }
 
-pub fn scan_partial_test_test() {
-  let assert Ok([scanner.Partial(["next_more"]), scanner.Eof]) =
+pub fn scan_partial_test() {
+  let assert Ok([scanner.Partial("next_more"), scanner.Eof]) =
     scanner.scan("{{> next_more}}")
 }
 
