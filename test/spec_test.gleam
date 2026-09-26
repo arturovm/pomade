@@ -1,4 +1,4 @@
-import gleam/dict
+import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
@@ -15,6 +15,7 @@ type Test {
     name: String,
     desc: String,
     data: Value,
+    partials: Option(Dict(String, String)),
     template: String,
     expected: String,
   )
@@ -42,9 +43,14 @@ fn test_decoder() -> decode.Decoder(Test) {
   use name <- decode.field("name", decode.string)
   use desc <- decode.field("desc", decode.string)
   use data <- decode.field("data", value_decoder())
+  use partials <- decode.optional_field(
+    "partials",
+    None,
+    decode.optional(decode.dict(decode.string, decode.string)),
+  )
   use template <- decode.field("template", decode.string)
   use expected <- decode.field("expected", decode.string)
-  decode.success(Test(name:, desc:, data:, template:, expected:))
+  decode.success(Test(name:, desc:, data:, partials:, template:, expected:))
 }
 
 fn value_decoder() -> decode.Decoder(Value) {
@@ -87,7 +93,8 @@ fn list_decoder() -> decode.Decoder(Value) {
 fn run(loaded_test: Test) {
   let assert Ok(template) = pomade.compile(loaded_test.template)
     as loaded_test.name
-  let assert Ok(result) = template(loaded_test.data) as loaded_test.name
+  let assert Ok(result) = template(loaded_test.data, loaded_test.partials)
+    as loaded_test.name
   assert loaded_test.expected == result as loaded_test.name
 }
 

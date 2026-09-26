@@ -7,12 +7,12 @@ import pomade/internal/environment.{Environment}
 
 pub fn empty_test() {
   assert ""
-    == environment.get_and_format(Environment(Dict(dict.new()), None), [])
+    == environment.get_and_format(Environment(Dict(dict.new()), None, None), [])
 }
 
 pub fn not_found_test() {
   assert ""
-    == environment.get_and_format(Environment(Dict(dict.new()), None), [
+    == environment.get_and_format(Environment(Dict(dict.new()), None, None), [
       "non_existent",
     ])
 }
@@ -22,6 +22,7 @@ pub fn get_string_test() {
     Environment(
       value.from_dict(dict.from_list([#("foo", value.from_string("bar"))])),
       None,
+      None,
     )
   assert "bar" == environment.get_and_format(env, ["foo"])
 }
@@ -30,6 +31,7 @@ pub fn get_int_test() {
   let env =
     Environment(
       value.from_dict(dict.from_list([#("number_value", value.from_int(2))])),
+      None,
       None,
     )
   assert "2" == environment.get_and_format(env, ["number_value"])
@@ -42,6 +44,7 @@ pub fn get_float_test() {
         dict.from_list([#("number_value", value.from_float(1.5))]),
       ),
       None,
+      None,
     )
   assert "1.5" == environment.get_and_format(env, ["number_value"])
 }
@@ -52,6 +55,7 @@ pub fn get_bool_test() {
       value.from_dict(
         dict.from_list([#("boolean_value", value.from_bool(True))]),
       ),
+      None,
       None,
     )
   assert "True" == environment.get_and_format(env, ["boolean_value"])
@@ -71,12 +75,13 @@ pub fn get_path_name_test() {
         ]),
       ),
       None,
+      None,
     )
   assert "hello" == environment.get_and_format(env, ["parent", "inner"])
 }
 
 pub fn get_self_test() {
-  let env = Environment(String("hello"), None)
+  let env = Environment(String("hello"), None, None)
   assert "hello" == environment.get_and_format(env, ["."])
 }
 
@@ -94,6 +99,7 @@ pub fn get_value_test() {
           #("foo", value.from_string("goodbye")),
         ]),
       ),
+      None,
       None,
     )
   assert Some(String("hello")) == environment.get(env, ["parent", "inner"])
@@ -126,6 +132,7 @@ pub fn get_value_in_parent_test() {
         ]),
       ),
       None,
+      None,
     )
   let child_env =
     Environment(
@@ -134,6 +141,7 @@ pub fn get_value_in_parent_test() {
           #("b", value.from_string("bar")),
         ]),
       ),
+      None,
       Some(parent_env),
     )
   assert Some(String("foo")) == environment.get(child_env, ["a"])
@@ -150,6 +158,17 @@ pub fn get_list_test() {
         ]),
       ),
       None,
+      None,
     )
   assert Some(List([String("Hello")])) == environment.get(env, ["list_value"])
+}
+
+pub fn get_partial_test() {
+  let env =
+    Environment(
+      value.String("hello"),
+      Some(dict.from_list([#("some_partial", "foo")])),
+      None,
+    )
+  assert Some("foo") == environment.get_partial(env, ["some_partial"])
 }

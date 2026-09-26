@@ -1,4 +1,5 @@
 import gleam/dict
+import gleam/option.{None, Some}
 
 import pomade/value.{Dict, Float, String}
 
@@ -6,12 +7,16 @@ import pomade/internal/interpreter
 import pomade/internal/parser
 
 pub fn empty_test() {
-  let assert Ok("") = interpreter.interpret([], Dict(dict.new()))
+  let assert Ok("") = interpreter.interpret([], Dict(dict.new()), None)
 }
 
 pub fn text_test() {
   let assert Ok("hello, world!") =
-    interpreter.interpret([parser.Text("hello, world!")], Dict(dict.new()))
+    interpreter.interpret(
+      [parser.Text("hello, world!")],
+      Dict(dict.new()),
+      None,
+    )
 }
 
 pub fn newline_test() {
@@ -25,6 +30,7 @@ pub fn newline_test() {
         parser.Text("baz"),
       ],
       Dict(dict.new()),
+      None,
     )
 }
 
@@ -33,12 +39,14 @@ pub fn variable_test() {
     interpreter.interpret(
       [parser.Variable(["foo"])],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
+      None,
     )
 
   let assert Ok("1.21") =
     interpreter.interpret(
       [parser.Variable(["foo"])],
       Dict(dict.from_list([#("foo", Float(1.21))])),
+      None,
     )
 }
 
@@ -47,6 +55,7 @@ pub fn raw_variable_test() {
     interpreter.interpret(
       [parser.RawVariable(["foo"])],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
+      None,
     )
 }
 
@@ -86,6 +95,7 @@ pub fn section_with_parent_context_test() {
         ]),
       ],
       parent_env,
+      None,
     )
 }
 
@@ -102,5 +112,29 @@ pub fn inverted_variable_test() {
         parser.InvertedSection(["repo"], [parser.Text("No repos :(")]),
       ],
       Dict(dict.from_list([#("repo", value.from_list([]))])),
+      None,
+    )
+}
+
+pub fn partial_test() {
+  let assert Ok("Hello, world!") =
+    interpreter.interpret(
+      [
+        parser.Text("Hello,"),
+        parser.Whitespace(" "),
+        parser.Partial(["other_template"]),
+      ],
+      value.Dict(dict.new()),
+      Some(dict.from_list([#("other_template", "world!")])),
+    )
+  let assert Ok("Hello, foo!") =
+    interpreter.interpret(
+      [
+        parser.Text("Hello,"),
+        parser.Whitespace(" "),
+        parser.Partial(["other_template"]),
+      ],
+      value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
+      Some(dict.from_list([#("other_template", "{{greeting}}")])),
     )
 }

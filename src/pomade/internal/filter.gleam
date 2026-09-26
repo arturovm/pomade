@@ -67,17 +67,18 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     [scanner.Comment, scanner.Newline(_)]
     | [scanner.Whitespace(_), scanner.Comment, scanner.Newline(_)] -> []
     // standalone comments with eof
-    [scanner.Comment, scanner.Eof]
-    | [scanner.Whitespace(_), scanner.Comment, scanner.Eof] -> [scanner.Eof]
+    [scanner.Comment, scanner.Eof as eof]
+    | [scanner.Whitespace(_), scanner.Comment, scanner.Eof as eof] -> [eof]
     // standalone section start with newline
     [scanner.SectionStart(_) as ss, scanner.Newline(_)]
     | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Newline(_)] -> [
       ss,
     ]
     // standalone section start with eof
-    [scanner.SectionStart(_) as ss, scanner.Eof]
-    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Eof] -> [
+    [scanner.SectionStart(_) as ss, scanner.Eof, eof]
+    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Eof as eof] -> [
       ss,
+      eof,
     ]
     // standalone inverted section start with newline
     [scanner.InvertedSectionStart(_) as iss, scanner.Newline(_)]
@@ -89,14 +90,12 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       iss,
     ]
     // standalone inverted section start with eof
-    [scanner.InvertedSectionStart(_) as iss, scanner.Eof]
+    [scanner.InvertedSectionStart(_) as iss, scanner.Eof as eof]
     | [
         scanner.Whitespace(_),
         scanner.InvertedSectionStart(_) as iss,
-        scanner.Eof,
-      ] -> [
-      iss,
-    ]
+        scanner.Eof as eof,
+      ] -> [iss, eof]
     // standalone end tag with newline
     [scanner.End(_) as end, scanner.Newline(_)]
     | [scanner.Whitespace(_), scanner.End(_) as end, scanner.Newline(_)] -> [
@@ -107,7 +106,13 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       end, eof,
     ]
     // standalone set delimiters with newline
-    [scanner.SetDelimiters(_, _), scanner.Newline(_)] -> []
+    [scanner.SetDelimiters(_, _), scanner.Newline(_)]
+    | [scanner.Whitespace(_), scanner.SetDelimiters(_, _), scanner.Newline(_)] -> []
+    // standalone set delimiters with eof
+    [scanner.SetDelimiters(_, _), scanner.Eof as eof]
+    | [scanner.Whitespace(_), scanner.SetDelimiters(_, _), scanner.Eof as eof] -> [
+      eof,
+    ]
     // continue
     any -> any
   }

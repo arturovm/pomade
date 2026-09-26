@@ -1,3 +1,5 @@
+import gleam/dict.{type Dict}
+import gleam/option.{type Option}
 import gleam/result
 
 import pomade/value
@@ -10,7 +12,7 @@ import pomade/internal/scanner
 /// `Template` represents a compiled template. Since this is a type alias to a
 /// function, simply pass it a dictionary of input values.
 pub type Template =
-  fn(value.Value) -> Result(String, Error)
+  fn(value.Value, Option(Dict(String, String))) -> Result(String, Error)
 
 /// `Error` aggregates all the possible error types that can be emitted by the
 /// different rendering phases.
@@ -28,9 +30,10 @@ pub type Error {
 pub fn render(
   template: String,
   environment: value.Value,
+  partials: Option(Dict(String, String)),
 ) -> Result(String, Error) {
   use template <- result.try(compile(template))
-  template(environment)
+  template(environment, partials)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -42,7 +45,11 @@ pub fn compile(template: String) -> Result(Template, Error) {
   )
   let filtered = filter.filter(tokens)
   use ast <- result.map(parser.parse(filtered) |> result.map_error(ParserError))
-  fn(env: value.Value) -> Result(String, Error) {
-    interpreter.interpret(ast, env) |> result.map_error(InterpreterError)
+  fn(env: value.Value, partials: Option(Dict(String, String))) -> Result(
+    String,
+    Error,
+  ) {
+    interpreter.interpret(ast, env, partials)
+    |> result.map_error(InterpreterError)
   }
 }
