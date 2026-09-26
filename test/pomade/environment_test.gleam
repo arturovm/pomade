@@ -1,8 +1,9 @@
 import gleam/dict
 import gleam/option.{None, Some}
 
-import pomade/internal/environment.{Environment}
 import pomade/value.{Dict, List, String}
+
+import pomade/internal/environment.{Environment}
 
 pub fn empty_test() {
   assert ""
