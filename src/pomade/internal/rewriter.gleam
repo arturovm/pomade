@@ -1,15 +1,19 @@
-//// Elision rules for Mustache:
+//// Rewriting rules for Mustache:
 ////
-//// _standalone_comment                 -> COMMENT (NEWLINE | EOF) ;
-//// _standalone_comment_with_whitespace -> WHITESPACE COMMENT (NEWLINE | EOF) ;
-//// _set_delimiters                     -> {any} SET_DELIMITERS {any} ;
-//// _comment                            -> {any} COMMENT {any} ;
+//// _standalone_comment                          -> COMMENT NEWLINE            => empty ;
+//// _standalone_comment_with_eof                 -> COMMENT EOF                => EOF ;
+//// _standalone_comment_with_whitespace          -> WHITESPACE COMMENT NEWLINE => empty ;
+//// _standalone_comment_with_whitespace_with_eof -> WHITESPACE COMMENT EOF     => EOF ;
+//// _set_delimiters                              -> {any} SET_DELIMITERS {any} => {any} {any} ;
+//// _comment                                     -> {any} COMMENT {any}        => {any} {any} ;
+//// _standaline_partial                          -> PARTIAL NEWLINE            => PARTIAL ;
+//// _standaline_partial_with_indendation         -> WHITESPACE PARTIAL NEWLINE => INDENTATION PARTIAL ;
 
 import gleam/list
 
 import pomade/internal/scanner
 
-pub fn filter(tokens: List(scanner.Token)) -> List(scanner.Token) {
+pub fn rewrite(tokens: List(scanner.Token)) -> List(scanner.Token) {
   split_lines(tokens)
   |> elide(standalone)
   |> elide(other)
@@ -81,12 +85,11 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       ss,
     ]
     // standalone section start with eof
-    [scanner.SectionStart(_, _) as ss, scanner.Eof, eof]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.SectionStart(_, _) as ss,
-        scanner.Eof as eof,
-      ] -> [
+    [
+      scanner.Whitespace(_, _),
+      scanner.SectionStart(_, _) as ss,
+      scanner.Eof as eof,
+    ] -> [
       ss,
       eof,
     ]
@@ -100,12 +103,11 @@ fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
       iss,
     ]
     // standalone inverted section start with eof
-    [scanner.InvertedSectionStart(_, _) as iss, scanner.Eof as eof]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.InvertedSectionStart(_, _) as iss,
-        scanner.Eof as eof,
-      ] -> [iss, eof]
+    [
+      scanner.Whitespace(_, _),
+      scanner.InvertedSectionStart(_, _) as iss,
+      scanner.Eof as eof,
+    ] -> [iss, eof]
     // standalone end tag with newline
     [scanner.End(_, _) as end, scanner.Newline(_, _)]
     | [

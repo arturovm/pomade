@@ -4,9 +4,9 @@ import gleam/result
 
 import pomade/value
 
-import pomade/internal/filter
 import pomade/internal/interpreter
 import pomade/internal/parser
+import pomade/internal/rewriter
 import pomade/internal/scanner
 
 /// `Template` represents a compiled template. Since this is a type alias to a
@@ -43,8 +43,10 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
     scanner.scan(template) |> result.map_error(ScannerError),
   )
-  let filtered = filter.filter(tokens)
-  use ast <- result.map(parser.parse(filtered) |> result.map_error(ParserError))
+  let rewritten = rewriter.rewrite(tokens)
+  use ast <- result.map(
+    parser.parse(rewritten) |> result.map_error(ParserError),
+  )
   fn(env: value.Value, partials: Option(Dict(String, String))) -> Result(
     String,
     Error,

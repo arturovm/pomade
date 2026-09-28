@@ -2,10 +2,10 @@
 ////
 //// template                 -> {expression} EOF;
 //// expression               -> Parent ;
-//// Parent                   -> PARENT_OPENING {expression} CLOSING_TAG | Block;
-//// Block                    -> BLOCK_OPENING {expression} CLOSING_TAG | InvertedSection ;
-//// InvertedSection          -> INVERTED_SECTION_OPENING {expression} CLOSING_TAG | Section;
-//// Section                  -> SECTION_OPENING {expression} CLOSING_TAG | Partial ;
+//// Parent                   -> PARENT_START {expression} END | Block;
+//// Block                    -> BLOCK_START {expression} END | InvertedSection ;
+//// InvertedSection          -> INVERTED_SECTION_START {expression} END | Section;
+//// Section                  -> SECTION_START {expression} END | Partial ;
 //// Partial                  -> PARTIAL | RawVariable ;
 //// RawVariable              -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
 //// Variable                 -> VARIABLE | Primary ;
@@ -18,16 +18,16 @@ import gleam/result
 import pomade/internal/scanner
 
 pub type Expression {
-  Text(value: scanner.Token)
-  Whitespace(value: scanner.Token)
-  Newline(value: scanner.Token)
-  Variable(path: scanner.Token)
-  RawVariable(path: scanner.Token)
-  Section(path: scanner.Token, content: List(Expression))
-  InvertedSection(path: scanner.Token, content: List(Expression))
+  Text(token: scanner.Token)
+  Whitespace(token: scanner.Token)
+  Newline(token: scanner.Token)
+  Variable(token: scanner.Token)
+  RawVariable(token: scanner.Token)
+  Section(token: scanner.Token, content: List(Expression))
+  InvertedSection(token: scanner.Token, content: List(Expression))
   Partial(name: scanner.Token)
-  Block(path: scanner.Token, content: List(Expression))
-  Parent(path: scanner.Token, content: List(Expression))
+  Block(token: scanner.Token, content: List(Expression))
+  Parent(token: scanner.Token, content: List(Expression))
 }
 
 /// `SyntaxError` represents an error encountered during parsing.

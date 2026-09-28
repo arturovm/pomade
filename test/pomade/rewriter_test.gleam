@@ -1,8 +1,8 @@
-import pomade/internal/filter
+import pomade/internal/rewriter
 import pomade/internal/scanner
 
 pub fn empty_test() {
-  assert [] == filter.filter([])
+  assert [] == rewriter.rewrite([])
 }
 
 pub fn elide_set_delimiters_test() {
@@ -14,7 +14,7 @@ pub fn elide_set_delimiters_test() {
       scanner.Text(0, "foo"),
       scanner.Newline(0, "\n"),
     ]
-    == filter.filter([
+    == rewriter.rewrite([
       scanner.Text(0, "random"),
       scanner.Whitespace(0, " "),
       scanner.Text(0, "text"),
@@ -34,7 +34,7 @@ pub fn elide_comment_test() {
       scanner.Text(0, "foo"),
       scanner.Newline(0, "\n"),
     ]
-    == filter.filter([
+    == rewriter.rewrite([
       scanner.Text(0, "random"),
       scanner.Whitespace(0, " "),
       scanner.Text(0, "text"),
@@ -53,7 +53,7 @@ pub fn indented_standalone_test() {
       scanner.Newline(0, "\n"),
       scanner.Eof,
     ]
-    == filter.filter([
+    == rewriter.rewrite([
       scanner.Text(0, "Begin."),
       scanner.Newline(0, "\n"),
       scanner.Whitespace(0, "  "),
@@ -67,7 +67,7 @@ pub fn indented_standalone_test() {
 
 pub fn standalone_without_newline_test() {
   assert [scanner.Text(0, "!"), scanner.Newline(0, "\n"), scanner.Eof]
-    == filter.filter([
+    == rewriter.rewrite([
       scanner.Text(0, "!"),
       scanner.Newline(0, "\n"),
       scanner.Whitespace(0, "  "),
@@ -88,7 +88,7 @@ pub fn indented_inline_test() {
     ]
     == tokens
 
-  let ast = filter.filter(tokens)
+  let ast = rewriter.rewrite(tokens)
   assert [
       scanner.Whitespace(1, "  "),
       scanner.Text(1, "12"),

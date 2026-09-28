@@ -3,13 +3,13 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string_tree.{type StringTree}
-import pomade/internal/filter
-import pomade/internal/scanner
-
-import pomade/value
 
 import pomade/internal/environment
 import pomade/internal/parser
+import pomade/internal/rewriter
+import pomade/internal/scanner
+
+import pomade/value
 
 /// `RuntimeError` represents an error encountered during interpreting.
 pub type RuntimeError {
@@ -144,13 +144,17 @@ fn evaluate_partial(
       use tokens <- result.try(
         scanner.scan(source) |> result.map_error(fn(_) { PartialError("") }),
       )
-      let filtered = filter.filter(tokens)
+      let rewritten = rewriter.rewrite(tokens)
       use ast <- result.try(
-        parser.parse(filtered)
+        parser.parse(rewritten)
         |> result.map_error(fn(_) { PartialError("") }),
       )
-      use res <- result.map(evaluate_exprs(ast, env, string_tree.new()))
-      res
+      use partial_result <- result.map(evaluate_exprs(
+        ast,
+        env,
+        string_tree.new(),
+      ))
+      partial_result
     }
     None -> Ok(string_tree.new())
   }
