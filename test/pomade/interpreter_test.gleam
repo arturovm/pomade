@@ -5,6 +5,7 @@ import pomade/value.{Dict, Float, String}
 
 import pomade/internal/interpreter
 import pomade/internal/parser
+import pomade/internal/scanner
 
 pub fn empty_test() {
   let assert Ok("") = interpreter.interpret([], Dict(dict.new()), None)
@@ -13,7 +14,7 @@ pub fn empty_test() {
 pub fn text_test() {
   let assert Ok("hello, world!") =
     interpreter.interpret(
-      [parser.Text("hello, world!")],
+      [parser.Text(scanner.Text(0, "hello, world!"))],
       Dict(dict.new()),
       None,
     )
@@ -23,11 +24,11 @@ pub fn newline_test() {
   let assert Ok("foo\nbar\r\nbaz") =
     interpreter.interpret(
       [
-        parser.Text("foo"),
-        parser.Newline("\n"),
-        parser.Text("bar"),
-        parser.Newline("\r\n"),
-        parser.Text("baz"),
+        parser.Text(scanner.Text(0, "foo")),
+        parser.Newline(scanner.Newline(0, "\n")),
+        parser.Text(scanner.Text(0, "bar")),
+        parser.Newline(scanner.Newline(0, "\r\n")),
+        parser.Text(scanner.Text(0, "baz")),
       ],
       Dict(dict.new()),
       None,
@@ -37,14 +38,14 @@ pub fn newline_test() {
 pub fn variable_test() {
   let assert Ok("foo &amp; bar") =
     interpreter.interpret(
-      [parser.Variable(["foo"])],
+      [parser.Variable(scanner.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       None,
     )
 
   let assert Ok("1.21") =
     interpreter.interpret(
-      [parser.Variable(["foo"])],
+      [parser.Variable(scanner.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", Float(1.21))])),
       None,
     )
@@ -53,7 +54,7 @@ pub fn variable_test() {
 pub fn raw_variable_test() {
   let assert Ok("foo & bar") =
     interpreter.interpret(
-      [parser.RawVariable(["foo"])],
+      [parser.RawVariable(scanner.RawVariable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       None,
     )
@@ -86,12 +87,12 @@ pub fn section_with_parent_context_test() {
   let assert Ok("foo, bar, baz") =
     interpreter.interpret(
       [
-        parser.Section(["sec"], [
-          parser.Variable(["a"]),
-          parser.Text(", "),
-          parser.Variable(["b"]),
-          parser.Text(", "),
-          parser.Variable(["c", "d"]),
+        parser.Section(scanner.SectionStart(0, ["sec"]), [
+          parser.Variable(scanner.Variable(0, ["a"])),
+          parser.Text(scanner.Text(0, ", ")),
+          parser.Variable(scanner.Variable(0, ["b"])),
+          parser.Text(scanner.Text(0, ", ")),
+          parser.Variable(scanner.Variable(0, ["c", "d"])),
         ]),
       ],
       parent_env,
@@ -99,17 +100,19 @@ pub fn section_with_parent_context_test() {
     )
 }
 
-pub fn inverted_variable_test() {
+pub fn inverted_section_test() {
   let assert Ok("No repos :(") =
     interpreter.interpret(
       [
-        parser.Section(["repo"], [
-          parser.Whitespace("  "),
-          parser.Text("<b>"),
-          parser.Variable(["name"]),
-          parser.Text("</b>"),
+        parser.Section(scanner.SectionStart(0, ["repo"]), [
+          parser.Whitespace(scanner.Whitespace(0, "  ")),
+          parser.Text(scanner.Text(0, "<b>")),
+          parser.Variable(scanner.Variable(0, ["name"])),
+          parser.Text(scanner.Text(0, "</b>")),
         ]),
-        parser.InvertedSection(["repo"], [parser.Text("No repos :(")]),
+        parser.InvertedSection(scanner.InvertedSectionStart(0, ["repo"]), [
+          parser.Text(scanner.Text(0, "No repos :(")),
+        ]),
       ],
       Dict(dict.from_list([#("repo", value.from_list([]))])),
       None,
@@ -120,9 +123,9 @@ pub fn partial_test() {
   let assert Ok("Hello, world!") =
     interpreter.interpret(
       [
-        parser.Text("Hello,"),
-        parser.Whitespace(" "),
-        parser.Partial("other_template"),
+        parser.Text(scanner.Text(0, "Hello,")),
+        parser.Whitespace(scanner.Whitespace(0, " ")),
+        parser.Partial(scanner.Partial(0, "other_template")),
       ],
       value.Dict(dict.new()),
       Some(dict.from_list([#("other_template", "world!")])),
@@ -130,9 +133,9 @@ pub fn partial_test() {
   let assert Ok("Hello, foo!") =
     interpreter.interpret(
       [
-        parser.Text("Hello,"),
-        parser.Whitespace(" "),
-        parser.Partial("other_template"),
+        parser.Text(scanner.Text(0, "Hello,")),
+        parser.Whitespace(scanner.Whitespace(0, " ")),
+        parser.Partial(scanner.Partial(0, "other_template")),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       Some(dict.from_list([#("other_template", "{{greeting}}")])),

@@ -47,21 +47,21 @@ type Lexer {
 
 pub type Token {
   // general text
-  Text(lexeme: String)
-  Whitespace(lexeme: String)
-  Newline(lexeme: String)
+  Text(line: Int, lexeme: String)
+  Whitespace(line: Int, lexeme: String)
+  Newline(line: Int, lexeme: String)
   // tags
-  SectionStart(path: List(String))
-  InvertedSectionStart(path: List(String))
-  BlockStart(path: List(String))
-  ParentStart(path: List(String))
-  End(path: List(String))
-  Partial(path: String)
-  RawVariable(path: List(String))
-  Variable(path: List(String))
+  SectionStart(line: Int, path: List(String))
+  InvertedSectionStart(line: Int, path: List(String))
+  BlockStart(line: Int, path: List(String))
+  ParentStart(line: Int, path: List(String))
+  End(line: Int, path: List(String))
+  Partial(line: Int, path: String)
+  RawVariable(line: Int, path: List(String))
+  Variable(line: Int, path: List(String))
   // special forms
-  SetDelimiters(tag_start: String, tag_end: String)
-  Comment
+  SetDelimiters(line: Int, tag_start: String, tag_end: String)
+  Comment(line: Int)
   // eof
   Eof
 }
@@ -163,7 +163,7 @@ fn scan_triple_mustache(
   use #(path, tail) <- result.try(read_name(lexer, tail))
   let tail = discard_optional(tail, read_whitespace)
   use tail <- result.map(discard(tail, right_triple_mustache))
-  #(lexer, list.prepend(stream, RawVariable(path)), tail)
+  #(lexer, list.prepend(stream, RawVariable(lexer.line, path)), tail)
 }
 
 fn read_name(
@@ -265,7 +265,7 @@ fn scan_comment(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case splitter.split_before(lexer.tag_end_splitter, source) {
     #(_, "") -> Error(UnterminatedTagError)
-    #(_, rest) -> Ok(#(lexer, list.prepend(stream, Comment), rest))
+    #(_, rest) -> Ok(#(lexer, list.prepend(stream, Comment(lexer.line)), rest))
   }
 }
 
@@ -289,7 +289,10 @@ fn scan_set_delimiters(
   use tail <- result.map(discard(tail, "="))
   #(
     new_lexer(left_delimiter, right_delimiter),
-    list.prepend(stream, SetDelimiters(left_delimiter, right_delimiter)),
+    list.prepend(
+      stream,
+      SetDelimiters(lexer.line, left_delimiter, right_delimiter),
+    ),
     tail,
   )
 }
@@ -318,24 +321,24 @@ fn scan_special(
   lexer: Lexer,
   source: String,
   stream: List(Token),
-  constructor: fn(List(String)) -> Token,
+  constructor: fn(Int, List(String)) -> Token,
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let tail = discard_optional(source, read_whitespace)
   use #(path, tail) <- result.map(read_name(lexer, tail))
   let tail = discard_optional(tail, read_whitespace)
-  #(lexer, list.prepend(stream, constructor(path)), tail)
+  #(lexer, list.prepend(stream, constructor(lexer.line, path)), tail)
 }
 
 fn scan_partial(
   lexer: Lexer,
   source: String,
   stream: List(Token),
-  constructor: fn(String) -> Token,
+  constructor: fn(Int, String) -> Token,
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let tail = discard_optional(source, read_whitespace)
   use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
   let tail = discard_optional(tail, read_whitespace)
-  #(lexer, list.prepend(stream, constructor(identifier)), tail)
+  #(lexer, list.prepend(stream, constructor(lexer.line, identifier)), tail)
 }
 
 fn scan_variable(
@@ -346,7 +349,7 @@ fn scan_variable(
   let tail = discard_optional(source, read_whitespace)
   use #(path, tail) <- result.try(read_name(lexer, tail))
   let tail = discard_optional(tail, read_whitespace)
-  Ok(#(lexer, list.prepend(stream, Variable(path)), tail))
+  Ok(#(lexer, list.prepend(stream, Variable(lexer.line, path)), tail))
 }
 
 fn discard_tag_end(
@@ -377,7 +380,7 @@ fn consume_whitespace(
   source: String,
 ) -> Result(#(Lexer, Token, String), LexicalError) {
   use #(ws, tail) <- result.map(read_whitespace(source))
-  #(lexer, Whitespace(ws), tail)
+  #(lexer, Whitespace(lexer.line, ws), tail)
 }
 
 fn read_whitespace(input: String) -> Result(#(String, String), LexicalError) {
@@ -403,7 +406,7 @@ fn scan_text(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
-  Ok(#(lexer, list.prepend(stream, Text(text)), rest))
+  Ok(#(lexer, list.prepend(stream, Text(lexer.line, text)), rest))
 }
 
 fn scan_newline_top_level(
@@ -436,7 +439,7 @@ fn scan_newline(
     "\r\n" as nl <> tail | "\n" as nl <> tail ->
       Ok(#(
         Lexer(..lexer, line: lexer.line + 1),
-        list.prepend(stream, Newline(nl)),
+        list.prepend(stream, Newline(lexer.line, nl)),
         tail,
       ))
     _ ->

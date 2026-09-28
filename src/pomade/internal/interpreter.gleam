@@ -56,7 +56,9 @@ fn evaluate(
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
   case expr {
-    parser.Text(value) | parser.Whitespace(value) | parser.Newline(value) ->
+    parser.Text(scanner.Text(_, value))
+    | parser.Whitespace(scanner.Whitespace(_, value))
+    | parser.Newline(scanner.Newline(_, value)) ->
       Ok(string_tree.from_string(value))
     parser.Variable(_) -> evaluate_variable(expr, env)
     parser.RawVariable(_) -> evaluate_raw_variable(expr, env)
@@ -71,7 +73,7 @@ fn evaluate_variable(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Variable(path) = expr
+  let assert parser.Variable(scanner.Variable(_, path)) = expr
   env
   |> environment.get_and_format(path)
   |> string_tree.from_string()
@@ -82,7 +84,7 @@ fn evaluate_raw_variable(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.RawVariable(path) = expr
+  let assert parser.RawVariable(scanner.RawVariable(_, path)) = expr
   env
   |> environment.get_and_format_raw(path)
   |> string_tree.from_string()
@@ -93,7 +95,7 @@ fn evaluate_section(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Section(path, content) = expr
+  let assert parser.Section(scanner.SectionStart(_, path), content) = expr
   case environment.get(env, path) {
     None | Some(value.Bool(False)) -> Ok(string_tree.new())
     Some(value.List(l)) ->
@@ -121,7 +123,10 @@ fn evaluate_inverted_section(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.InvertedSection(path, content) = expr
+  let assert parser.InvertedSection(
+    scanner.InvertedSectionStart(_, path),
+    content,
+  ) = expr
   case environment.get(env, path) {
     None | Some(value.Bool(False)) | Some(value.List([])) ->
       evaluate_exprs(content, env, string_tree.new())
@@ -133,7 +138,7 @@ fn evaluate_partial(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Partial(name) = expr
+  let assert parser.Partial(scanner.Partial(_, name)) = expr
   case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(
@@ -147,6 +152,6 @@ fn evaluate_partial(
       use res <- result.map(evaluate_exprs(ast, env, string_tree.new()))
       res
     }
-    None -> Error(PartialNotFoundError)
+    None -> Ok(string_tree.new())
   }
 }

@@ -46,7 +46,7 @@ fn line_loop(
 ) -> #(List(scanner.Token), List(scanner.Token)) {
   case tokens {
     [] -> #(list.reverse(line), tokens)
-    [scanner.Newline(_) as nl, ..tail] -> #(
+    [scanner.Newline(_, _) as nl, ..tail] -> #(
       list.prepend(line, nl) |> list.reverse(),
       tail,
     )
@@ -64,55 +64,79 @@ fn elide(
 fn standalone(line: List(scanner.Token)) -> List(scanner.Token) {
   case line {
     // standalone comments with newline
-    [scanner.Comment, scanner.Newline(_)]
-    | [scanner.Whitespace(_), scanner.Comment, scanner.Newline(_)] -> []
+    [scanner.Comment(_), scanner.Newline(_, _)]
+    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)] -> []
     // standalone comments with eof
-    [scanner.Comment, scanner.Eof as eof]
-    | [scanner.Whitespace(_), scanner.Comment, scanner.Eof as eof] -> [eof]
+    [scanner.Comment(_), scanner.Eof as eof]
+    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof as eof] -> [
+      eof,
+    ]
     // standalone section start with newline
-    [scanner.SectionStart(_) as ss, scanner.Newline(_)]
-    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Newline(_)] -> [
+    [scanner.SectionStart(_, _) as ss, scanner.Newline(_, _)]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.SectionStart(_, _) as ss,
+        scanner.Newline(_, _),
+      ] -> [
       ss,
     ]
     // standalone section start with eof
-    [scanner.SectionStart(_) as ss, scanner.Eof, eof]
-    | [scanner.Whitespace(_), scanner.SectionStart(_) as ss, scanner.Eof as eof] -> [
+    [scanner.SectionStart(_, _) as ss, scanner.Eof, eof]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.SectionStart(_, _) as ss,
+        scanner.Eof as eof,
+      ] -> [
       ss,
       eof,
     ]
     // standalone inverted section start with newline
-    [scanner.InvertedSectionStart(_) as iss, scanner.Newline(_)]
+    [scanner.InvertedSectionStart(_, _) as iss, scanner.Newline(_, _)]
     | [
-        scanner.Whitespace(_),
-        scanner.InvertedSectionStart(_) as iss,
-        scanner.Newline(_),
+        scanner.Whitespace(_, _),
+        scanner.InvertedSectionStart(_, _) as iss,
+        scanner.Newline(_, _),
       ] -> [
       iss,
     ]
     // standalone inverted section start with eof
-    [scanner.InvertedSectionStart(_) as iss, scanner.Eof as eof]
+    [scanner.InvertedSectionStart(_, _) as iss, scanner.Eof as eof]
     | [
-        scanner.Whitespace(_),
-        scanner.InvertedSectionStart(_) as iss,
+        scanner.Whitespace(_, _),
+        scanner.InvertedSectionStart(_, _) as iss,
         scanner.Eof as eof,
       ] -> [iss, eof]
     // standalone end tag with newline
-    [scanner.End(_) as end, scanner.Newline(_)]
-    | [scanner.Whitespace(_), scanner.End(_) as end, scanner.Newline(_)] -> [
+    [scanner.End(_, _) as end, scanner.Newline(_, _)]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.End(_, _) as end,
+        scanner.Newline(_, _),
+      ] -> [
       end,
     ]
     // standalone end tag with eof
-    [scanner.Whitespace(_), scanner.End(_) as end, scanner.Eof as eof] -> [
+    [scanner.Whitespace(_, _), scanner.End(_, _) as end, scanner.Eof as eof] -> [
       end, eof,
     ]
     // standalone set delimiters with newline
-    [scanner.SetDelimiters(_, _), scanner.Newline(_)]
-    | [scanner.Whitespace(_), scanner.SetDelimiters(_, _), scanner.Newline(_)] -> []
+    [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _)]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.SetDelimiters(_, _, _),
+        scanner.Newline(_, _),
+      ] -> []
     // standalone set delimiters with eof
-    [scanner.SetDelimiters(_, _), scanner.Eof as eof]
-    | [scanner.Whitespace(_), scanner.SetDelimiters(_, _), scanner.Eof as eof] -> [
+    [scanner.SetDelimiters(_, _, _), scanner.Eof as eof]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.SetDelimiters(_, _, _),
+        scanner.Eof as eof,
+      ] -> [
       eof,
     ]
+    // standalone partial with newline
+    [scanner.Partial(_, _) as partial, scanner.Newline(_, _)] -> [partial]
     // continue
     any -> any
   }
@@ -130,9 +154,9 @@ fn other_loop(
     // base case
     [] -> list.reverse(output)
     // comments
-    [scanner.Comment, ..tail] -> other_loop(tail, output)
+    [scanner.Comment(_), ..tail] -> other_loop(tail, output)
     // set delimiters
-    [scanner.SetDelimiters(_, _), ..tail] -> other_loop(tail, output)
+    [scanner.SetDelimiters(_, _, _), ..tail] -> other_loop(tail, output)
     // continue
     [head, ..tail] -> other_loop(tail, list.prepend(output, head))
   }

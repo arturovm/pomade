@@ -7,62 +7,61 @@ pub fn empty_parser_test() {
 
 pub fn text_test() {
   let assert Ok([
-    parser.Text("hello,"),
-    parser.Whitespace(" "),
-    parser.Text("world!"),
+    parser.Text(scanner.Text(_, "hello,")),
+    parser.Whitespace(scanner.Whitespace(_, " ")),
+    parser.Text(scanner.Text(_, "world!")),
   ]) =
     parser.parse([
-      scanner.Text("hello,"),
-      scanner.Whitespace(" "),
-      scanner.Text("world!"),
+      scanner.Text(0, "hello,"),
+      scanner.Whitespace(0, " "),
+      scanner.Text(0, "world!"),
       scanner.Eof,
     ])
 }
 
 pub fn variable_test() {
-  let assert Ok([parser.Variable(["hello"])]) =
+  let assert Ok([parser.Variable(scanner.Variable(_, ["hello"]))]) =
     parser.parse([
-      scanner.Variable(["hello"]),
+      scanner.Variable(0, ["hello"]),
       scanner.Eof,
     ])
 }
 
 pub fn dotted_variable_test() {
-  let assert Ok([parser.Variable(["hello", "world"])]) =
+  let assert Ok([parser.Variable(scanner.Variable(_, ["hello", "world"]))]) =
     parser.parse([
-      scanner.Variable(["hello", "world"]),
+      scanner.Variable(0, ["hello", "world"]),
       scanner.Eof,
     ])
 }
 
 pub fn variable_single_dot_test() {
-  let assert Ok([parser.Variable(["."])]) =
+  let assert Ok([parser.Variable(scanner.Variable(_, ["."]))]) =
     parser.parse([
-      scanner.Variable(["."]),
+      scanner.Variable(0, ["."]),
       scanner.Eof,
     ])
 }
 
 pub fn raw_variable_test() {
-  let assert Ok([parser.RawVariable(["hello"])]) =
+  let assert Ok([parser.RawVariable(scanner.RawVariable(_, ["hello"]))]) =
     parser.parse([
-      scanner.RawVariable(["hello"]),
-      scanner.Eof,
-    ])
-
-  let assert Ok([parser.RawVariable(["goodbye"])]) =
-    parser.parse([
-      scanner.RawVariable(["goodbye"]),
+      scanner.RawVariable(0, ["hello"]),
       scanner.Eof,
     ])
 }
 
 pub fn section_test() {
-  let assert Ok([parser.Section(["person"], [parser.Variable(["name"])])]) =
+  let assert Ok([
+    parser.Section(
+      scanner.SectionStart(_, ["person"]),
+      [parser.Variable(scanner.Variable(_, ["name"]))],
+    ),
+  ]) =
     parser.parse([
-      scanner.SectionStart(["person"]),
-      scanner.Variable(["name"]),
-      scanner.End(["person"]),
+      scanner.SectionStart(0, ["person"]),
+      scanner.Variable(0, ["name"]),
+      scanner.End(0, ["person"]),
       scanner.Eof,
     ])
 }
@@ -70,75 +69,88 @@ pub fn section_test() {
 pub fn inverted_section_test() {
   let assert Ok([
     parser.InvertedSection(
-      ["person"],
+      scanner.InvertedSectionStart(_, ["person"]),
       [
-        parser.Text("no"),
-        parser.Whitespace(" "),
-        parser.Text("repos"),
-        parser.Whitespace(" "),
-        parser.Text(":("),
+        parser.Text(scanner.Text(_, "no")),
+        parser.Whitespace(scanner.Whitespace(_, " ")),
+        parser.Text(scanner.Text(_, "repos")),
+        parser.Whitespace(scanner.Whitespace(_, " ")),
+        parser.Text(scanner.Text(_, ":(")),
       ],
     ),
   ]) =
     parser.parse([
-      scanner.InvertedSectionStart(["person"]),
-      scanner.Text("no"),
-      scanner.Whitespace(" "),
-      scanner.Text("repos"),
-      scanner.Whitespace(" "),
-      scanner.Text(":("),
-      scanner.End(["person"]),
+      scanner.InvertedSectionStart(0, ["person"]),
+      scanner.Text(0, "no"),
+      scanner.Whitespace(0, " "),
+      scanner.Text(0, "repos"),
+      scanner.Whitespace(0, " "),
+      scanner.Text(0, ":("),
+      scanner.End(0, ["person"]),
       scanner.Eof,
     ])
 }
 
 pub fn partial_test() {
-  let assert Ok([parser.Partial("box")]) =
+  let assert Ok([parser.Partial(scanner.Partial(_, "box"))]) =
     parser.parse([
-      scanner.Partial("box"),
+      scanner.Partial(0, "box"),
       scanner.Eof,
     ])
 }
 
 pub fn block_test() {
-  let assert Ok([parser.Block(["title"], [parser.Text("hello, world!")])]) =
+  let assert Ok([
+    parser.Block(
+      scanner.BlockStart(_, ["title"]),
+      [parser.Text(scanner.Text(_, "hello, world!"))],
+    ),
+  ]) =
     parser.parse([
-      scanner.BlockStart(["title"]),
-      scanner.Text("hello, world!"),
-      scanner.End(["title"]),
+      scanner.BlockStart(0, ["title"]),
+      scanner.Text(0, "hello, world!"),
+      scanner.End(0, ["title"]),
       scanner.Eof,
     ])
 }
 
 pub fn parent_test() {
-  let assert Ok([parser.Parent(["title"], [parser.Text("foo, bar, baz")])]) =
+  let assert Ok([
+    parser.Parent(
+      scanner.ParentStart(_, ["title"]),
+      [parser.Text(scanner.Text(_, "foo, bar, baz"))],
+    ),
+  ]) =
     parser.parse([
-      scanner.ParentStart(["title"]),
-      scanner.Text("foo, bar, baz"),
-      scanner.End(["title"]),
+      scanner.ParentStart(0, ["title"]),
+      scanner.Text(0, "foo, bar, baz"),
+      scanner.End(0, ["title"]),
       scanner.Eof,
     ])
 }
 
 pub fn recursion_test() {
   let assert Ok([
-    parser.Text("some text"),
+    parser.Text(scanner.Text(_, "some text")),
     parser.Section(
-      ["a_section"],
+      scanner.SectionStart(_, ["a_section"]),
       [
-        parser.Variable(["some_variable"]),
-        parser.InvertedSection(["inner_section"], [parser.Text("inner text")]),
+        parser.Variable(scanner.Variable(_, ["some_variable"])),
+        parser.InvertedSection(
+          scanner.InvertedSectionStart(_, ["inner_section"]),
+          [parser.Text(scanner.Text(_, "inner text"))],
+        ),
       ],
     ),
   ]) =
     parser.parse([
-      scanner.Text("some text"),
-      scanner.SectionStart(["a_section"]),
-      scanner.Variable(["some_variable"]),
-      scanner.InvertedSectionStart(["inner_section"]),
-      scanner.Text("inner text"),
-      scanner.End(["inner_section"]),
-      scanner.End(["a_section"]),
+      scanner.Text(0, "some text"),
+      scanner.SectionStart(0, ["a_section"]),
+      scanner.Variable(0, ["some_variable"]),
+      scanner.InvertedSectionStart(0, ["inner_section"]),
+      scanner.Text(0, "inner text"),
+      scanner.End(0, ["inner_section"]),
+      scanner.End(0, ["a_section"]),
       scanner.Eof,
     ])
 }

@@ -121,3 +121,13 @@ pub fn delimiters_test() {
   let tests = load_tests_from_file("delimiters.json")
   run_all(tests)
 }
+
+pub fn inverted_test() {
+  let tests = load_tests_from_file("inverted.json")
+  run_all(tests)
+}
+
+pub fn partials_test() {
+  let tests = load_tests_from_file("partials.json")
+  run_all(tests)
+}

@@ -18,16 +18,16 @@ import gleam/result
 import pomade/internal/scanner
 
 pub type Expression {
-  Text(value: String)
-  Whitespace(value: String)
-  Newline(value: String)
-  Variable(path: List(String))
-  RawVariable(path: List(String))
-  Section(path: List(String), content: List(Expression))
-  InvertedSection(path: List(String), content: List(Expression))
-  Partial(name: String)
-  Block(path: List(String), content: List(Expression))
-  Parent(path: List(String), content: List(Expression))
+  Text(value: scanner.Token)
+  Whitespace(value: scanner.Token)
+  Newline(value: scanner.Token)
+  Variable(path: scanner.Token)
+  RawVariable(path: scanner.Token)
+  Section(path: scanner.Token, content: List(Expression))
+  InvertedSection(path: scanner.Token, content: List(Expression))
+  Partial(name: scanner.Token)
+  Block(path: scanner.Token, content: List(Expression))
+  Parent(path: scanner.Token, content: List(Expression))
 }
 
 /// `SyntaxError` represents an error encountered during parsing.
@@ -64,7 +64,7 @@ fn parse_expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Eof] | [scanner.End(_), ..] -> Ok(#(list.reverse(acc), tokens))
+    [scanner.Eof] | [scanner.End(_, _), ..] -> Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(parse_expression(non_empty))
       let acc = case expression {
@@ -86,7 +86,7 @@ fn parse_parent(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.ParentStart(_), ..] ->
+    [scanner.ParentStart(_, _), ..] ->
       parse_enclosed(tokens, parse_parent_opening, Parent)
     _ -> parse_block(tokens)
   }
@@ -94,9 +94,9 @@ fn parse_parent(
 
 fn parse_parent_opening(
   tokens: List(scanner.Token),
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
+) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.ParentStart(path), ..tail] -> Ok(#(path, tail))
+    [scanner.ParentStart(_, _) as path, ..tail] -> Ok(#(path, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -106,7 +106,7 @@ fn parse_block(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.BlockStart(_), ..] ->
+    [scanner.BlockStart(_, _), ..] ->
       parse_enclosed(tokens, parse_block_opening, Block)
     _ -> parse_inverted_section(tokens)
   }
@@ -114,9 +114,9 @@ fn parse_block(
 
 fn parse_block_opening(
   tokens: List(scanner.Token),
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
+) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.BlockStart(path), ..tail] -> Ok(#(path, tail))
+    [scanner.BlockStart(_, _) as path, ..tail] -> Ok(#(path, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -126,7 +126,7 @@ fn parse_inverted_section(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.InvertedSectionStart(_), ..] ->
+    [scanner.InvertedSectionStart(_, _), ..] ->
       parse_enclosed(tokens, parse_inverted_section_opening, InvertedSection)
     _ -> parse_section(tokens)
   }
@@ -134,9 +134,9 @@ fn parse_inverted_section(
 
 fn parse_inverted_section_opening(
   tokens: List(scanner.Token),
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
+) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.InvertedSectionStart(path), ..tail] -> Ok(#(path, tail))
+    [scanner.InvertedSectionStart(_, _) as path, ..tail] -> Ok(#(path, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -146,7 +146,7 @@ fn parse_section(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.SectionStart(_), ..] ->
+    [scanner.SectionStart(_, _), ..] ->
       parse_enclosed(tokens, parse_section_opening, Section)
     _ -> parse_partial(tokens)
   }
@@ -154,9 +154,9 @@ fn parse_section(
 
 fn parse_section_opening(
   tokens: List(scanner.Token),
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
+) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.SectionStart(path), ..tail] -> Ok(#(path, tail))
+    [scanner.SectionStart(_, _) as path, ..tail] -> Ok(#(path, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -164,9 +164,9 @@ fn parse_section_opening(
 
 fn parse_closing_tag(
   tokens: List(scanner.Token),
-) -> Result(#(List(String), List(scanner.Token)), SyntaxError) {
+) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.End(path), ..tail] -> Ok(#(path, tail))
+    [scanner.End(_, _) as end, ..tail] -> Ok(#(end, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -176,7 +176,7 @@ fn parse_partial(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Partial(name), ..tail] -> {
+    [scanner.Partial(_, _) as name, ..tail] -> {
       Ok(#(Some(Partial(name)), tail))
     }
     _ -> parse_raw_variable(tokens)
@@ -187,7 +187,7 @@ fn parse_raw_variable(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.RawVariable(path), ..tail] ->
+    [scanner.RawVariable(_, _) as path, ..tail] ->
       Ok(emit_expr(RawVariable, path, tail))
     _ -> parse_variable(tokens)
   }
@@ -197,7 +197,8 @@ fn parse_variable(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Variable(path), ..tail] -> Ok(emit_expr(Variable, path, tail))
+    [scanner.Variable(_, _) as path, ..tail] ->
+      Ok(emit_expr(Variable, path, tail))
 
     _ -> parse_primary(tokens)
   }
@@ -207,10 +208,11 @@ fn parse_primary(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Text(value), ..tail] -> Ok(emit_expr(Text, value, tail))
-    [scanner.Whitespace(value), ..tail] ->
+    [scanner.Text(_, _) as value, ..tail] -> Ok(emit_expr(Text, value, tail))
+    [scanner.Whitespace(_, _) as value, ..tail] ->
       Ok(emit_expr(Whitespace, value, tail))
-    [scanner.Newline(value), ..tail] -> Ok(emit_expr(Newline, value, tail))
+    [scanner.Newline(_, _) as value, ..tail] ->
+      Ok(emit_expr(Newline, value, tail))
     [scanner.Eof] -> Ok(#(None, tokens))
     _ -> Ok(#(None, tokens))
   }
@@ -221,15 +223,26 @@ fn parse_primary(
 fn parse_enclosed(
   tokens: List(scanner.Token),
   opening_rule: fn(List(scanner.Token)) ->
-    Result(#(List(String), List(scanner.Token)), SyntaxError),
-  expr_constructor: fn(List(String), List(Expression)) -> Expression,
+    Result(#(scanner.Token, List(scanner.Token)), SyntaxError),
+  expr_constructor: fn(scanner.Token, List(Expression)) -> Expression,
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  use #(path, tail) <- result.try(opening_rule(tokens))
+  use #(start, tail) <- result.try(opening_rule(tokens))
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
-  use #(closing_path, tail) <- result.try(parse_closing_tag(tail))
-  case path == closing_path {
+  use #(end, tail) <- result.try(parse_closing_tag(tail))
+  case start_tag_and_end_tag_match(start, end) {
     False -> Error(NoMatchingClosingTagError)
-    True -> Ok(#(Some(expr_constructor(path, expressions)), tail))
+    True -> Ok(#(Some(expr_constructor(start, expressions)), tail))
+  }
+}
+
+fn start_tag_and_end_tag_match(start: scanner.Token, end: scanner.Token) {
+  let assert scanner.End(_, end_path) = end
+  case start {
+    scanner.SectionStart(_, start_path) -> start_path == end_path
+    scanner.InvertedSectionStart(_, start_path) -> start_path == end_path
+    scanner.BlockStart(_, start_path) -> start_path == end_path
+    scanner.ParentStart(_, start_path) -> start_path == end_path
+    _ -> False
   }
 }
 
