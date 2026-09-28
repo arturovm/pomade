@@ -108,35 +108,35 @@ pub fn partial_test() {
     ])
 }
 
-pub fn block_test() {
-  let assert Ok([
-    parser.Block(
-      scanner.BlockStart(_, ["title"]),
-      [parser.Text(scanner.Text(_, "hello, world!"))],
-    ),
-  ]) =
-    parser.parse([
-      scanner.BlockStart(0, ["title"]),
-      scanner.Text(0, "hello, world!"),
-      scanner.End(0, ["title"]),
-      scanner.Eof(0),
-    ])
-}
-
-pub fn parent_test() {
-  let assert Ok([
-    parser.Parent(
-      scanner.ParentStart(_, ["title"]),
-      [parser.Text(scanner.Text(_, "foo, bar, baz"))],
-    ),
-  ]) =
-    parser.parse([
-      scanner.ParentStart(0, ["title"]),
-      scanner.Text(0, "foo, bar, baz"),
-      scanner.End(0, ["title"]),
-      scanner.Eof(0),
-    ])
-}
+// pub fn block_test() {
+//   let assert Ok([
+//     parser.Block(
+//       scanner.BlockStart(_, ["title"]),
+//       [parser.Text(scanner.Text(_, "hello, world!"))],
+//     ),
+//   ]) =
+//     parser.parse([
+//       scanner.BlockStart(0, ["title"]),
+//       scanner.Text(0, "hello, world!"),
+//       scanner.End(0, ["title"]),
+//       scanner.Eof(0),
+//     ])
+// }
+//
+// pub fn parent_test() {
+//   let assert Ok([
+//     parser.Parent(
+//       scanner.ParentStart(_, ["title"]),
+//       [parser.Text(scanner.Text(_, "foo, bar, baz"))],
+//     ),
+//   ]) =
+//     parser.parse([
+//       scanner.ParentStart(0, ["title"]),
+//       scanner.Text(0, "foo, bar, baz"),
+//       scanner.End(0, ["title"]),
+//       scanner.Eof(0),
+//     ])
+// }
 
 pub fn recursion_test() {
   let assert Ok([

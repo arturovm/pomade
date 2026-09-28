@@ -81,48 +81,48 @@ fn parse_expressions(
 fn parse_expression(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  parse_parent(tokens)
+  parse_inverted_section(tokens)
 }
 
-fn parse_parent(
-  tokens: List(scanner.Token),
-) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  case tokens {
-    [scanner.ParentStart(_, _), ..] ->
-      parse_enclosed(tokens, parse_parent_opening, Parent)
-    _ -> parse_block(tokens)
-  }
-}
-
-fn parse_parent_opening(
-  tokens: List(scanner.Token),
-) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
-  case tokens {
-    [scanner.ParentStart(_, _) as path, ..tail] -> Ok(#(path, tail))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
-  }
-}
-
-fn parse_block(
-  tokens: List(scanner.Token),
-) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
-  case tokens {
-    [scanner.BlockStart(_, _), ..] ->
-      parse_enclosed(tokens, parse_block_opening, Block)
-    _ -> parse_inverted_section(tokens)
-  }
-}
-
-fn parse_block_opening(
-  tokens: List(scanner.Token),
-) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
-  case tokens {
-    [scanner.BlockStart(_, _) as path, ..tail] -> Ok(#(path, tail))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
-  }
-}
+// fn parse_parent(
+//   tokens: List(scanner.Token),
+// ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
+//   case tokens {
+//     [scanner.ParentStart(_, _), ..] ->
+//       parse_enclosed(tokens, parse_parent_opening, Parent)
+//     _ -> parse_block(tokens)
+//   }
+// }
+//
+// fn parse_parent_opening(
+//   tokens: List(scanner.Token),
+// ) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
+//   case tokens {
+//     [scanner.ParentStart(_, _) as path, ..tail] -> Ok(#(path, tail))
+//     [head, ..] -> Error(UnexpectedTokenError(head))
+//     [] -> Error(UnexpectedEndOfInputError)
+//   }
+// }
+//
+// fn parse_block(
+//   tokens: List(scanner.Token),
+// ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
+//   case tokens {
+//     [scanner.BlockStart(_, _), ..] ->
+//       parse_enclosed(tokens, parse_block_opening, Block)
+//     _ -> parse_inverted_section(tokens)
+//   }
+// }
+//
+// fn parse_block_opening(
+//   tokens: List(scanner.Token),
+// ) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
+//   case tokens {
+//     [scanner.BlockStart(_, _) as path, ..tail] -> Ok(#(path, tail))
+//     [head, ..] -> Error(UnexpectedTokenError(head))
+//     [] -> Error(UnexpectedEndOfInputError)
+//   }
+// }
 
 fn parse_inverted_section(
   tokens: List(scanner.Token),
@@ -248,8 +248,8 @@ fn start_tag_and_end_tag_match(start: scanner.Token, end: scanner.Token) {
   case start {
     scanner.SectionStart(_, start_path) -> start_path == end_path
     scanner.InvertedSectionStart(_, start_path) -> start_path == end_path
-    scanner.BlockStart(_, start_path) -> start_path == end_path
-    scanner.ParentStart(_, start_path) -> start_path == end_path
+    // scanner.BlockStart(_, start_path) -> start_path == end_path
+    // scanner.ParentStart(_, start_path) -> start_path == end_path
     _ -> False
   }
 }

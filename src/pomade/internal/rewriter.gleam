@@ -17,9 +17,9 @@ pub fn rewrite(
   indentation: Option(String),
 ) -> List(scanner.Token) {
   split_lines(tokens, [])
-  |> list.map(indent(_, indentation))
   |> list.map(elide_standalone)
   |> list.map(elide_other)
+  |> list.map(indent(_, indentation))
   |> list.flatten()
 }
 
