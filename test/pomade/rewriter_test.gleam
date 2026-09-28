@@ -51,7 +51,7 @@ pub fn indented_standalone_test() {
       scanner.Newline(0, "\n"),
       scanner.Text(0, "End."),
       scanner.Newline(0, "\n"),
-      scanner.Eof,
+      scanner.Eof(0),
     ]
     == rewriter.rewrite([
       scanner.Text(0, "Begin."),
@@ -61,18 +61,18 @@ pub fn indented_standalone_test() {
       scanner.Newline(0, "\n"),
       scanner.Text(0, "End."),
       scanner.Newline(0, "\n"),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
 pub fn standalone_without_newline_test() {
-  assert [scanner.Text(0, "!"), scanner.Newline(0, "\n"), scanner.Eof]
+  assert [scanner.Text(0, "!"), scanner.Newline(0, "\n"), scanner.Eof(0)]
     == rewriter.rewrite([
       scanner.Text(0, "!"),
       scanner.Newline(0, "\n"),
       scanner.Whitespace(0, "  "),
       scanner.Comment(0),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -84,7 +84,7 @@ pub fn indented_inline_test() {
       scanner.Whitespace(1, " "),
       scanner.Comment(1),
       scanner.Newline(1, "\n"),
-      scanner.Eof,
+      scanner.Eof(2),
     ]
     == tokens
 
@@ -94,7 +94,7 @@ pub fn indented_inline_test() {
       scanner.Text(1, "12"),
       scanner.Whitespace(1, " "),
       scanner.Newline(1, "\n"),
-      scanner.Eof,
+      scanner.Eof(2),
     ]
     == ast
 }

@@ -2,7 +2,7 @@ import pomade/internal/parser
 import pomade/internal/scanner
 
 pub fn empty_parser_test() {
-  let assert Ok([]) = parser.parse([scanner.Eof])
+  let assert Ok([]) = parser.parse([scanner.Eof(0)])
 }
 
 pub fn text_test() {
@@ -15,7 +15,7 @@ pub fn text_test() {
       scanner.Text(0, "hello,"),
       scanner.Whitespace(0, " "),
       scanner.Text(0, "world!"),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -23,7 +23,7 @@ pub fn variable_test() {
   let assert Ok([parser.Variable(scanner.Variable(_, ["hello"]))]) =
     parser.parse([
       scanner.Variable(0, ["hello"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -31,7 +31,7 @@ pub fn dotted_variable_test() {
   let assert Ok([parser.Variable(scanner.Variable(_, ["hello", "world"]))]) =
     parser.parse([
       scanner.Variable(0, ["hello", "world"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -39,7 +39,7 @@ pub fn variable_single_dot_test() {
   let assert Ok([parser.Variable(scanner.Variable(_, ["."]))]) =
     parser.parse([
       scanner.Variable(0, ["."]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -47,7 +47,7 @@ pub fn raw_variable_test() {
   let assert Ok([parser.RawVariable(scanner.RawVariable(_, ["hello"]))]) =
     parser.parse([
       scanner.RawVariable(0, ["hello"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -62,7 +62,7 @@ pub fn section_test() {
       scanner.SectionStart(0, ["person"]),
       scanner.Variable(0, ["name"]),
       scanner.End(0, ["person"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -87,7 +87,7 @@ pub fn inverted_section_test() {
       scanner.Whitespace(0, " "),
       scanner.Text(0, ":("),
       scanner.End(0, ["person"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -95,7 +95,7 @@ pub fn partial_test() {
   let assert Ok([parser.Partial(scanner.Partial(_, "box"))]) =
     parser.parse([
       scanner.Partial(0, "box"),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -110,7 +110,7 @@ pub fn block_test() {
       scanner.BlockStart(0, ["title"]),
       scanner.Text(0, "hello, world!"),
       scanner.End(0, ["title"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -125,7 +125,7 @@ pub fn parent_test() {
       scanner.ParentStart(0, ["title"]),
       scanner.Text(0, "foo, bar, baz"),
       scanner.End(0, ["title"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }
 
@@ -151,6 +151,6 @@ pub fn recursion_test() {
       scanner.Text(0, "inner text"),
       scanner.End(0, ["inner_section"]),
       scanner.End(0, ["a_section"]),
-      scanner.Eof,
+      scanner.Eof(0),
     ])
 }

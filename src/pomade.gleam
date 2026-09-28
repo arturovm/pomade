@@ -17,12 +17,7 @@ pub type Template =
 /// `Error` aggregates all the possible error types that can be emitted by the
 /// different rendering phases.
 pub type Error {
-  /// `ScannerError` reports a lexical error, encountered during scanning.
-  ScannerError(scanner.LexicalError)
-  /// `ParserError` reports a syntax error, encountered during parsing.
-  ParserError(parser.SyntaxError)
-  /// `InterpreterError` reports a runtime error, encountered during interpreting.
-  InterpreterError(interpreter.RuntimeError)
+  Error(line: Int, message: String)
 }
 
 /// `render` renders a template source string directly. Useful when convenience
@@ -41,17 +36,31 @@ pub fn render(
 /// when speed is important.
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
-    scanner.scan(template) |> result.map_error(ScannerError),
+    scanner.scan(template) |> result.map_error(map_lexical_error),
   )
   let rewritten = rewriter.rewrite(tokens)
   use ast <- result.map(
-    parser.parse(rewritten) |> result.map_error(ParserError),
+    parser.parse(rewritten) |> result.map_error(map_syntax_error),
   )
   fn(env: value.Value, partials: Option(Dict(String, String))) -> Result(
     String,
     Error,
   ) {
     interpreter.interpret(ast, env, partials)
-    |> result.map_error(InterpreterError)
+    |> result.map_error(map_runtime_error)
   }
+}
+
+// errors
+
+fn map_lexical_error(error: scanner.LexicalError) -> Error {
+  Error(line: 0, message: scanner.error_to_string(error))
+}
+
+fn map_syntax_error(error: parser.SyntaxError) -> Error {
+  Error(line: 0, message: parser.error_to_string(error))
+}
+
+fn map_runtime_error(error: interpreter.RuntimeError) -> Error {
+  Error(line: 0, message: interpreter.error_to_string(error))
 }

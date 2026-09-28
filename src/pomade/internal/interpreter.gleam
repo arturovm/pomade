@@ -18,10 +18,13 @@ pub type RuntimeError {
   UnknownExpressionError
   /// `PartialError` is used to report that an error occurred during partial
   /// evaluation.
-  PartialError(String)
-  /// `PartialError` is used to report that an error occurred during partial
-  /// evaluation.
-  PartialNotFoundError
+  PartialError(name: String, error: PartialError)
+}
+
+pub opaque type PartialError {
+  LexicalError(scanner.LexicalError)
+  SyntaxError(parser.SyntaxError)
+  RuntimeError(RuntimeError)
 }
 
 pub fn interpret(
@@ -142,20 +145,41 @@ fn evaluate_partial(
   case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(
-        scanner.scan(source) |> result.map_error(fn(_) { PartialError("") }),
+        scanner.scan(source)
+        |> result.map_error(fn(e) { PartialError(name, LexicalError(e)) }),
       )
       let rewritten = rewriter.rewrite(tokens)
       use ast <- result.try(
         parser.parse(rewritten)
-        |> result.map_error(fn(_) { PartialError("") }),
+        |> result.map_error(fn(e) { PartialError(name, SyntaxError(e)) }),
       )
-      use partial_result <- result.map(evaluate_exprs(
-        ast,
-        env,
-        string_tree.new(),
-      ))
+      use partial_result <- result.map(
+        evaluate_exprs(ast, env, string_tree.new())
+        |> result.map_error(fn(e) { PartialError(name, RuntimeError(e)) }),
+      )
       partial_result
     }
     None -> Ok(string_tree.new())
+  }
+}
+
+// formatting
+
+pub fn error_to_string(error: RuntimeError) -> String {
+  case error {
+    UnknownExpressionError -> "unknown expression"
+    PartialError(name, error) ->
+      "error found while rendering partial '"
+      <> name
+      <> "': "
+      <> partial_error_to_string(error)
+  }
+}
+
+fn partial_error_to_string(error: PartialError) -> String {
+  case error {
+    LexicalError(error) -> scanner.error_to_string(error)
+    SyntaxError(error) -> parser.error_to_string(error)
+    RuntimeError(error) -> error_to_string(error)
   }
 }

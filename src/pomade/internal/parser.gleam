@@ -40,7 +40,7 @@ pub type SyntaxError {
   UnexpectedEndOfInputError
   /// `NoMatchingClosingTagError` is returned when a `{{/closing_tag}}` was
   /// expected, but none was found.
-  NoMatchingClosingTagError
+  NoMatchingClosingTagError(scanner.Token)
 }
 
 pub fn parse(
@@ -55,7 +55,7 @@ fn parse_template(
   tokens: List(scanner.Token),
 ) -> Result(List(Expression), SyntaxError) {
   use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
-  use _ <- result.map(expect_token(tail, scanner.Eof))
+  use _ <- result.map(expect_eof(tail))
   expressions
 }
 
@@ -64,7 +64,8 @@ fn parse_expressions(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Eof] | [scanner.End(_, _), ..] -> Ok(#(list.reverse(acc), tokens))
+    [scanner.Eof(_)] | [scanner.End(_, _), ..] ->
+      Ok(#(list.reverse(acc), tokens))
     non_empty -> {
       use #(expression, tail) <- result.try(parse_expression(non_empty))
       let acc = case expression {
@@ -213,7 +214,7 @@ fn parse_primary(
       Ok(emit_expr(Whitespace, value, tail))
     [scanner.Newline(_, _) as value, ..tail] ->
       Ok(emit_expr(Newline, value, tail))
-    [scanner.Eof] -> Ok(#(None, tokens))
+    [scanner.Eof(_)] -> Ok(#(None, tokens))
     _ -> Ok(#(None, tokens))
   }
 }
@@ -230,7 +231,7 @@ fn parse_enclosed(
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
   use #(end, tail) <- result.try(parse_closing_tag(tail))
   case start_tag_and_end_tag_match(start, end) {
-    False -> Error(NoMatchingClosingTagError)
+    False -> Error(NoMatchingClosingTagError(start))
     True -> Ok(#(Some(expr_constructor(start, expressions)), tail))
   }
 }
@@ -246,16 +247,12 @@ fn start_tag_and_end_tag_match(start: scanner.Token, end: scanner.Token) {
   }
 }
 
-fn expect_token(
+fn expect_eof(
   tokens: List(scanner.Token),
-  expected: scanner.Token,
 ) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [head, ..tail] ->
-      case head == expected {
-        True -> Ok(#(head, tail))
-        False -> Error(UnexpectedTokenError(head))
-      }
+    [scanner.Eof(_) as eof, ..tail] -> Ok(#(eof, tail))
+    [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
 }
@@ -266,4 +263,17 @@ fn emit_expr(
   tail: List(scanner.Token),
 ) -> #(Option(Expression), List(scanner.Token)) {
   #(Some(expression(value)), tail)
+}
+
+// formatting
+
+pub fn error_to_string(error: SyntaxError) -> String {
+  case error {
+    UnexpectedTokenError(token) ->
+      "unexpected token: " <> scanner.token_to_string(token)
+    UnexpectedEndOfInputError -> "unexpected end of input"
+    NoMatchingClosingTagError(token) ->
+      "no matching closing tag found for tag: "
+      <> scanner.token_to_string(token)
+  }
 }
