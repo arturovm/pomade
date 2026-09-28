@@ -8,11 +8,16 @@
 //// _comment                             -> {any} COMMENT {any}          => {any} {any} ;
 
 import gleam/list
+import gleam/option.{type Option, None, Some}
 
 import pomade/internal/scanner
 
-pub fn rewrite(tokens: List(scanner.Token)) -> List(scanner.Token) {
+pub fn rewrite(
+  tokens: List(scanner.Token),
+  indentation: Option(String),
+) -> List(scanner.Token) {
   split_lines(tokens, [])
+  |> list.map(indent(_, indentation))
   |> list.map(elide_standalone)
   |> list.map(elide_other)
   |> list.flatten()
@@ -43,6 +48,20 @@ fn next_line(
       tail,
     )
     [any, ..tail] -> next_line(tail, list.prepend(line, any))
+  }
+}
+
+fn indent(
+  line: List(scanner.Token),
+  indentation: Option(String),
+) -> List(scanner.Token) {
+  case indentation {
+    None -> line
+    Some(indentation_value) ->
+      case line {
+        [scanner.Eof(_)] -> line
+        any -> list.prepend(any, scanner.Whitespace(0, indentation_value))
+      }
   }
 }
 
@@ -120,6 +139,18 @@ fn elide_standalone(line: List(scanner.Token)) -> List(scanner.Token) {
     ]
     // standalone partial with newline
     [scanner.Partial(_, _) as partial, scanner.Newline(_, _)] -> [partial]
+    // standalone partial with indentation
+    [
+      scanner.Whitespace(_, _) as ws,
+      scanner.Partial(_, _) as partial,
+      scanner.Newline(_, _),
+    ] -> [scanner.Indentation(ws.line, ws.lexeme), partial]
+    // standalone partial with eof
+    [
+      scanner.Whitespace(_, _) as ws,
+      scanner.Partial(_, _) as partial,
+      scanner.Eof(_) as eof,
+    ] -> [scanner.Indentation(ws.line, ws.lexeme), partial, eof]
     // continue
     any -> any
   }

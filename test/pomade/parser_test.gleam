@@ -1,3 +1,5 @@
+import gleam/option.{None, Some}
+
 import pomade/internal/parser
 import pomade/internal/scanner
 
@@ -92,8 +94,15 @@ pub fn inverted_section_test() {
 }
 
 pub fn partial_test() {
-  let assert Ok([parser.Partial(scanner.Partial(_, "box"))]) =
+  let assert Ok([parser.Partial(scanner.Partial(_, "box"), None)]) =
     parser.parse([
+      scanner.Partial(0, "box"),
+      scanner.Eof(0),
+    ])
+
+  let assert Ok([parser.Partial(scanner.Partial(_, "box"), Some("  \t"))]) =
+    parser.parse([
+      scanner.Indentation(0, "  \t"),
       scanner.Partial(0, "box"),
       scanner.Eof(0),
     ])

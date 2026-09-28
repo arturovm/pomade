@@ -1,5 +1,5 @@
 import gleam/dict.{type Dict}
-import gleam/option.{type Option}
+import gleam/option.{type Option, None}
 import gleam/result
 
 import pomade/value
@@ -17,7 +17,7 @@ pub type Template =
 /// `Error` aggregates all the possible error types that can be emitted by the
 /// different rendering phases.
 pub type Error {
-  Error(line: Int, message: String)
+  Error(message: String)
 }
 
 /// `render` renders a template source string directly. Useful when convenience
@@ -38,7 +38,7 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
     scanner.scan(template) |> result.map_error(map_lexical_error),
   )
-  let rewritten = rewriter.rewrite(tokens)
+  let rewritten = rewriter.rewrite(tokens, None)
   use ast <- result.map(
     parser.parse(rewritten) |> result.map_error(map_syntax_error),
   )
@@ -54,13 +54,17 @@ pub fn compile(template: String) -> Result(Template, Error) {
 // errors
 
 fn map_lexical_error(error: scanner.LexicalError) -> Error {
-  Error(line: 0, message: scanner.error_to_string(error))
+  Error(message: "lexical error: " <> scanner.error_to_string(error))
 }
 
 fn map_syntax_error(error: parser.SyntaxError) -> Error {
-  Error(line: 0, message: parser.error_to_string(error))
+  Error(message: "syntax error: " <> parser.error_to_string(error))
 }
 
 fn map_runtime_error(error: interpreter.RuntimeError) -> Error {
-  Error(line: 0, message: interpreter.error_to_string(error))
+  Error(message: "runtime error: " <> interpreter.error_to_string(error))
+}
+
+pub fn error_to_string(error: Error) -> String {
+  error.message
 }

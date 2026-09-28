@@ -125,7 +125,7 @@ pub fn partial_test() {
       [
         parser.Text(scanner.Text(0, "Hello,")),
         parser.Whitespace(scanner.Whitespace(0, " ")),
-        parser.Partial(scanner.Partial(0, "other_template")),
+        parser.Partial(scanner.Partial(0, "other_template"), None),
       ],
       value.Dict(dict.new()),
       Some(dict.from_list([#("other_template", "world!")])),
@@ -135,9 +135,19 @@ pub fn partial_test() {
       [
         parser.Text(scanner.Text(0, "Hello,")),
         parser.Whitespace(scanner.Whitespace(0, " ")),
-        parser.Partial(scanner.Partial(0, "other_template")),
+        parser.Partial(scanner.Partial(0, "other_template"), None),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       Some(dict.from_list([#("other_template", "{{greeting}}")])),
+    )
+  //   {{>partial}}\n>
+  let assert Ok("  >\n  >>") =
+    interpreter.interpret(
+      [
+        parser.Partial(scanner.Partial(0, "partial"), Some("  ")),
+        parser.Text(scanner.Text(0, ">")),
+      ],
+      value.Dict(dict.new()),
+      Some(dict.from_list([#("partial", ">\n>")])),
     )
 }

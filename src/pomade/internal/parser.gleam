@@ -6,11 +6,12 @@
 //// Block                    -> BLOCK_START {expression} END | InvertedSection ;
 //// InvertedSection          -> INVERTED_SECTION_START {expression} END | Section;
 //// Section                  -> SECTION_START {expression} END | Partial ;
-//// Partial                  -> PARTIAL | RawVariable ;
+//// Partial                  -> [INDENTATION] PARTIAL | RawVariable ;
 //// RawVariable              -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
 //// Variable                 -> VARIABLE | Primary ;
 //// Primary                  -> TEXT | WHITESPACE | NEWLINE
 
+import gleam/int
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
@@ -25,7 +26,7 @@ pub type Expression {
   RawVariable(token: scanner.Token)
   Section(token: scanner.Token, content: List(Expression))
   InvertedSection(token: scanner.Token, content: List(Expression))
-  Partial(name: scanner.Token)
+  Partial(name: scanner.Token, indentation: Option(String))
   Block(token: scanner.Token, content: List(Expression))
   Parent(token: scanner.Token, content: List(Expression))
 }
@@ -40,7 +41,7 @@ pub type SyntaxError {
   UnexpectedEndOfInputError
   /// `NoMatchingClosingTagError` is returned when a `{{/closing_tag}}` was
   /// expected, but none was found.
-  NoMatchingClosingTagError(scanner.Token)
+  NoMatchingEndTagError(scanner.Token)
 }
 
 pub fn parse(
@@ -55,7 +56,7 @@ fn parse_template(
   tokens: List(scanner.Token),
 ) -> Result(List(Expression), SyntaxError) {
   use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
-  use _ <- result.map(expect_eof(tail))
+  use _ <- result.map(parse_eof(tail))
   expressions
 }
 
@@ -177,8 +178,13 @@ fn parse_partial(
   tokens: List(scanner.Token),
 ) -> Result(#(Option(Expression), List(scanner.Token)), SyntaxError) {
   case tokens {
+    [
+      scanner.Indentation(_, indentation),
+      scanner.Partial(_, _) as token,
+      ..tail
+    ] -> Ok(#(Some(Partial(token, Some(indentation))), tail))
     [scanner.Partial(_, _) as name, ..tail] -> {
-      Ok(#(Some(Partial(name)), tail))
+      Ok(#(Some(Partial(name, None)), tail))
     }
     _ -> parse_raw_variable(tokens)
   }
@@ -215,7 +221,8 @@ fn parse_primary(
     [scanner.Newline(_, _) as value, ..tail] ->
       Ok(emit_expr(Newline, value, tail))
     [scanner.Eof(_)] -> Ok(#(None, tokens))
-    _ -> Ok(#(None, tokens))
+    [any, ..] -> Error(UnexpectedTokenError(any))
+    [] -> Error(UnexpectedEndOfInputError)
   }
 }
 
@@ -231,7 +238,7 @@ fn parse_enclosed(
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
   use #(end, tail) <- result.try(parse_closing_tag(tail))
   case start_tag_and_end_tag_match(start, end) {
-    False -> Error(NoMatchingClosingTagError(start))
+    False -> Error(NoMatchingEndTagError(start))
     True -> Ok(#(Some(expr_constructor(start, expressions)), tail))
   }
 }
@@ -247,11 +254,11 @@ fn start_tag_and_end_tag_match(start: scanner.Token, end: scanner.Token) {
   }
 }
 
-fn expect_eof(
+fn parse_eof(
   tokens: List(scanner.Token),
 ) -> Result(#(scanner.Token, List(scanner.Token)), SyntaxError) {
   case tokens {
-    [scanner.Eof(_) as eof, ..tail] -> Ok(#(eof, tail))
+    [scanner.Eof(_) as eof] -> Ok(#(eof, tokens))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -270,10 +277,15 @@ fn emit_expr(
 pub fn error_to_string(error: SyntaxError) -> String {
   case error {
     UnexpectedTokenError(token) ->
-      "unexpected token: " <> scanner.token_to_string(token)
+      "line "
+      <> int.to_string(token.line)
+      <> ": unexpected token: "
+      <> scanner.token_to_string(token)
     UnexpectedEndOfInputError -> "unexpected end of input"
-    NoMatchingClosingTagError(token) ->
-      "no matching closing tag found for tag: "
+    NoMatchingEndTagError(token) ->
+      "line "
+      <> int.to_string(token.line)
+      <> ": no matching end tag found for start tag: "
       <> scanner.token_to_string(token)
   }
 }

@@ -65,6 +65,8 @@ pub type Token {
   Comment(line: Int)
   // eof
   Eof(line: Int)
+  // synthetic tokens
+  Indentation(line: Int, lexeme: String)
 }
 
 /// `LexicalError` represents an error encountered during scanning.
@@ -570,25 +572,28 @@ fn unexpected_character_error(line: Int, source: String) -> LexicalError {
 // formatting
 
 pub fn token_to_string(token: Token) -> String {
-  "line "
-  <> int.to_string(token.line)
-  <> ": "
-  <> case token {
+  case token {
     Text(_, _) -> "TEXT"
     Whitespace(_, _) -> "WHITESPACE"
     Newline(_, _) -> "NEWLINE"
-    SectionStart(_, _) -> "SECTION_START"
-    InvertedSectionStart(_, _) -> "INVERTED_SECTION_START"
-    BlockStart(_, _) -> "BLOCK_START"
-    ParentStart(_, _) -> "PARENT_START"
-    End(_, _) -> "END_TAG"
-    Partial(_, _) -> "PARTIAL"
-    RawVariable(_, _) -> "RAW_VARIABLE"
-    Variable(_, _) -> "VARIABLE"
+    SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
+    InvertedSectionStart(_, path) ->
+      token_name_with_path("INVERTED_SECTION_START", path)
+    BlockStart(_, path) -> token_name_with_path("BLOCK_START", path)
+    ParentStart(_, path) -> token_name_with_path("PARENT_START", path)
+    End(_, path) -> token_name_with_path("END_TAG", path)
+    Partial(_, name) -> token_name_with_path("PARTIAL", [name])
+    RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
+    Variable(_, path) -> token_name_with_path("VARIABLE", path)
     SetDelimiters(_, _, _) -> "SET_DELIMITERS"
     Comment(_) -> "COMMENT"
     Eof(_) -> "EOF"
+    Indentation(_, _) -> "INDENTATION"
   }
+}
+
+fn token_name_with_path(name: String, path: List(String)) -> String {
+  name <> "(" <> string.join(path, ".") <> ")"
 }
 
 pub fn error_to_string(error: LexicalError) -> String {
@@ -600,6 +605,6 @@ pub fn error_to_string(error: LexicalError) -> String {
     UnterminatedTagError(_) -> "unterminated tag"
     MalformedSetDelimitersError(_) -> "malformed set delimiters tag"
     UnexpectedCharacterError(_, character) ->
-      "unexpected character: " <> character
+      "unexpected character: '" <> character <> "'"
   }
 }

@@ -67,7 +67,7 @@ fn evaluate(
     parser.RawVariable(_) -> evaluate_raw_variable(expr, env)
     parser.Section(_, _) -> evaluate_section(expr, env)
     parser.InvertedSection(_, _) -> evaluate_inverted_section(expr, env)
-    parser.Partial(_) -> evaluate_partial(expr, env)
+    parser.Partial(_, _) -> evaluate_partial(expr, env)
     _ -> Error(UnknownExpressionError)
   }
 }
@@ -141,14 +141,14 @@ fn evaluate_partial(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Partial(scanner.Partial(_, name)) = expr
+  let assert parser.Partial(scanner.Partial(_, name), indentation) = expr
   case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(
         scanner.scan(source)
         |> result.map_error(fn(e) { PartialError(name, LexicalError(e)) }),
       )
-      let rewritten = rewriter.rewrite(tokens)
+      let rewritten = rewriter.rewrite(tokens, indentation)
       use ast <- result.try(
         parser.parse(rewritten)
         |> result.map_error(fn(e) { PartialError(name, SyntaxError(e)) }),
