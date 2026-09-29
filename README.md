@@ -136,7 +136,7 @@ Or whatever.
 ## License
 
 `pomade` is distributed under the MIT License. You can find more details in
-LICENSE.
+`LICENSE`.
 
 ## Important
 
