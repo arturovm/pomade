@@ -57,16 +57,6 @@ pub fn scan_partial_test() {
     scanner.scan("{{> next_more}}")
 }
 
-// pub fn scan_block_start_test() {
-//   let assert Ok([scanner.BlockStart(1, ["title"]), scanner.Eof(1)]) =
-//     scanner.scan("{{$title}}")
-// }
-//
-// pub fn scan_parent_start_test() {
-//   let assert Ok([scanner.ParentStart(1, ["article"]), scanner.Eof(1)]) =
-//     scanner.scan("{{<article}}")
-// }
-
 pub fn scan_set_delimiter_start_test() {
   let assert Ok([
     scanner.SetDelimiters(1, "<%", "%>"),

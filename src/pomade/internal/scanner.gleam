@@ -54,8 +54,6 @@ pub type Token {
   // tags
   SectionStart(line: Int, path: List(String))
   InvertedSectionStart(line: Int, path: List(String))
-  // BlockStart(line: Int, path: List(String))
-  // ParentStart(line: Int, path: List(String))
   End(line: Int, path: List(String))
   Partial(line: Int, path: String)
   RawVariable(line: Int, path: List(String))
@@ -247,8 +245,6 @@ fn scan_tag_content(
     "=" <> _ -> scan_set_delimiters(lexer, source, stream)
     "#" <> tail -> scan_special(lexer, tail, stream, SectionStart)
     "^" <> tail -> scan_special(lexer, tail, stream, InvertedSectionStart)
-    // "$" <> tail -> scan_special(lexer, tail, stream, BlockStart)
-    // "<" <> tail -> scan_special(lexer, tail, stream, ParentStart)
     "/" <> tail -> scan_special(lexer, tail, stream, End)
     ">" <> tail -> scan_partial(lexer, tail, stream, Partial)
     "&" <> tail -> scan_special(lexer, tail, stream, RawVariable)
@@ -579,8 +575,6 @@ pub fn token_to_string(token: Token) -> String {
     SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
-    // BlockStart(_, path) -> token_name_with_path("BLOCK_START", path)
-    // ParentStart(_, path) -> token_name_with_path("PARENT_START", path)
     End(_, path) -> token_name_with_path("END_TAG", path)
     Partial(_, name) -> token_name_with_path("PARTIAL", [name])
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)

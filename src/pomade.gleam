@@ -24,11 +24,11 @@ pub type Error {
 /// is the priority.
 pub fn render(
   template: String,
-  environment: value.Value,
+  data: value.Value,
   partials: Option(Dict(String, String)),
 ) -> Result(String, Error) {
   use template <- result.try(compile(template))
-  template(environment, partials)
+  template(data, partials)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -42,11 +42,11 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use ast <- result.map(
     parser.parse(rewritten) |> result.map_error(map_syntax_error),
   )
-  fn(env: value.Value, partials: Option(Dict(String, String))) -> Result(
+  fn(data: value.Value, partials: Option(Dict(String, String))) -> Result(
     String,
     Error,
   ) {
-    interpreter.interpret(ast, env, partials)
+    interpreter.interpret(ast, data, partials)
     |> result.map_error(map_runtime_error)
   }
 }

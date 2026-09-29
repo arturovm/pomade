@@ -140,7 +140,6 @@ pub fn partial_test() {
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       Some(dict.from_list([#("other_template", "{{greeting}}")])),
     )
-  //   {{>partial}}\n>
   let assert Ok("  >\n  >>") =
     interpreter.interpret(
       [
