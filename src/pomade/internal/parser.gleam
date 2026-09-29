@@ -195,18 +195,20 @@ fn parse_enclosed(
   use #(start, tail) <- result.try(opening_rule(tokens))
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
   use #(end, tail) <- result.try(parse_closing_tag(tail))
-  case start_tag_and_end_tag_match(start, end) {
+  use start_path <- result.try(tag_path(start))
+  use end_path <- result.try(tag_path(end))
+  case start_path == end_path {
     False -> Error(NoMatchingEndTagError(start))
     True -> Ok(#(Some(expr_constructor(start, expressions)), tail))
   }
 }
 
-fn start_tag_and_end_tag_match(start: scanner.Token, end: scanner.Token) {
-  let assert scanner.End(_, end_path) = end
-  case start {
-    scanner.SectionStart(_, start_path) -> start_path == end_path
-    scanner.InvertedSectionStart(_, start_path) -> start_path == end_path
-    _ -> False
+fn tag_path(tag: scanner.Token) -> Result(List(String), SyntaxError) {
+  case tag {
+    scanner.SectionStart(_, path) -> Ok(path)
+    scanner.InvertedSectionStart(_, path) -> Ok(path)
+    scanner.End(_, path) -> Ok(path)
+    any -> Error(UnexpectedTokenError(any))
   }
 }
 

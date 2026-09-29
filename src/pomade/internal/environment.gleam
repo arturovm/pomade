@@ -6,7 +6,7 @@ import gleam/option.{type Option, None, Some}
 
 import houdini
 
-import pomade/value.{type Value, Bool, Dict, Float, Int, String}
+import pomade/internal/value.{type Value, Bool, Dict, Float, Int, String}
 
 pub type Environment {
   Environment(

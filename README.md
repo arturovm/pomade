@@ -76,12 +76,12 @@ You can also render templates with partials, by passing a `Dict(String, String)`
 in the partials argument, mapping a partial name to the source of that partial:
 
 ```gleam
-pub fn render_with_partials() -> Result(String, pomade.Error) {
+pub fn render_with_partials() -> Result(String, String) {
   let template = "Fly, you {{>other_template}}!"
   let data = value.Dict(dict.from_list([#("adjective", value.String("fools"))]))
   let partials = dict.from_list([#("other_template", "{{adjective}}")])
   pomade.render(template, data, Some(partials))
-  // -> "Fly, you fools!"
+  // -> Ok("Fly, you fools!")
 }
 ```
 
@@ -92,7 +92,7 @@ of your program (as in, for example, a web application), you can pre-compile
 templates to save some time:
 
 ```gleam
-pub fn precompile() -> Result(String, pomade.Error) {
+pub fn precompile() -> Result(String, String) {
   let template_source = "No. I am your {{relative}}."
   let assert Ok(template) = pomade.compile(template_source)
   render_compiled(template)
@@ -109,10 +109,10 @@ You can, of course, simply apply the pre-compiled template as normal:
 ```gleam
 pub fn render_compiled(
   template: pomade.Template,
-) -> Result(String, pomade.Error) {
+) -> Result(String, String) {
   let data = value.Dict(dict.from_list([#("relative", value.String("father"))]))
-  template(data, None)
-  // -> "No. I am your father."
+  pomade.apply(template, data, None)
+  // -> Ok("No. I am your father.")
 }
 ```
 

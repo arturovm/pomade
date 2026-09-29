@@ -15,7 +15,6 @@ repository = { type = "custom", url = "https://git.sr.ht/~arturovm/pomade" }
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 splitter = ">= 1.2.0 and < 2.0.0"
-gleam_regexp = ">= 1.1.1 and < 2.0.0"
 houdini = ">= 1.2.1 and < 2.0.0"
 
 [dev_dependencies]

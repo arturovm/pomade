@@ -1,11 +1,10 @@
 import gleam/dict
 import gleam/option.{None, Some}
 
-import pomade/value.{Dict, Float, String}
-
 import pomade/internal/interpreter
 import pomade/internal/parser
 import pomade/internal/scanner
+import pomade/internal/value.{Dict, Float, String}
 
 pub fn empty_test() {
   let assert Ok("") = interpreter.interpret([], Dict(dict.new()), None)

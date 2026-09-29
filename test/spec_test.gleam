@@ -8,7 +8,8 @@ import filepath
 import simplifile
 
 import pomade
-import pomade/value.{type Value, Bool, Dict, Float, Int, List, String}
+
+import pomade/internal/value.{type Value, Bool, Dict, Float, Int, List, String}
 
 type Test {
   Test(
@@ -93,7 +94,8 @@ fn list_decoder() -> decode.Decoder(Value) {
 fn run(loaded_test: Test) {
   let assert Ok(template) = pomade.compile(loaded_test.template)
     as loaded_test.name
-  let assert Ok(result) = template(loaded_test.data, loaded_test.partials)
+  let assert Ok(result) =
+    pomade.apply(template, loaded_test.data, loaded_test.partials)
     as loaded_test.name
   assert loaded_test.expected == result as loaded_test.name
 }

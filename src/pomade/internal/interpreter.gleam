@@ -8,8 +8,7 @@ import pomade/internal/environment
 import pomade/internal/parser
 import pomade/internal/rewriter
 import pomade/internal/scanner
-
-import pomade/value
+import pomade/internal/value
 
 /// `RuntimeError` represents an error encountered during interpreting.
 pub type RuntimeError {
@@ -63,20 +62,23 @@ fn evaluate(
     | parser.Whitespace(scanner.Whitespace(_, value))
     | parser.Newline(scanner.Newline(_, value)) ->
       Ok(string_tree.from_string(value))
-    parser.Variable(_) -> evaluate_variable(expr, env)
-    parser.RawVariable(_) -> evaluate_raw_variable(expr, env)
-    parser.Section(_, _) -> evaluate_section(expr, env)
-    parser.InvertedSection(_, _) -> evaluate_inverted_section(expr, env)
-    parser.Partial(_, _) -> evaluate_partial(expr, env)
+    parser.Variable(scanner.Variable(_, path)) -> evaluate_variable(path, env)
+    parser.RawVariable(scanner.RawVariable(_, path)) ->
+      evaluate_raw_variable(path, env)
+    parser.Section(scanner.SectionStart(_, path), content) ->
+      evaluate_section(path, content, env)
+    parser.InvertedSection(scanner.InvertedSectionStart(_, path), content) ->
+      evaluate_inverted_section(path, content, env)
+    parser.Partial(scanner.Partial(_, name), indentation) ->
+      evaluate_partial(name, indentation, env)
     _ -> Error(UnknownExpressionError)
   }
 }
 
 fn evaluate_variable(
-  expr: parser.Expression,
+  path: List(String),
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Variable(scanner.Variable(_, path)) = expr
   env
   |> environment.get_and_format(path)
   |> string_tree.from_string()
@@ -84,10 +86,9 @@ fn evaluate_variable(
 }
 
 fn evaluate_raw_variable(
-  expr: parser.Expression,
+  path: List(String),
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.RawVariable(scanner.RawVariable(_, path)) = expr
   env
   |> environment.get_and_format_raw(path)
   |> string_tree.from_string()
@@ -95,10 +96,10 @@ fn evaluate_raw_variable(
 }
 
 fn evaluate_section(
-  expr: parser.Expression,
+  path: List(String),
+  content: List(parser.Expression),
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Section(scanner.SectionStart(_, path), content) = expr
   case environment.get(env, path) {
     None | Some(value.Bool(False)) -> Ok(string_tree.new())
     Some(value.List(l)) ->
@@ -123,13 +124,10 @@ fn evaluate_section(
 }
 
 fn evaluate_inverted_section(
-  expr: parser.Expression,
+  path: List(String),
+  content: List(parser.Expression),
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.InvertedSection(
-    scanner.InvertedSectionStart(_, path),
-    content,
-  ) = expr
   case environment.get(env, path) {
     None | Some(value.Bool(False)) | Some(value.List([])) ->
       evaluate_exprs(content, env, string_tree.new())
@@ -138,10 +136,10 @@ fn evaluate_inverted_section(
 }
 
 fn evaluate_partial(
-  expr: parser.Expression,
+  name: String,
+  indentation: Option(String),
   env: environment.Environment,
 ) -> Result(StringTree, RuntimeError) {
-  let assert parser.Partial(scanner.Partial(_, name), indentation) = expr
   case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(

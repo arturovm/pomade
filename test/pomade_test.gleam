@@ -4,7 +4,8 @@ import gleam/option.{None}
 import gleeunit
 
 import pomade
-import pomade/value.{Dict, String}
+
+import pomade/internal/value.{Dict, String}
 
 pub fn main() -> Nil {
   gleeunit.main()
@@ -31,13 +32,21 @@ pub fn compile_test() {
   let assert Ok(template) = pomade.compile("I get {{direction}}")
 
   assert Ok("I get up")
-    == template(Dict(dict.from_list([#("direction", String("up"))])), None)
+    == pomade.apply(
+      template,
+      Dict(dict.from_list([#("direction", String("up"))])),
+      None,
+    )
   assert Ok("I get down")
-    == template(Dict(dict.from_list([#("direction", String("down"))])), None)
+    == pomade.apply(
+      template,
+      Dict(dict.from_list([#("direction", String("down"))])),
+      None,
+    )
 }
 
 pub fn passing_value_as_env_test() {
   let assert Ok(template) = pomade.compile("This is {{.}}")
 
-  assert Ok("This is great") == template(String("great"), None)
+  assert Ok("This is great") == pomade.apply(template, String("great"), None)
 }
