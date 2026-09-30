@@ -2,7 +2,6 @@ import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
-import gleam/string_tree.{type StringTree}
 
 import pomade/internal/environment
 import pomade/internal/parser
@@ -34,22 +33,21 @@ pub fn interpret(
   use tree <- result.map(evaluate_exprs(
     template,
     environment.Environment(environment, partials, None),
-    string_tree.new(),
+    "",
   ))
-  string_tree.to_string(tree)
+  tree
 }
 
 fn evaluate_exprs(
   exprs: List(parser.Expression),
   env: environment.Environment,
-  acc: StringTree,
-) -> Result(StringTree, RuntimeError) {
+  acc: String,
+) -> Result(String, RuntimeError) {
   case exprs {
     [] -> Ok(acc)
     [expr, ..tail] ->
       case evaluate(expr, env) {
-        Ok(value) ->
-          evaluate_exprs(tail, env, string_tree.append_tree(acc, value))
+        Ok(value) -> evaluate_exprs(tail, env, acc <> value)
         Error(_) as error -> error
       }
   }
@@ -58,12 +56,11 @@ fn evaluate_exprs(
 fn evaluate(
   expr: parser.Expression,
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   case expr {
     parser.Text(scanner.Text(_, value))
     | parser.Whitespace(scanner.Whitespace(_, value))
-    | parser.Newline(scanner.Newline(_, value)) ->
-      Ok(string_tree.from_string(value))
+    | parser.Newline(scanner.Newline(_, value)) -> Ok(value)
     parser.Variable(scanner.Variable(_, path)) -> evaluate_variable(path, env)
     parser.RawVariable(scanner.RawVariable(_, path)) ->
       evaluate_raw_variable(path, env)
@@ -80,20 +77,18 @@ fn evaluate(
 fn evaluate_variable(
   path: List(String),
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   env
   |> environment.get_and_format(path)
-  |> string_tree.from_string()
   |> Ok()
 }
 
 fn evaluate_raw_variable(
   path: List(String),
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   env
   |> environment.get_and_format_raw(path)
-  |> string_tree.from_string()
   |> Ok()
 }
 
@@ -101,26 +96,26 @@ fn evaluate_section(
   path: List(String),
   content: List(parser.Expression),
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   case environment.get(env, path) {
-    None | Some(value.Bool(False)) -> Ok(string_tree.new())
+    None | Some(value.Bool(False)) -> Ok("")
     Some(value.List(l)) ->
       list.map(l, fn(c) {
         evaluate_exprs(
           content,
           environment.Environment(..env, value: c, parent: Some(env)),
-          string_tree.new(),
+          "",
         )
       })
       |> result.all()
       |> result.map(fn(trees) {
-        list.fold(trees, string_tree.new(), string_tree.append_tree)
+        list.fold(trees, "", fn(acc, val) { acc <> val })
       })
     Some(context) ->
       evaluate_exprs(
         content,
         environment.Environment(..env, value: context, parent: Some(env)),
-        string_tree.new(),
+        "",
       )
   }
 }
@@ -129,11 +124,11 @@ fn evaluate_inverted_section(
   path: List(String),
   content: List(parser.Expression),
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   case environment.get(env, path) {
     None | Some(value.Bool(False)) | Some(value.List([])) ->
-      evaluate_exprs(content, env, string_tree.new())
-    _ -> Ok(string_tree.new())
+      evaluate_exprs(content, env, "")
+    _ -> Ok("")
   }
 }
 
@@ -141,7 +136,7 @@ fn evaluate_partial(
   name: String,
   indentation: Option(String),
   env: environment.Environment,
-) -> Result(StringTree, RuntimeError) {
+) -> Result(String, RuntimeError) {
   case environment.get_partial(env, name) {
     Some(source) -> {
       use tokens <- result.try(
@@ -154,12 +149,12 @@ fn evaluate_partial(
         |> result.map_error(fn(e) { PartialError(name, SyntaxError(e)) }),
       )
       use partial_result <- result.map(
-        evaluate_exprs(ast, env, string_tree.new())
+        evaluate_exprs(ast, env, "")
         |> result.map_error(fn(e) { PartialError(name, RuntimeError(e)) }),
       )
       partial_result
     }
-    None -> Ok(string_tree.new())
+    None -> Ok("")
   }
 }
 

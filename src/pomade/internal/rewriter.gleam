@@ -20,6 +20,7 @@ pub fn rewrite(
   |> list.map(elide_standalone)
   |> list.map(elide_other)
   |> list.map(indent(_, indentation))
+  |> list.map(glom)
   |> list.flatten()
 }
 
@@ -172,5 +173,27 @@ fn other_loop(
     [scanner.SetDelimiters(_, _, _), ..tail] -> other_loop(tail, output)
     // continue
     [head, ..tail] -> other_loop(tail, [head, ..output])
+  }
+}
+
+fn glom(line: List(scanner.Token)) -> List(scanner.Token) {
+  glom_loop(line, [])
+}
+
+fn glom_loop(
+  line: List(scanner.Token),
+  acc: List(scanner.Token),
+) -> List(scanner.Token) {
+  case line {
+    [] -> list.reverse(acc)
+    [scanner.Whitespace(line, next), ..tail]
+    | [scanner.Text(line, next), ..tail] -> {
+      case acc {
+        [scanner.Text(line, value), ..acc_tail] ->
+          glom_loop(tail, [scanner.Text(line, value <> next), ..acc_tail])
+        acc -> glom_loop(tail, [scanner.Text(line, next), ..acc])
+      }
+    }
+    [head, ..tail] -> glom_loop(tail, [head, ..acc])
   }
 }

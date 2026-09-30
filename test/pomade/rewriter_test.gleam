@@ -9,9 +9,7 @@ pub fn empty_test() {
 
 pub fn elide_set_delimiters_test() {
   assert [
-      scanner.Text(0, "random"),
-      scanner.Whitespace(0, " "),
-      scanner.Text(0, "text"),
+      scanner.Text(0, "random text"),
       scanner.Newline(0, "\n"),
       scanner.Text(0, "foo"),
       scanner.Newline(0, "\n"),
@@ -32,9 +30,7 @@ pub fn elide_set_delimiters_test() {
 
 pub fn elide_comment_test() {
   assert [
-      scanner.Text(0, "random"),
-      scanner.Whitespace(0, " "),
-      scanner.Text(0, "text"),
+      scanner.Text(0, "random text"),
       scanner.Newline(0, "\n"),
       scanner.Text(0, "foo"),
       scanner.Newline(0, "\n"),
@@ -104,9 +100,7 @@ pub fn indented_inline_test() {
 
   let ast = rewriter.rewrite(tokens, None)
   assert [
-      scanner.Whitespace(1, "  "),
-      scanner.Text(1, "12"),
-      scanner.Whitespace(1, " "),
+      scanner.Text(1, "  12 "),
       scanner.Newline(1, "\n"),
       scanner.Eof(2),
     ]
@@ -131,7 +125,7 @@ pub fn indented_partial_test() {
 }
 
 pub fn indent_test() {
-  assert [scanner.Whitespace(0, "  \t"), scanner.Text(0, "foo"), scanner.Eof(0)]
+  assert [scanner.Text(0, "  \tfoo"), scanner.Eof(0)]
     == rewriter.rewrite(
       [
         scanner.Text(0, "foo"),
