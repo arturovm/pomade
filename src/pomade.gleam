@@ -12,7 +12,8 @@ import pomade/internal/value
 /// function, simply pass it a dictionary of input values.
 pub opaque type Template {
   Template(
-    fn(value.Value, Option(Dict(String, String))) -> Result(String, String),
+    fn(value.Value, Option(Dict(String, String))) ->
+      Result(String, interpreter.RuntimeError),
   )
 }
 
@@ -22,7 +23,7 @@ pub fn render(
   template: String,
   data: Value,
   partials: Option(Dict(String, String)),
-) -> Result(String, String) {
+) -> Result(String, Error) {
   use template <- result.try(compile(template))
   apply(template, data, partials)
 }
@@ -30,21 +31,15 @@ pub fn render(
 /// `compile` prepares a template for future application, to avoid the overhead
 /// of scanning and parsing a template from scratch every time. Prefer this
 /// when speed is important.
-pub fn compile(template: String) -> Result(Template, String) {
+pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
-    scanner.scan(template) |> result.map_error(lexical_error_to_string),
+    scanner.scan(template) |> result.map_error(error_from_lexical_error),
   )
   let rewritten = rewriter.rewrite(tokens, None)
   use ast <- result.map(
-    parser.parse(rewritten) |> result.map_error(syntax_error_to_string),
+    parser.parse(rewritten) |> result.map_error(error_from_syntax_error),
   )
-  Template(fn(data: Value, partials: Option(Dict(String, String))) -> Result(
-    String,
-    String,
-  ) {
-    interpreter.interpret(ast, data, partials)
-    |> result.map_error(runtime_error_to_string)
-  })
+  Template(fn(data, partials) { interpreter.interpret(ast, data, partials) })
 }
 
 /// `apply` takes a pre-compiled template and applies it to the supplied data
@@ -53,23 +48,29 @@ pub fn apply(
   template: Template,
   data: Value,
   partials: Option(Dict(String, String)),
-) -> Result(String, String) {
+) -> Result(String, Error) {
   let Template(template) = template
   template(data, partials)
+  |> result.map_error(error_from_runtime_error)
 }
 
 // errors
 
-fn lexical_error_to_string(error: scanner.LexicalError) -> String {
-  "lexical error: " <> scanner.error_to_string(error)
+pub type Error {
+  CompilationError(String)
+  RuntimeError(String)
 }
 
-fn syntax_error_to_string(error: parser.SyntaxError) -> String {
-  "syntax error: " <> parser.error_to_string(error)
+fn error_from_lexical_error(error: scanner.LexicalError) -> Error {
+  CompilationError("lexical error: " <> scanner.error_to_string(error))
 }
 
-fn runtime_error_to_string(error: interpreter.RuntimeError) -> String {
-  "runtime error: " <> interpreter.error_to_string(error)
+fn error_from_syntax_error(error: parser.SyntaxError) -> Error {
+  CompilationError("syntax error: " <> parser.error_to_string(error))
+}
+
+fn error_from_runtime_error(error: interpreter.RuntimeError) -> Error {
+  RuntimeError("runtime error: " <> interpreter.error_to_string(error))
 }
 
 // value

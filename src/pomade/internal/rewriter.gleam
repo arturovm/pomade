@@ -31,8 +31,7 @@ fn split_lines(
     [] -> list.reverse(lines)
     any -> {
       let #(next_line, tail) = next_line(any, [])
-      let lines = list.prepend(lines, next_line)
-      split_lines(tail, lines)
+      split_lines(tail, [next_line, ..lines])
     }
   }
 }
@@ -44,10 +43,10 @@ fn next_line(
   case tokens {
     [] -> #(list.reverse(line), tokens)
     [scanner.Newline(_, _) as nl, ..tail] -> #(
-      list.prepend(line, nl) |> list.reverse(),
+      [nl, ..line] |> list.reverse(),
       tail,
     )
-    [any, ..tail] -> next_line(tail, list.prepend(line, any))
+    [any, ..tail] -> next_line(tail, [any, ..line])
   }
 }
 
@@ -60,7 +59,7 @@ fn indent(
     Some(indentation_value) ->
       case line {
         [scanner.Eof(_)] -> line
-        any -> list.prepend(any, scanner.Whitespace(0, indentation_value))
+        any -> [scanner.Whitespace(0, indentation_value), ..any]
       }
   }
 }
@@ -172,6 +171,6 @@ fn other_loop(
     // set delimiters
     [scanner.SetDelimiters(_, _, _), ..tail] -> other_loop(tail, output)
     // continue
-    [head, ..tail] -> other_loop(tail, list.prepend(output, head))
+    [head, ..tail] -> other_loop(tail, [head, ..output])
   }
 }

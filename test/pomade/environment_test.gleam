@@ -19,7 +19,7 @@ pub fn not_found_test() {
 pub fn get_string_test() {
   let env =
     Environment(
-      value.from_dict(dict.from_list([#("foo", value.from_string("bar"))])),
+      value.Dict(dict.from_list([#("foo", value.String("bar"))])),
       None,
       None,
     )
@@ -29,7 +29,7 @@ pub fn get_string_test() {
 pub fn get_int_test() {
   let env =
     Environment(
-      value.from_dict(dict.from_list([#("number_value", value.from_int(2))])),
+      value.Dict(dict.from_list([#("number_value", value.Int(2))])),
       None,
       None,
     )
@@ -39,9 +39,7 @@ pub fn get_int_test() {
 pub fn get_float_test() {
   let env =
     Environment(
-      value.from_dict(
-        dict.from_list([#("number_value", value.from_float(1.5))]),
-      ),
+      value.Dict(dict.from_list([#("number_value", value.Float(1.5))])),
       None,
       None,
     )
@@ -51,9 +49,7 @@ pub fn get_float_test() {
 pub fn get_bool_test() {
   let env =
     Environment(
-      value.from_dict(
-        dict.from_list([#("boolean_value", value.from_bool(True))]),
-      ),
+      value.Dict(dict.from_list([#("boolean_value", value.Bool(True))])),
       None,
       None,
     )
@@ -63,13 +59,11 @@ pub fn get_bool_test() {
 pub fn get_path_name_test() {
   let env =
     Environment(
-      value.from_dict(
+      value.Dict(
         dict.from_list([
           #(
             "parent",
-            value.from_dict(
-              dict.from_list([#("inner", value.from_string("hello"))]),
-            ),
+            value.Dict(dict.from_list([#("inner", value.String("hello"))])),
           ),
         ]),
       ),
@@ -87,15 +81,13 @@ pub fn get_self_test() {
 pub fn get_value_test() {
   let env =
     Environment(
-      value.from_dict(
+      value.Dict(
         dict.from_list([
           #(
             "parent",
-            value.from_dict(
-              dict.from_list([#("inner", value.from_string("hello"))]),
-            ),
+            value.Dict(dict.from_list([#("inner", value.String("hello"))])),
           ),
-          #("foo", value.from_string("goodbye")),
+          #("foo", value.String("goodbye")),
         ]),
       ),
       None,
@@ -108,23 +100,23 @@ pub fn get_value_test() {
 pub fn get_value_in_parent_test() {
   let parent_env =
     Environment(
-      value.from_dict(
+      value.Dict(
         dict.from_list([
-          #("a", value.from_string("foo")),
-          #("b", value.from_string("wrong")),
+          #("a", value.String("foo")),
+          #("b", value.String("wrong")),
           #(
             "sec",
-            value.from_dict(
+            value.Dict(
               dict.from_list([
-                #("b", value.from_string("bar")),
+                #("b", value.String("bar")),
               ]),
             ),
           ),
           #(
             "c",
-            value.from_dict(
+            value.Dict(
               dict.from_list([
-                #("d", value.from_string("baz")),
+                #("d", value.String("baz")),
               ]),
             ),
           ),
@@ -135,9 +127,9 @@ pub fn get_value_in_parent_test() {
     )
   let child_env =
     Environment(
-      value.from_dict(
+      value.Dict(
         dict.from_list([
-          #("b", value.from_string("bar")),
+          #("b", value.String("bar")),
         ]),
       ),
       None,
@@ -151,9 +143,9 @@ pub fn get_value_in_parent_test() {
 pub fn get_list_test() {
   let env =
     Environment(
-      value.from_dict(
+      value.Dict(
         dict.from_list([
-          #("list_value", value.from_list([value.from_string("Hello")])),
+          #("list_value", value.List([value.String("Hello")])),
         ]),
       ),
       None,

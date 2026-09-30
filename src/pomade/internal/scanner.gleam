@@ -123,7 +123,7 @@ fn scan_template(
     scan_newline_top_level,
     tokens,
   ))
-  list.prepend(tokens, Eof(lexer.line))
+  [Eof(lexer.line), ..tokens]
   |> list.reverse()
 }
 
@@ -160,7 +160,7 @@ fn scan_triple_mustache(
   use #(path, tail) <- result.try(read_name(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
   use tail <- result.map(discard(lexer, tail, right_triple_mustache))
-  #(lexer, list.prepend(stream, RawVariable(lexer.line, path)), tail)
+  #(lexer, [RawVariable(lexer.line, path), ..stream], tail)
 }
 
 fn read_name(
@@ -259,7 +259,7 @@ fn scan_comment(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case splitter.split_before(lexer.tag_end_splitter, source) {
     #(_, "") -> Error(UnterminatedTagError(lexer.line))
-    #(_, rest) -> Ok(#(lexer, list.prepend(stream, Comment(lexer.line)), rest))
+    #(_, rest) -> Ok(#(lexer, [Comment(lexer.line), ..stream], rest))
   }
 }
 
@@ -283,10 +283,7 @@ fn scan_set_delimiters(
   use tail <- result.map(discard(lexer, tail, "="))
   #(
     new_lexer(left_delimiter, right_delimiter),
-    list.prepend(
-      stream,
-      SetDelimiters(lexer.line, left_delimiter, right_delimiter),
-    ),
+    [SetDelimiters(lexer.line, left_delimiter, right_delimiter), ..stream],
     tail,
   )
 }
@@ -320,7 +317,7 @@ fn scan_special(
   let tail = discard_optional(lexer, source, read_whitespace)
   use #(path, tail) <- result.map(read_name(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
-  #(lexer, list.prepend(stream, constructor(lexer.line, path)), tail)
+  #(lexer, [constructor(lexer.line, path), ..stream], tail)
 }
 
 fn scan_partial(
@@ -332,7 +329,7 @@ fn scan_partial(
   let tail = discard_optional(lexer, source, read_whitespace)
   use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
-  #(lexer, list.prepend(stream, constructor(lexer.line, identifier)), tail)
+  #(lexer, [constructor(lexer.line, identifier), ..stream], tail)
 }
 
 fn scan_variable(
@@ -343,7 +340,7 @@ fn scan_variable(
   let tail = discard_optional(lexer, source, read_whitespace)
   use #(path, tail) <- result.try(read_name(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
-  Ok(#(lexer, list.prepend(stream, Variable(lexer.line, path)), tail))
+  Ok(#(lexer, [Variable(lexer.line, path), ..stream], tail))
 }
 
 fn discard_tag_end(
@@ -365,7 +362,7 @@ fn scan_whitespace(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   use #(_, ws, tail) <- result.map(consume_whitespace(lexer, source))
-  #(lexer, list.prepend(stream, ws), tail)
+  #(lexer, [ws, ..stream], tail)
 }
 
 fn consume_whitespace(
@@ -401,7 +398,7 @@ fn scan_text(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let #(text, rest) = splitter.split_before(lexer.free_form_splitter, source)
-  Ok(#(lexer, list.prepend(stream, Text(lexer.line, text)), rest))
+  Ok(#(lexer, [Text(lexer.line, text), ..stream], rest))
 }
 
 fn scan_newline_top_level(
@@ -434,7 +431,7 @@ fn scan_newline(
     "\r\n" as nl <> tail | "\n" as nl <> tail ->
       Ok(#(
         Lexer(..lexer, line: lexer.line + 1),
-        list.prepend(stream, Newline(lexer.line, nl)),
+        [Newline(lexer.line, nl), ..stream],
         tail,
       ))
     _ -> Error(unexpected_character_error(lexer.line, source))
@@ -469,10 +466,12 @@ fn scan_repetition(
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case predicate(lexer, source) {
     False -> Ok(#(lexer, stream, source))
-    True -> {
-      use #(lexer, tokens, tail) <- result.try(scanner(lexer, source, stream))
-      scan_repetition(lexer, tail, predicate, scanner, tokens)
-    }
+    True ->
+      case scanner(lexer, source, stream) {
+        Ok(#(lexer, tokens, tail)) ->
+          scan_repetition(lexer, tail, predicate, scanner, tokens)
+        Error(_) as error -> error
+      }
   }
 }
 
@@ -486,8 +485,11 @@ fn read_repetition(
   case predicate(lexer, source) {
     False -> Ok(#(list.reverse(acc), source))
     True -> {
-      use #(lexeme, tail) <- result.try(reader(lexer, source))
-      read_repetition(lexer, tail, predicate, reader, list.prepend(acc, lexeme))
+      case reader(lexer, source) {
+        Ok(#(lexeme, tail)) ->
+          read_repetition(lexer, tail, predicate, reader, [lexeme, ..acc])
+        Error(error) -> Error(error)
+      }
     }
   }
 }

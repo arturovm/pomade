@@ -61,23 +61,23 @@ pub fn raw_variable_test() {
 
 pub fn section_with_parent_context_test() {
   let parent_env =
-    value.from_dict(
+    value.Dict(
       dict.from_list([
-        #("a", value.from_string("foo")),
-        #("b", value.from_string("wrong")),
+        #("a", value.String("foo")),
+        #("b", value.String("wrong")),
         #(
           "sec",
-          value.from_dict(
+          value.Dict(
             dict.from_list([
-              #("b", value.from_string("bar")),
+              #("b", value.String("bar")),
             ]),
           ),
         ),
         #(
           "c",
-          value.from_dict(
+          value.Dict(
             dict.from_list([
-              #("d", value.from_string("baz")),
+              #("d", value.String("baz")),
             ]),
           ),
         ),
@@ -113,7 +113,7 @@ pub fn inverted_section_test() {
           parser.Text(scanner.Text(0, "No repos :(")),
         ]),
       ],
-      Dict(dict.from_list([#("repo", value.from_list([]))])),
+      Dict(dict.from_list([#("repo", value.List([]))])),
       None,
     )
 }

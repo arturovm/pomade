@@ -65,14 +65,12 @@ fn parse_expressions(
   case tokens {
     [scanner.Eof(_)] | [scanner.End(_, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
-    non_empty -> {
-      use #(expression, tail) <- result.try(parse_expression(non_empty))
-      let acc = case expression {
-        Some(some) -> list.prepend(acc, some)
-        None -> acc
+    non_empty ->
+      case parse_expression(non_empty) {
+        Ok(#(Some(some), tail)) -> parse_expressions(tail, [some, ..acc])
+        Ok(#(None, tail)) -> parse_expressions(tail, acc)
+        Error(error) -> Error(error)
       }
-      parse_expressions(tail, acc)
-    }
   }
 }
 

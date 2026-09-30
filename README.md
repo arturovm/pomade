@@ -99,12 +99,7 @@ pub fn precompile() -> Result(String, String) {
 }
 ```
 
-The type of the value returned from `pomade.compile` (`pomade.Template`) is just
-a type alias to a function that takes a `value.Value` (being the input data for
-the template) and an `Option(String, String)` (being the optional partials
-argument) as input.
-
-You can, of course, simply apply the pre-compiled template as normal:
+You can then, of course, simply apply the pre-compiled template:
 
 ```gleam
 pub fn render_compiled(

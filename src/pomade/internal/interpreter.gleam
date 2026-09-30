@@ -46,10 +46,12 @@ fn evaluate_exprs(
 ) -> Result(StringTree, RuntimeError) {
   case exprs {
     [] -> Ok(acc)
-    [expr, ..tail] -> {
-      use value <- result.try(evaluate(expr, env))
-      evaluate_exprs(tail, env, string_tree.append_tree(acc, value))
-    }
+    [expr, ..tail] ->
+      case evaluate(expr, env) {
+        Ok(value) ->
+          evaluate_exprs(tail, env, string_tree.append_tree(acc, value))
+        Error(_) as error -> error
+      }
   }
 }
 
