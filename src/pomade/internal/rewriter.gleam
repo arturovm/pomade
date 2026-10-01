@@ -169,7 +169,8 @@ fn transform(
     any -> {
       let acc = case indentation, any {
         _, [scanner.Eof(_)] -> acc
-        Some(indentation_value), _ -> glom(0, indentation_value, acc)
+        Some(indentation_value), [any, ..] ->
+          glom(any.line, indentation_value, acc)
         //[Literal(0, indentation_value), ..acc]
         _, _ -> acc
       }
@@ -218,7 +219,10 @@ fn transform_other(
 
 fn glom(line: Int, lexeme: String, output: List(Token)) -> List(Token) {
   case output {
-    [Literal(_, literal), ..rest] -> [Literal(line, literal <> lexeme), ..rest]
+    [Literal(line, literal), ..rest] -> [
+      Literal(line, literal <> lexeme),
+      ..rest
+    ]
     any -> [Literal(line, lexeme), ..any]
   }
 }

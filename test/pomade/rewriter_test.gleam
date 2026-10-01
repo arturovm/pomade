@@ -115,7 +115,7 @@ pub fn indented_partial_test() {
 }
 
 pub fn indent_test() {
-  assert [rewriter.Literal(1, "  \tfoo  \tbar\n"), rewriter.Eof(3)]
+  assert [rewriter.Literal(1, "  \tfoo\n  \tbar\n"), rewriter.Eof(3)]
     == rewriter.rewrite(
       [
         scanner.Text(1, "foo"),
