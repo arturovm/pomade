@@ -63,8 +63,6 @@ pub type Token {
   Comment(line: Int)
   // eof
   Eof(line: Int)
-  // synthetic tokens
-  Indentation(line: Int, lexeme: String)
 }
 
 /// `LexicalError` represents an error encountered during scanning.
@@ -584,7 +582,6 @@ pub fn token_to_string(token: Token) -> String {
     SetDelimiters(_, _, _) -> "SET_DELIMITERS"
     Comment(_) -> "COMMENT"
     Eof(_) -> "EOF"
-    Indentation(_, _) -> "INDENTATION"
   }
 }
 

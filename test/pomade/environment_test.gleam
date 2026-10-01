@@ -93,8 +93,8 @@ pub fn get_value_test() {
       None,
       None,
     )
-  assert Some(String("hello")) == environment.get(env, ["parent", "inner"])
-  assert Some(String("goodbye")) == environment.get(env, ["foo"])
+  assert Ok(String("hello")) == environment.get(env, ["parent", "inner"])
+  assert Ok(String("goodbye")) == environment.get(env, ["foo"])
 }
 
 pub fn get_value_in_parent_test() {
@@ -135,9 +135,9 @@ pub fn get_value_in_parent_test() {
       None,
       Some(parent_env),
     )
-  assert Some(String("foo")) == environment.get(child_env, ["a"])
-  assert Some(String("bar")) == environment.get(child_env, ["b"])
-  assert Some(String("baz")) == environment.get(child_env, ["c", "d"])
+  assert Ok(String("foo")) == environment.get(child_env, ["a"])
+  assert Ok(String("bar")) == environment.get(child_env, ["b"])
+  assert Ok(String("baz")) == environment.get(child_env, ["c", "d"])
 }
 
 pub fn get_list_test() {
@@ -151,7 +151,7 @@ pub fn get_list_test() {
       None,
       None,
     )
-  assert Some(List([String("Hello")])) == environment.get(env, ["list_value"])
+  assert Ok(List([String("Hello")])) == environment.get(env, ["list_value"])
 }
 
 pub fn get_partial_test() {

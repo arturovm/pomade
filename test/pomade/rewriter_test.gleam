@@ -9,10 +9,7 @@ pub fn empty_test() {
 
 pub fn elide_set_delimiters_test() {
   assert [
-      scanner.Text(0, "random text"),
-      scanner.Newline(0, "\n"),
-      scanner.Text(0, "foo"),
-      scanner.Newline(0, "\n"),
+      rewriter.Literal(0, "random text\nfoo\n"),
     ]
     == rewriter.rewrite(
       [
@@ -30,10 +27,7 @@ pub fn elide_set_delimiters_test() {
 
 pub fn elide_comment_test() {
   assert [
-      scanner.Text(0, "random text"),
-      scanner.Newline(0, "\n"),
-      scanner.Text(0, "foo"),
-      scanner.Newline(0, "\n"),
+      rewriter.Literal(0, "random text\nfoo\n"),
     ]
     == rewriter.rewrite(
       [
@@ -51,11 +45,8 @@ pub fn elide_comment_test() {
 
 pub fn indented_standalone_test() {
   assert [
-      scanner.Text(0, "Begin."),
-      scanner.Newline(0, "\n"),
-      scanner.Text(0, "End."),
-      scanner.Newline(0, "\n"),
-      scanner.Eof(0),
+      rewriter.Literal(0, "Begin.\nEnd.\n"),
+      rewriter.Eof(0),
     ]
     == rewriter.rewrite(
       [
@@ -73,7 +64,7 @@ pub fn indented_standalone_test() {
 }
 
 pub fn standalone_without_newline_test() {
-  assert [scanner.Text(0, "!"), scanner.Newline(0, "\n"), scanner.Eof(0)]
+  assert [rewriter.Literal(0, "!\n"), rewriter.Eof(0)]
     == rewriter.rewrite(
       [
         scanner.Text(0, "!"),
@@ -100,18 +91,17 @@ pub fn indented_inline_test() {
 
   let ast = rewriter.rewrite(tokens, None)
   assert [
-      scanner.Text(1, "  12 "),
-      scanner.Newline(1, "\n"),
-      scanner.Eof(2),
+      rewriter.Literal(1, "  12 \n"),
+      rewriter.Eof(2),
     ]
     == ast
 }
 
 pub fn indented_partial_test() {
   assert [
-      scanner.Indentation(0, "  \t"),
-      scanner.Partial(0, "hello"),
-      scanner.Eof(0),
+      rewriter.Indentation(0, "  \t"),
+      rewriter.Partial(0, "hello"),
+      rewriter.Eof(0),
     ]
     == rewriter.rewrite(
       [
@@ -125,7 +115,7 @@ pub fn indented_partial_test() {
 }
 
 pub fn indent_test() {
-  assert [scanner.Text(0, "  \tfoo"), scanner.Eof(0)]
+  assert [rewriter.Literal(0, "  \tfoo"), rewriter.Eof(0)]
     == rewriter.rewrite(
       [
         scanner.Text(0, "foo"),

@@ -9,19 +9,39 @@
 
 import gleam/list
 import gleam/option.{type Option, None, Some}
+import gleam/string
 
 import pomade/internal/scanner
+
+pub type Token {
+  // general text
+  Literal(line: Int, lexeme: String)
+  // tags
+  SectionStart(line: Int, path: List(String))
+  InvertedSectionStart(line: Int, path: List(String))
+  End(line: Int, path: List(String))
+  Partial(line: Int, path: String)
+  RawVariable(line: Int, path: List(String))
+  Variable(line: Int, path: List(String))
+  // eof
+  Eof(line: Int)
+  // synthetic tokens
+  Indentation(line: Int, lexeme: String)
+}
+
+pub type LayoutError {
+  UnexpectedToken(scanner.Token)
+}
 
 pub fn rewrite(
   tokens: List(scanner.Token),
   indentation: Option(String),
-) -> List(scanner.Token) {
+) -> List(Token) {
   split_lines(tokens, [])
-  |> list.map(elide_standalone)
-  |> list.map(elide_other)
+  |> list.map(transform)
   |> list.map(indent(_, indentation))
-  |> list.map(glom)
   |> list.flatten()
+  |> list.fold([], glom)
 }
 
 fn split_lines(
@@ -51,75 +71,54 @@ fn next_line(
   }
 }
 
-fn indent(
-  line: List(scanner.Token),
-  indentation: Option(String),
-) -> List(scanner.Token) {
-  case indentation {
-    None -> line
-    Some(indentation_value) ->
-      case line {
-        [scanner.Eof(_)] -> line
-        any -> [scanner.Whitespace(0, indentation_value), ..any]
-      }
-  }
-}
-
-fn elide_standalone(line: List(scanner.Token)) -> List(scanner.Token) {
+fn transform(line: List(scanner.Token)) -> List(Token) {
   case line {
     // standalone comments with newline
     [scanner.Comment(_), scanner.Newline(_, _)]
     | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)] -> []
     // standalone comments with eof
-    [scanner.Comment(_), scanner.Eof(_) as eof]
-    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(_) as eof] -> [
-      eof,
+    [scanner.Comment(_), scanner.Eof(line)]
+    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(line)] -> [
+      Eof(line),
     ]
     // standalone section start with newline
-    [scanner.SectionStart(_, _) as ss, scanner.Newline(_, _)]
+    [scanner.SectionStart(line, path), scanner.Newline(_, _)]
     | [
         scanner.Whitespace(_, _),
-        scanner.SectionStart(_, _) as ss,
+        scanner.SectionStart(line, path),
         scanner.Newline(_, _),
       ] -> [
-      ss,
+      SectionStart(line, path),
     ]
     // standalone section start with eof
-    [
-      scanner.Whitespace(_, _),
-      scanner.SectionStart(_, _) as ss,
-      scanner.Eof(_) as eof,
-    ] -> [
-      ss,
-      eof,
+    [scanner.Whitespace(_, _), scanner.SectionStart(line, path), scanner.Eof(_)] -> [
+      SectionStart(line, path),
+      Eof(line),
     ]
     // standalone inverted section start with newline
-    [scanner.InvertedSectionStart(_, _) as iss, scanner.Newline(_, _)]
+    [scanner.InvertedSectionStart(line, path), scanner.Newline(_, _)]
     | [
         scanner.Whitespace(_, _),
-        scanner.InvertedSectionStart(_, _) as iss,
+        scanner.InvertedSectionStart(line, path),
         scanner.Newline(_, _),
       ] -> [
-      iss,
+      InvertedSectionStart(line, path),
     ]
     // standalone inverted section start with eof
     [
       scanner.Whitespace(_, _),
-      scanner.InvertedSectionStart(_, _) as iss,
-      scanner.Eof(_) as eof,
-    ] -> [iss, eof]
+      scanner.InvertedSectionStart(line, path),
+      scanner.Eof(_),
+    ] -> [InvertedSectionStart(line, path), Eof(line)]
     // standalone end tag with newline
-    [scanner.End(_, _) as end, scanner.Newline(_, _)]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.End(_, _) as end,
-        scanner.Newline(_, _),
-      ] -> [
-      end,
+    [scanner.End(line, path), scanner.Newline(_, _)]
+    | [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Newline(_, _)] -> [
+      End(line, path),
     ]
     // standalone end tag with eof
-    [scanner.Whitespace(_, _), scanner.End(_, _) as end, scanner.Eof(_) as eof] -> [
-      end, eof,
+    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Eof(_)] -> [
+      End(line, path),
+      Eof(line),
     ]
     // standalone set delimiters with newline
     [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _)]
@@ -129,41 +128,40 @@ fn elide_standalone(line: List(scanner.Token)) -> List(scanner.Token) {
         scanner.Newline(_, _),
       ] -> []
     // standalone set delimiters with eof
-    [scanner.SetDelimiters(_, _, _), scanner.Eof(_) as eof]
+    [scanner.SetDelimiters(_, _, _), scanner.Eof(line)]
     | [
         scanner.Whitespace(_, _),
         scanner.SetDelimiters(_, _, _),
-        scanner.Eof(_) as eof,
+        scanner.Eof(line),
       ] -> [
-      eof,
+      Eof(line),
     ]
     // standalone partial with newline
-    [scanner.Partial(_, _) as partial, scanner.Newline(_, _)] -> [partial]
+    [scanner.Partial(line, name), scanner.Newline(_, _)] -> [
+      Partial(line, name),
+    ]
     // standalone partial with indentation
     [
       scanner.Whitespace(_, _) as ws,
-      scanner.Partial(_, _) as partial,
+      scanner.Partial(line, name),
       scanner.Newline(_, _),
-    ] -> [scanner.Indentation(ws.line, ws.lexeme), partial]
+    ] -> [Indentation(ws.line, ws.lexeme), Partial(line, name)]
     // standalone partial with eof
-    [
-      scanner.Whitespace(_, _) as ws,
-      scanner.Partial(_, _) as partial,
-      scanner.Eof(_) as eof,
-    ] -> [scanner.Indentation(ws.line, ws.lexeme), partial, eof]
-    // continue
-    any -> any
+    [scanner.Whitespace(_, ws), scanner.Partial(line, name), scanner.Eof(_)] -> [
+      Indentation(line, ws),
+      Partial(line, name),
+      Eof(line),
+    ]
+    // continue with in-line rules
+    any -> elide_other(any)
   }
 }
 
-fn elide_other(line: List(scanner.Token)) -> List(scanner.Token) {
+fn elide_other(line: List(scanner.Token)) -> List(Token) {
   other_loop(line, [])
 }
 
-fn other_loop(
-  input: List(scanner.Token),
-  output: List(scanner.Token),
-) -> List(scanner.Token) {
+fn other_loop(input: List(scanner.Token), output: List(Token)) -> List(Token) {
   case input {
     // base case
     [] -> list.reverse(output)
@@ -171,29 +169,87 @@ fn other_loop(
     [scanner.Comment(_), ..tail] -> other_loop(tail, output)
     // set delimiters
     [scanner.SetDelimiters(_, _, _), ..tail] -> other_loop(tail, output)
-    // continue
-    [head, ..tail] -> other_loop(tail, [head, ..output])
+    // other tokens
+    [scanner.Text(line, lexeme), ..tail]
+    | [scanner.Whitespace(line, lexeme), ..tail]
+    | [scanner.Newline(line, lexeme), ..tail] ->
+      other_loop(tail, [Literal(line, lexeme), ..output])
+    [scanner.SectionStart(line, path), ..tail] ->
+      other_loop(tail, [SectionStart(line, path), ..output])
+    [scanner.InvertedSectionStart(line, path), ..tail] ->
+      other_loop(tail, [InvertedSectionStart(line, path), ..output])
+    [scanner.End(line, path), ..tail] ->
+      other_loop(tail, [End(line, path), ..output])
+    [scanner.Partial(line, path), ..tail] ->
+      other_loop(tail, [Partial(line, path), ..output])
+    [scanner.RawVariable(line, path), ..tail] ->
+      other_loop(tail, [RawVariable(line, path), ..output])
+    [scanner.Variable(line, path), ..tail] ->
+      other_loop(tail, [Variable(line, path), ..output])
+    [scanner.Eof(line), ..tail] -> other_loop(tail, [Eof(line), ..output])
   }
 }
 
-fn glom(line: List(scanner.Token)) -> List(scanner.Token) {
-  glom_loop(line, [])
+fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
+  case indentation {
+    None -> line
+    Some(indentation_value) ->
+      case line {
+        []
+        | [Eof(_)]
+        | [SectionStart(_, _)]
+        | [SectionStart(_, _), Eof(_)]
+        | [InvertedSectionStart(_, _)]
+        | [InvertedSectionStart(_, _), Eof(_)]
+        | [End(_, _)]
+        | [End(_, _), Eof(_)] -> line
+        [Indentation(line, ws), Partial(_, _) as partial] -> [
+          Indentation(line, indentation_value <> ws),
+          partial,
+        ]
+        [Indentation(line, ws), Partial(_, _) as partial, Eof(_) as eof] -> [
+          Indentation(line, indentation_value <> ws),
+          partial,
+          eof,
+        ]
+        any -> [Literal(0, indentation_value), ..any]
+      }
+  }
 }
 
-fn glom_loop(
-  line: List(scanner.Token),
-  acc: List(scanner.Token),
-) -> List(scanner.Token) {
-  case line {
-    [] -> list.reverse(acc)
-    [scanner.Whitespace(line, next), ..tail]
-    | [scanner.Text(line, next), ..tail] -> {
+fn glom(acc: List(Token), next: Token) -> List(Token) {
+  case next {
+    Literal(line, literal) -> {
       case acc {
-        [scanner.Text(line, value), ..acc_tail] ->
-          glom_loop(tail, [scanner.Text(line, value <> next), ..acc_tail])
-        acc -> glom_loop(tail, [scanner.Text(line, next), ..acc])
+        [Literal(line, value), ..acc_tail] -> [
+          Literal(line, value <> literal),
+          ..acc_tail
+        ]
+        acc -> [Literal(line, literal), ..acc]
       }
     }
-    [head, ..tail] -> glom_loop(tail, [head, ..acc])
+    Eof(_) as eof -> [eof, ..acc] |> list.reverse()
+    any -> [any, ..acc]
   }
+}
+
+// formatting
+
+pub fn token_to_string(token: Token) -> String {
+  case token {
+    Literal(_, _) -> "LITERAL"
+    SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
+    InvertedSectionStart(_, path) ->
+      token_name_with_path("INVERTED_SECTION_START", path)
+    End(_, path) -> token_name_with_path("END_TAG", path)
+    Partial(_, name) -> token_name_with_path("PARTIAL", [name])
+    RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
+    Variable(_, path) -> token_name_with_path("VARIABLE", path)
+    Indentation(_, _) -> "INDENTATION"
+    Eof(_) -> "EOF"
+  }
+}
+
+fn token_name_with_path(name: String, path: List(String)) -> String {
+  name <> "(" <> string.join(path, ".") <> ")"
 }

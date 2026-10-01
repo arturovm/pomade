@@ -30,12 +30,11 @@ pub fn interpret(
   environment: value.Value,
   partials: Option(Dict(String, String)),
 ) -> Result(String, RuntimeError) {
-  use tree <- result.map(evaluate_exprs(
+  evaluate_exprs(
     template,
     environment.Environment(environment, partials, None),
     "",
-  ))
-  tree
+  )
 }
 
 fn evaluate_exprs(
@@ -45,30 +44,30 @@ fn evaluate_exprs(
 ) -> Result(String, RuntimeError) {
   case exprs {
     [] -> Ok(acc)
+    [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
+      evaluate_exprs(tail, env, acc <> value)
+    [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
+      evaluate_exprs(tail, env, acc <> evaluate_variable(path, env))
+    [parser.RawVariable(rewriter.RawVariable(_, path)), ..tail] ->
+      evaluate_exprs(tail, env, acc <> evaluate_raw_variable(path, env))
     [expr, ..tail] ->
-      case evaluate(expr, env) {
+      case evaluate_with_nested(expr, env) {
         Ok(value) -> evaluate_exprs(tail, env, acc <> value)
-        Error(_) as error -> error
+        error -> error
       }
   }
 }
 
-fn evaluate(
+fn evaluate_with_nested(
   expr: parser.Expression,
   env: environment.Environment,
 ) -> Result(String, RuntimeError) {
   case expr {
-    parser.Text(scanner.Text(_, value))
-    | parser.Whitespace(scanner.Whitespace(_, value))
-    | parser.Newline(scanner.Newline(_, value)) -> Ok(value)
-    parser.Variable(scanner.Variable(_, path)) -> evaluate_variable(path, env)
-    parser.RawVariable(scanner.RawVariable(_, path)) ->
-      evaluate_raw_variable(path, env)
-    parser.Section(scanner.SectionStart(_, path), content) ->
+    parser.Section(rewriter.SectionStart(_, path), content) ->
       evaluate_section(path, content, env)
-    parser.InvertedSection(scanner.InvertedSectionStart(_, path), content) ->
+    parser.InvertedSection(rewriter.InvertedSectionStart(_, path), content) ->
       evaluate_inverted_section(path, content, env)
-    parser.Partial(scanner.Partial(_, name), indentation) ->
+    parser.Partial(rewriter.Partial(_, name), indentation) ->
       evaluate_partial(name, indentation, env)
     _ -> Error(UnknownExpressionError)
   }
@@ -77,19 +76,15 @@ fn evaluate(
 fn evaluate_variable(
   path: List(String),
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
-  env
-  |> environment.get_and_format(path)
-  |> Ok()
+) -> String {
+  environment.get_and_format(env, path)
 }
 
 fn evaluate_raw_variable(
   path: List(String),
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
-  env
-  |> environment.get_and_format_raw(path)
-  |> Ok()
+) -> String {
+  environment.get_and_format_raw(env, path)
 }
 
 fn evaluate_section(
@@ -98,8 +93,8 @@ fn evaluate_section(
   env: environment.Environment,
 ) -> Result(String, RuntimeError) {
   case environment.get(env, path) {
-    None | Some(value.Bool(False)) -> Ok("")
-    Some(value.List(l)) ->
+    Error(Nil) | Ok(value.Bool(False)) -> Ok("")
+    Ok(value.List(l)) ->
       list.map(l, fn(c) {
         evaluate_exprs(
           content,
@@ -111,7 +106,7 @@ fn evaluate_section(
       |> result.map(fn(trees) {
         list.fold(trees, "", fn(acc, val) { acc <> val })
       })
-    Some(context) ->
+    Ok(context) ->
       evaluate_exprs(
         content,
         environment.Environment(..env, value: context, parent: Some(env)),
@@ -126,7 +121,7 @@ fn evaluate_inverted_section(
   env: environment.Environment,
 ) -> Result(String, RuntimeError) {
   case environment.get(env, path) {
-    None | Some(value.Bool(False)) | Some(value.List([])) ->
+    Error(Nil) | Ok(value.Bool(False)) | Ok(value.List([])) ->
       evaluate_exprs(content, env, "")
     _ -> Ok("")
   }
