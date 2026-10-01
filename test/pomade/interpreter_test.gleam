@@ -7,7 +7,7 @@ import pomade/internal/rewriter
 import pomade/internal/value.{Dict, Float, String}
 
 pub fn empty_test() {
-  let assert Ok("") = interpreter.interpret([], Dict(dict.new()), None)
+  let assert Ok("") = interpreter.interpret([], Dict(dict.new()), dict.new())
 }
 
 pub fn text_test() {
@@ -15,7 +15,7 @@ pub fn text_test() {
     interpreter.interpret(
       [parser.Literal(rewriter.Literal(0, "hello, world!"))],
       Dict(dict.new()),
-      None,
+      dict.new(),
     )
 }
 
@@ -26,7 +26,7 @@ pub fn newline_test() {
         parser.Literal(rewriter.Literal(0, "foo\nbar\r\nbaz")),
       ],
       Dict(dict.new()),
-      None,
+      dict.new(),
     )
 }
 
@@ -35,14 +35,14 @@ pub fn variable_test() {
     interpreter.interpret(
       [parser.Variable(rewriter.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
-      None,
+      dict.new(),
     )
 
   let assert Ok("1.21") =
     interpreter.interpret(
       [parser.Variable(rewriter.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", Float(1.21))])),
-      None,
+      dict.new(),
     )
 }
 
@@ -51,7 +51,7 @@ pub fn raw_variable_test() {
     interpreter.interpret(
       [parser.RawVariable(rewriter.RawVariable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
-      None,
+      dict.new(),
     )
 }
 
@@ -91,7 +91,7 @@ pub fn section_with_parent_context_test() {
         ]),
       ],
       parent_env,
-      None,
+      dict.new(),
     )
 }
 
@@ -109,7 +109,7 @@ pub fn inverted_section_test() {
         ]),
       ],
       Dict(dict.from_list([#("repo", value.List([]))])),
-      None,
+      dict.new(),
     )
 }
 
@@ -121,7 +121,7 @@ pub fn partial_test() {
         parser.Partial(rewriter.Partial(0, "other_template"), None),
       ],
       value.Dict(dict.new()),
-      Some(dict.from_list([#("other_template", "world!")])),
+      dict.from_list([#("other_template", "world!")]),
     )
   let assert Ok("Hello, foo!") =
     interpreter.interpret(
@@ -130,7 +130,7 @@ pub fn partial_test() {
         parser.Partial(rewriter.Partial(0, "other_template"), None),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
-      Some(dict.from_list([#("other_template", "{{greeting}}")])),
+      dict.from_list([#("other_template", "{{greeting}}")]),
     )
   let assert Ok("  >\n  >>") =
     interpreter.interpret(
@@ -139,6 +139,6 @@ pub fn partial_test() {
         parser.Literal(rewriter.Literal(0, ">")),
       ],
       value.Dict(dict.new()),
-      Some(dict.from_list([#("partial", ">\n>")])),
+      dict.from_list([#("partial", ">\n>")]),
     )
 }

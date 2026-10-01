@@ -1,5 +1,5 @@
 import gleam/dict.{type Dict}
-import gleam/option.{type Option, None}
+import gleam/option.{None}
 import gleam/result
 
 import pomade/internal/interpreter
@@ -12,7 +12,7 @@ import pomade/internal/value
 /// function, simply pass it a dictionary of input values.
 pub opaque type Template {
   Template(
-    fn(value.Value, Option(Dict(String, String))) ->
+    fn(value.Value, Dict(String, String)) ->
       Result(String, interpreter.RuntimeError),
   )
 }
@@ -22,7 +22,7 @@ pub opaque type Template {
 pub fn render(
   template: String,
   data: Value,
-  partials: Option(Dict(String, String)),
+  partials: Dict(String, String),
 ) -> Result(String, Error) {
   use template <- result.try(compile(template))
   apply(template, data, partials)
@@ -47,7 +47,7 @@ pub fn compile(template: String) -> Result(Template, Error) {
 pub fn apply(
   template: Template,
   data: Value,
-  partials: Option(Dict(String, String)),
+  partials: Dict(String, String),
 ) -> Result(String, Error) {
   let Template(template) = template
   template(data, partials)

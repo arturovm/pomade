@@ -6,20 +6,14 @@ import glychee/benchmark
 import pomade
 
 const template = "
-{{#products}}
-  <div class='product_brick'>
-    <div class='container'>
-      <div class='element'>
-        <img src='images/{{image}}' class='product_miniature' />
-      </div>
-      <div class='element description'>
-        <a href={{url}} class='product_name block bold'>
-          {{external_index}}
-        </a>
-      </div>
-    </div>
-  </div>
-{{/products}}
+<h2>Names</h2>
+{{#names}}
+  {{> user}}
+{{/names}}
+"
+
+const partial = "
+<strong>{{name}}</strong>
 "
 
 pub fn main() {
@@ -32,40 +26,39 @@ pub fn main() {
   let assert Ok(compiled) = pomade.compile(template)
 
   let data =
-    pomade.dict(
-      dict.from_list([
-        #("external_index", pomade.string("product")),
-        #("url", pomade.string("/products/7")),
-        #("image", pomade.string("products/product.jpg")),
-      ]),
-    )
+    pomade.dict(dict.from_list([#("name", pomade.string("Charlie Chaplin"))]))
+
+  let partials = dict.from_list([#("user", partial)])
 
   // Run the benchmarks
   benchmark.run(
     [
       benchmark.Function(label: "render collection", callable: fn(args) {
-        let #(template, data) = args
-        fn() { pomade.apply(template, data, dict.new()) }
+        let #(template, data, partials) = args
+        fn() { pomade.apply(template, data, partials) }
       }),
     ],
     [
       benchmark.Data(label: "render list of 10", data: #(
         compiled,
         pomade.dict(
-          dict.from_list([#("products", pomade.list(list.repeat(data, 10)))]),
+          dict.from_list([#("names", pomade.list(list.repeat(data, 10)))]),
         ),
+        partials,
       )),
       benchmark.Data(label: "render list of 100", data: #(
         compiled,
         pomade.dict(
-          dict.from_list([#("products", pomade.list(list.repeat(data, 100)))]),
+          dict.from_list([#("names", pomade.list(list.repeat(data, 100)))]),
         ),
+        partials,
       )),
       benchmark.Data(label: "render list of 1000", data: #(
         compiled,
         pomade.dict(
-          dict.from_list([#("products", pomade.list(list.repeat(data, 1000)))]),
+          dict.from_list([#("names", pomade.list(list.repeat(data, 1000)))]),
         ),
+        partials,
       )),
     ],
   )

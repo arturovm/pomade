@@ -1,5 +1,4 @@
 import gleam/dict
-import gleam/option.{None}
 
 import glychee/benchmark
 
@@ -31,7 +30,7 @@ pub fn main() {
     [
       benchmark.Function(label: "html escape", callable: fn(args) {
         let #(template, data) = args
-        fn() { pomade.render(template, data, None) }
+        fn() { pomade.render(template, data, dict.new()) }
       }),
     ],
     [

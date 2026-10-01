@@ -28,7 +28,7 @@ pub opaque type PartialError {
 pub fn interpret(
   template: List(parser.Expression),
   environment: value.Value,
-  partials: Option(Dict(String, String)),
+  partials: Dict(String, String),
 ) -> Result(String, RuntimeError) {
   evaluate_exprs(
     template,
@@ -133,7 +133,7 @@ fn evaluate_partial(
   env: environment.Environment,
 ) -> Result(String, RuntimeError) {
   case environment.get_partial(env, name) {
-    Some(source) -> {
+    Ok(source) -> {
       use tokens <- result.try(
         scanner.scan(source)
         |> result.map_error(fn(e) { PartialError(name, LexicalError(e)) }),
@@ -149,7 +149,7 @@ fn evaluate_partial(
       )
       partial_result
     }
-    None -> Ok("")
+    Error(_) -> Ok("")
   }
 }
 

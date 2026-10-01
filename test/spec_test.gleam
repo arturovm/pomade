@@ -16,7 +16,7 @@ type Test {
     name: String,
     desc: String,
     data: Value,
-    partials: Option(Dict(String, String)),
+    partials: Dict(String, String),
     template: String,
     expected: String,
   )
@@ -46,8 +46,8 @@ fn test_decoder() -> decode.Decoder(Test) {
   use data <- decode.field("data", value_decoder())
   use partials <- decode.optional_field(
     "partials",
-    None,
-    decode.optional(decode.dict(decode.string, decode.string)),
+    dict.new(),
+    decode.dict(decode.string, decode.string),
   )
   use template <- decode.field("template", decode.string)
   use expected <- decode.field("expected", decode.string)

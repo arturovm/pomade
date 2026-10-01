@@ -11,7 +11,7 @@ import pomade/internal/value.{type Value, Bool, Dict, Float, Int, String}
 pub type Environment {
   Environment(
     value: Value,
-    partials: Option(Dict(String, String)),
+    partials: Dict(String, String),
     parent: Option(Environment),
   )
 }
@@ -88,8 +88,6 @@ fn format(val: Value) -> String {
   }
 }
 
-pub fn get_partial(env: Environment, name: String) -> Option(String) {
-  option.then(env.partials, fn(partials) {
-    dict.get(partials, name) |> option.from_result()
-  })
+pub fn get_partial(env: Environment, name: String) -> Result(String, Nil) {
+  dict.get(env.partials, name)
 }

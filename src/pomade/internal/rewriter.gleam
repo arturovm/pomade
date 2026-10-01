@@ -38,9 +38,7 @@ pub fn rewrite(
   indentation: Option(String),
 ) -> List(Token) {
   split_lines(tokens, [])
-  |> list.map(transform)
-  |> list.map(indent(_, indentation))
-  |> list.flatten()
+  |> list.flat_map(fn(line) { line |> transform() |> indent(indentation) })
   |> list.fold([], glom)
 }
 
@@ -202,14 +200,13 @@ fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
         | [InvertedSectionStart(_, _), Eof(_)]
         | [End(_, _)]
         | [End(_, _), Eof(_)] -> line
-        [Indentation(line, ws), Partial(_, _) as partial] -> [
-          Indentation(line, indentation_value <> ws),
-          partial,
+        [Indentation(line, ws), ..tail] -> [
+          Indentation(line, ws <> indentation_value),
+          ..tail
         ]
-        [Indentation(line, ws), Partial(_, _) as partial, Eof(_) as eof] -> [
-          Indentation(line, indentation_value <> ws),
-          partial,
-          eof,
+        [Partial(_, _)] | [Partial(_, _), Eof(_)] -> [
+          Indentation(0, indentation_value),
+          ..line
         ]
         any -> [Literal(0, indentation_value), ..any]
       }
