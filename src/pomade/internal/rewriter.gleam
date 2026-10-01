@@ -37,140 +37,169 @@ pub fn rewrite(
   tokens: List(scanner.Token),
   indentation: Option(String),
 ) -> List(Token) {
-  split_lines(tokens, [])
-  |> list.flat_map(fn(line) { line |> transform() |> indent(indentation) })
-  |> list.fold([], glom)
+  transform(tokens, [], indentation)
 }
 
-fn split_lines(
+fn transform(
   tokens: List(scanner.Token),
-  lines: List(List(scanner.Token)),
-) -> List(List(scanner.Token)) {
+  acc: List(Token),
+  indentation: Option(String),
+) {
   case tokens {
-    [] -> list.reverse(lines)
-    any -> {
-      let #(next_line, tail) = next_line(any, [])
-      split_lines(tail, [next_line, ..lines])
-    }
-  }
-}
-
-fn next_line(
-  tokens: List(scanner.Token),
-  line: List(scanner.Token),
-) -> #(List(scanner.Token), List(scanner.Token)) {
-  case tokens {
-    [] -> #(list.reverse(line), tokens)
-    [scanner.Newline(_, _) as nl, ..tail] -> #(
-      [nl, ..line] |> list.reverse(),
-      tail,
-    )
-    [any, ..tail] -> next_line(tail, [any, ..line])
-  }
-}
-
-fn transform(line: List(scanner.Token)) -> List(Token) {
-  case line {
+    [] -> list.reverse(acc)
     // standalone comments with newline
-    [scanner.Comment(_), scanner.Newline(_, _)]
-    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)] -> []
+    [scanner.Comment(_), scanner.Newline(_, _), ..tail]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.Comment(_),
+        scanner.Newline(_, _),
+        ..tail
+      ] -> transform(tail, acc, indentation)
     // standalone comments with eof
-    [scanner.Comment(_), scanner.Eof(line)]
-    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(line)] -> [
-      Eof(line),
-    ]
+    [scanner.Comment(_), scanner.Eof(line), ..tail]
+    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(line), ..tail] ->
+      transform(tail, [Eof(line), ..acc], indentation)
     // standalone section start with newline
-    [scanner.SectionStart(line, path), scanner.Newline(_, _)]
+    [scanner.SectionStart(line, path), scanner.Newline(_, _), ..tail]
     | [
         scanner.Whitespace(_, _),
         scanner.SectionStart(line, path),
         scanner.Newline(_, _),
-      ] -> [
-      SectionStart(line, path),
-    ]
+        ..tail
+      ] -> transform(tail, [SectionStart(line, path), ..acc], indentation)
     // standalone section start with eof
-    [scanner.Whitespace(_, _), scanner.SectionStart(line, path), scanner.Eof(_)] -> [
-      SectionStart(line, path),
-      Eof(line),
-    ]
+    [
+      scanner.Whitespace(_, _),
+      scanner.SectionStart(line, path),
+      scanner.Eof(_),
+      ..tail
+    ] ->
+      transform(tail, [Eof(line), SectionStart(line, path), ..acc], indentation)
     // standalone inverted section start with newline
-    [scanner.InvertedSectionStart(line, path), scanner.Newline(_, _)]
+    [scanner.InvertedSectionStart(line, path), scanner.Newline(_, _), ..tail]
     | [
         scanner.Whitespace(_, _),
         scanner.InvertedSectionStart(line, path),
         scanner.Newline(_, _),
-      ] -> [
-      InvertedSectionStart(line, path),
-    ]
+        ..tail
+      ] ->
+      transform(tail, [InvertedSectionStart(line, path), ..acc], indentation)
     // standalone inverted section start with eof
     [
       scanner.Whitespace(_, _),
       scanner.InvertedSectionStart(line, path),
       scanner.Eof(_),
-    ] -> [InvertedSectionStart(line, path), Eof(line)]
+      ..tail
+    ] ->
+      transform(
+        tail,
+        [Eof(line), InvertedSectionStart(line, path), ..acc],
+        indentation,
+      )
     // standalone end tag with newline
-    [scanner.End(line, path), scanner.Newline(_, _)]
-    | [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Newline(_, _)] -> [
-      End(line, path),
-    ]
+    [scanner.End(line, path), scanner.Newline(_, _), ..tail]
+    | [
+        scanner.Whitespace(_, _),
+        scanner.End(line, path),
+        scanner.Newline(_, _),
+        ..tail
+      ] -> transform(tail, [End(line, path), ..acc], indentation)
     // standalone end tag with eof
-    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Eof(_)] -> [
-      End(line, path),
-      Eof(line),
-    ]
+    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Eof(_), ..tail] ->
+      transform(tail, [Eof(line), End(line, path), ..acc], indentation)
     // standalone set delimiters with newline
-    [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _)]
+    [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _), ..tail]
     | [
         scanner.Whitespace(_, _),
         scanner.SetDelimiters(_, _, _),
         scanner.Newline(_, _),
-      ] -> []
+        ..tail
+      ] -> transform(tail, acc, indentation)
     // standalone set delimiters with eof
-    [scanner.SetDelimiters(_, _, _), scanner.Eof(line)]
+    [scanner.SetDelimiters(_, _, _), scanner.Eof(line), ..tail]
     | [
         scanner.Whitespace(_, _),
         scanner.SetDelimiters(_, _, _),
         scanner.Eof(line),
-      ] -> [
-      Eof(line),
-    ]
+        ..tail
+      ] -> transform(tail, [Eof(line), ..acc], indentation)
     // standalone partial with newline
-    [scanner.Partial(line, name), scanner.Newline(_, _)] -> [
-      Partial(line, name),
-    ]
+    [scanner.Partial(line, name), scanner.Newline(_, _), ..tail] ->
+      transform(tail, [Partial(line, name), ..acc], indentation)
     // standalone partial with indentation
     [
-      scanner.Whitespace(_, _) as ws,
+      scanner.Whitespace(_, ws),
       scanner.Partial(line, name),
       scanner.Newline(_, _),
-    ] -> [Indentation(ws.line, ws.lexeme), Partial(line, name)]
+      ..tail
+    ] -> {
+      let total_indentation = case indentation {
+        Some(indentation_value) -> indentation_value <> ws
+        None -> ws
+      }
+      transform(
+        tail,
+        [Partial(line, name), Indentation(line, total_indentation), ..acc],
+        indentation,
+      )
+    }
     // standalone partial with eof
-    [scanner.Whitespace(_, ws), scanner.Partial(line, name), scanner.Eof(_)] -> [
-      Indentation(line, ws),
-      Partial(line, name),
-      Eof(line),
-    ]
+    [
+      scanner.Whitespace(_, ws),
+      scanner.Partial(line, name),
+      scanner.Eof(_),
+      ..tail
+    ] -> {
+      let total_indentation = case indentation {
+        Some(indentation_value) -> indentation_value <> ws
+        None -> ws
+      }
+      transform(
+        tail,
+        [
+          Eof(line),
+          Partial(line, name),
+          Indentation(line, total_indentation),
+          ..acc
+        ],
+        indentation,
+      )
+    }
     // continue with in-line rules
-    any -> transform_other(any, [])
+    any -> {
+      let acc = case indentation, any {
+        _, [scanner.Eof(_)] -> acc
+        Some(indentation_value), _ -> glom(0, indentation_value, acc)
+        //[Literal(0, indentation_value), ..acc]
+        _, _ -> acc
+      }
+      let #(acc, tail) = transform_other(any, acc)
+      transform(tail, acc, indentation)
+    }
   }
 }
 
 fn transform_other(
   input: List(scanner.Token),
   output: List(Token),
-) -> List(Token) {
+) -> #(List(Token), List(scanner.Token)) {
   case input {
     // base case
-    [] -> list.reverse(output)
+    [] -> #(output, input)
+    // line ends, return
+    [scanner.Newline(line, lexeme), ..tail] -> #(
+      glom(line, lexeme, output),
+      tail,
+    )
     // comments
     [scanner.Comment(_), ..tail] -> transform_other(tail, output)
     // set delimiters
     [scanner.SetDelimiters(_, _, _), ..tail] -> transform_other(tail, output)
-    // other tokens
+    // literals with glomming
     [scanner.Text(line, lexeme), ..tail]
-    | [scanner.Whitespace(line, lexeme), ..tail]
-    | [scanner.Newline(line, lexeme), ..tail] ->
-      transform_other(tail, [Literal(line, lexeme), ..output])
+    | [scanner.Whitespace(line, lexeme), ..tail] ->
+      transform_other(tail, glom(line, lexeme, output))
+    // other tokens
     [scanner.SectionStart(line, path), ..tail] ->
       transform_other(tail, [SectionStart(line, path), ..output])
     [scanner.InvertedSectionStart(line, path), ..tail] ->
@@ -187,45 +216,10 @@ fn transform_other(
   }
 }
 
-fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
-  case indentation {
-    None -> line
-    Some(indentation_value) ->
-      case line {
-        []
-        | [Eof(_)]
-        | [SectionStart(_, _)]
-        | [SectionStart(_, _), Eof(_)]
-        | [InvertedSectionStart(_, _)]
-        | [InvertedSectionStart(_, _), Eof(_)]
-        | [End(_, _)]
-        | [End(_, _), Eof(_)] -> line
-        [Indentation(line, ws), ..tail] -> [
-          Indentation(line, ws <> indentation_value),
-          ..tail
-        ]
-        [Partial(_, _)] | [Partial(_, _), Eof(_)] -> [
-          Indentation(0, indentation_value),
-          ..line
-        ]
-        any -> [Literal(0, indentation_value), ..any]
-      }
-  }
-}
-
-fn glom(acc: List(Token), next: Token) -> List(Token) {
-  case next {
-    Literal(line, literal) -> {
-      case acc {
-        [Literal(line, value), ..acc_tail] -> [
-          Literal(line, value <> literal),
-          ..acc_tail
-        ]
-        acc -> [Literal(line, literal), ..acc]
-      }
-    }
-    Eof(_) as eof -> [eof, ..acc] |> list.reverse()
-    any -> [any, ..acc]
+fn glom(line: Int, lexeme: String, output: List(Token)) -> List(Token) {
+  case output {
+    [Literal(_, literal), ..rest] -> [Literal(line, literal <> lexeme), ..rest]
+    any -> [Literal(line, lexeme), ..any]
   }
 }
 
