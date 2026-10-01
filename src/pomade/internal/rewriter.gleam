@@ -153,40 +153,39 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
       Eof(line),
     ]
     // continue with in-line rules
-    any -> elide_other(any)
+    any -> transform_other(any, [])
   }
 }
 
-fn elide_other(line: List(scanner.Token)) -> List(Token) {
-  other_loop(line, [])
-}
-
-fn other_loop(input: List(scanner.Token), output: List(Token)) -> List(Token) {
+fn transform_other(
+  input: List(scanner.Token),
+  output: List(Token),
+) -> List(Token) {
   case input {
     // base case
     [] -> list.reverse(output)
     // comments
-    [scanner.Comment(_), ..tail] -> other_loop(tail, output)
+    [scanner.Comment(_), ..tail] -> transform_other(tail, output)
     // set delimiters
-    [scanner.SetDelimiters(_, _, _), ..tail] -> other_loop(tail, output)
+    [scanner.SetDelimiters(_, _, _), ..tail] -> transform_other(tail, output)
     // other tokens
     [scanner.Text(line, lexeme), ..tail]
     | [scanner.Whitespace(line, lexeme), ..tail]
     | [scanner.Newline(line, lexeme), ..tail] ->
-      other_loop(tail, [Literal(line, lexeme), ..output])
+      transform_other(tail, [Literal(line, lexeme), ..output])
     [scanner.SectionStart(line, path), ..tail] ->
-      other_loop(tail, [SectionStart(line, path), ..output])
+      transform_other(tail, [SectionStart(line, path), ..output])
     [scanner.InvertedSectionStart(line, path), ..tail] ->
-      other_loop(tail, [InvertedSectionStart(line, path), ..output])
+      transform_other(tail, [InvertedSectionStart(line, path), ..output])
     [scanner.End(line, path), ..tail] ->
-      other_loop(tail, [End(line, path), ..output])
+      transform_other(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->
-      other_loop(tail, [Partial(line, path), ..output])
+      transform_other(tail, [Partial(line, path), ..output])
     [scanner.RawVariable(line, path), ..tail] ->
-      other_loop(tail, [RawVariable(line, path), ..output])
+      transform_other(tail, [RawVariable(line, path), ..output])
     [scanner.Variable(line, path), ..tail] ->
-      other_loop(tail, [Variable(line, path), ..output])
-    [scanner.Eof(line), ..tail] -> other_loop(tail, [Eof(line), ..output])
+      transform_other(tail, [Variable(line, path), ..output])
+    [scanner.Eof(line), ..tail] -> transform_other(tail, [Eof(line), ..output])
   }
 }
 
