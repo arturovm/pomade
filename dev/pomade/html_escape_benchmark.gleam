@@ -30,7 +30,7 @@ pub fn main() {
     [
       benchmark.Function(label: "html escape", callable: fn(args) {
         let #(template, data) = args
-        fn() { pomade.render(template, data, dict.new()) }
+        fn() { pomade.render_tree(template, data, dict.new()) }
       }),
     ],
     [

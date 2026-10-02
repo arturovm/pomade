@@ -1,5 +1,7 @@
 import gleam/dict
 import gleam/option.{None, Some}
+import gleam/result
+import gleam/string_tree
 
 import pomade/internal/interpreter
 import pomade/internal/parser
@@ -7,7 +9,9 @@ import pomade/internal/rewriter
 import pomade/internal/value.{Dict, Float, String}
 
 pub fn empty_test() {
-  let assert Ok("") = interpreter.interpret([], Dict(dict.new()), dict.new())
+  let assert Ok("") =
+    interpreter.interpret([], Dict(dict.new()), dict.new())
+    |> result.map(string_tree.to_string)
 }
 
 pub fn text_test() {
@@ -17,6 +21,7 @@ pub fn text_test() {
       Dict(dict.new()),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn newline_test() {
@@ -28,6 +33,7 @@ pub fn newline_test() {
       Dict(dict.new()),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn variable_test() {
@@ -37,6 +43,7 @@ pub fn variable_test() {
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 
   let assert Ok("1.21") =
     interpreter.interpret(
@@ -44,6 +51,7 @@ pub fn variable_test() {
       Dict(dict.from_list([#("foo", Float(1.21))])),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn raw_variable_test() {
@@ -53,6 +61,7 @@ pub fn raw_variable_test() {
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn section_with_parent_context_test() {
@@ -93,6 +102,7 @@ pub fn section_with_parent_context_test() {
       parent_env,
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn inverted_section_test() {
@@ -111,6 +121,7 @@ pub fn inverted_section_test() {
       Dict(dict.from_list([#("repo", value.List([]))])),
       dict.new(),
     )
+    |> result.map(string_tree.to_string)
 }
 
 pub fn partial_test() {
@@ -123,6 +134,7 @@ pub fn partial_test() {
       value.Dict(dict.new()),
       dict.from_list([#("other_template", "world!")]),
     )
+    |> result.map(string_tree.to_string)
   let assert Ok("Hello, foo!") =
     interpreter.interpret(
       [
@@ -132,6 +144,7 @@ pub fn partial_test() {
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       dict.from_list([#("other_template", "{{greeting}}")]),
     )
+    |> result.map(string_tree.to_string)
   let assert Ok("  >\n  >>") =
     interpreter.interpret(
       [
@@ -141,4 +154,5 @@ pub fn partial_test() {
       value.Dict(dict.new()),
       dict.from_list([#("partial", ">\n>")]),
     )
+    |> result.map(string_tree.to_string)
 }

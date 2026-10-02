@@ -1,6 +1,7 @@
 import gleam/dict.{type Dict}
 import gleam/option.{None}
 import gleam/result
+import gleam/string_tree.{type StringTree}
 
 import pomade/internal/interpreter
 import pomade/internal/parser
@@ -13,7 +14,7 @@ import pomade/internal/value
 pub opaque type Template {
   Template(
     fn(value.Value, Dict(String, String)) ->
-      Result(String, interpreter.RuntimeError),
+      Result(StringTree, interpreter.RuntimeError),
   )
 }
 
@@ -26,6 +27,15 @@ pub fn render(
 ) -> Result(String, Error) {
   use template <- result.try(compile(template))
   apply(template, data, partials)
+}
+
+pub fn render_tree(
+  template: String,
+  data: Value,
+  partials: Dict(String, String),
+) -> Result(StringTree, Error) {
+  use template <- result.try(compile(template))
+  apply_tree(template, data, partials)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -49,6 +59,17 @@ pub fn apply(
   data: Value,
   partials: Dict(String, String),
 ) -> Result(String, Error) {
+  let Template(template) = template
+  template(data, partials)
+  |> result.map(string_tree.to_string)
+  |> result.map_error(error_from_runtime_error)
+}
+
+pub fn apply_tree(
+  template: Template,
+  data: Value,
+  partials: Dict(String, String),
+) -> Result(StringTree, Error) {
   let Template(template) = template
   template(data, partials)
   |> result.map_error(error_from_runtime_error)

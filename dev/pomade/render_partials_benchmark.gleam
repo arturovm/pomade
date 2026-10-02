@@ -35,7 +35,7 @@ pub fn main() {
     [
       benchmark.Function(label: "render partials", callable: fn(args) {
         let #(template, data, partials) = args
-        fn() { pomade.apply(template, data, partials) }
+        fn() { pomade.apply_tree(template, data, partials) }
       }),
     ],
     [
