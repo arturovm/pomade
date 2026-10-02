@@ -201,14 +201,14 @@ fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
         | [End(_, _)]
         | [End(_, _), Eof(_)] -> line
         [Indentation(line, ws), ..tail] -> [
-          Indentation(line, ws <> indentation_value),
+          Indentation(line, indentation_value <> ws),
           ..tail
         ]
-        [Partial(_, _)] | [Partial(_, _), Eof(_)] -> [
-          Indentation(0, indentation_value),
+        [Partial(line_number, _)] | [Partial(line_number, _), Eof(_)] -> [
+          Indentation(line_number, indentation_value),
           ..line
         ]
-        any -> [Literal(0, indentation_value), ..any]
+        [head, ..tail] -> [Literal(head.line, indentation_value), head, ..tail]
       }
   }
 }

@@ -33,7 +33,7 @@ pub fn main() {
   // Run the benchmarks
   benchmark.run(
     [
-      benchmark.Function(label: "render collection", callable: fn(args) {
+      benchmark.Function(label: "render partials", callable: fn(args) {
         let #(template, data, partials) = args
         fn() { pomade.apply(template, data, partials) }
       }),
