@@ -5,6 +5,24 @@ _Add a little Gleam to your Mustache_
 [![Package Version](https://img.shields.io/hexpm/v/pomade)](https://hex.pm/packages/pomade)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://pomade.hexdocs.pm/)
 
+## Tabe of contents
+
+- What
+  - Compatibility
+- How
+  - Installing it
+  - Using it
+    - Rendering templates
+    - Using partials
+    - Pre-compilation
+- Information for nerds
+  - Working on it
+  - Benchmarking it
+    - Results
+- License
+- Important
+
+
 ## What
 
 `pomade` is a [Mustache](https://mustache.github.io) library written in Gleam. I
@@ -143,7 +161,7 @@ gleam test
 
 Or whatever.
 
-### Benchmarks
+### Benchmarking it
 
 `pomade` comes with a few Glychee benchmarks, lifted (ported) shamelessly from
 the repository of the Ruby version of Mustache. You can find them under
