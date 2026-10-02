@@ -65,38 +65,36 @@ First, import the required libraries:
 
 ```gleam
 import gleam/dict
-import gleam/option.{None, Some}
+import gleam/string_tree.{type StringTree}
 
 import pomade
-import pomade/value
 ```
 
-`pomade/value` is necessary because Mustache supports heterogeneous hashmaps
-and values as input, which Gleam does not (understandably) support on the
-native `gleam/dict` module and type
+In addition to the rendering and compilation API, `pomade` provides support for
+heterogeneous hashmaps and values, which Mustache requires as input.
 
 #### Rendering templates
 
 The most basic use case is rendering a template with a single call:
 
 ```gleam
-pub fn render_template() -> Result(String, pomade.Error) {
+pub fn render_template() -> Result(StringTree, pomade.Error) {
   let template = "Hello, {{target}}!"
-  let data = value.Dict(dict.from_list([#("target", value.String("world"))]))
-  pomade.render(template, data, None)
+  let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
+  pomade.render(template, data, dict.new())
   // -> Ok(StringTree)
   // -> "Hello, world!"
 }
 ```
 
-By default, the API returns `StringTree`s, but there's also a version that
-returns `String`s:
+By default, the API returns `StringTree`s, but there's a version that returns
+`String`s:
 
 ```gleam
 pub fn render_string() -> Result(String, pomade.Error) {
   let template = "Goodbye, {{target}}"
-  let data = value.Dict(dict.from_list([#("target", value.String("horses"))]))
-  pomade.render_string(template, data, None)
+  let data = pomade.dict(dict.from_list([#("target", pomade.string("horses"))]))
+  pomade.render_string(template, data, dict.new())
   // -> Ok("Goodbye, horses") 
 }
 ```
@@ -107,14 +105,19 @@ You can also render templates with partials, by passing a `Dict(String, String)`
 in the partials argument, mapping a partial name to the source of that partial:
 
 ```gleam
-pub fn render_with_partials() -> Result(String, String) {
+pub fn render_with_partials() -> Result(String, pomade.Error) {
   let template = "Fly, you {{>other_template}}!"
-  let data = value.Dict(dict.from_list([#("adjective", value.String("fools"))]))
+  let data =
+    pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
   let partials = dict.from_list([#("other_template", "{{adjective}}")])
-  pomade.render_string(template, data, Some(partials))
+  pomade.render_string(template, data, partials)
   // -> Ok("Fly, you fools!")
 }
 ```
+
+`pomade` takes care of caching the compiled partial, in a way that's compliant
+with the Mustache spec, to save on the costs of compiling the template at
+runtime every time it's needed.
 
 #### Pre-compilation
 
@@ -123,7 +126,7 @@ of your program (as in, for example, a web application), you can pre-compile
 templates to save some time:
 
 ```gleam
-pub fn precompile() -> Result(String, String) {
+pub fn precompile() -> Result(String, pomade.Error) {
   let template_source = "No. I am your {{relative}}."
   let assert Ok(template) = pomade.compile(template_source)
   render_compiled(template)
@@ -135,9 +138,10 @@ You can then, of course, simply apply the pre-compiled template:
 ```gleam
 pub fn render_compiled(
   template: pomade.Template,
-) -> Result(String, String) {
-  let data = value.Dict(dict.from_list([#("relative", value.String("father"))]))
-  pomade.apply_string(template, data, None)
+) -> Result(String, pomade.Error) {
+  let data =
+    pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
+  pomade.apply_string(template, data, dict.new())
   // -> Ok("No. I am your father.")
 }
 ```

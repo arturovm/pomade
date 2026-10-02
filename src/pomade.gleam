@@ -24,18 +24,18 @@ pub fn render(
   template: String,
   data: Value,
   partials: Dict(String, String),
-) -> Result(String, Error) {
+) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
   apply(template, data, partials)
 }
 
-pub fn render_tree(
+pub fn render_string(
   template: String,
   data: Value,
   partials: Dict(String, String),
-) -> Result(StringTree, Error) {
-  use template <- result.try(compile(template))
-  apply_tree(template, data, partials)
+) -> Result(String, Error) {
+  render(template, data, partials)
+  |> result.map(string_tree.to_string)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -58,21 +58,19 @@ pub fn apply(
   template: Template,
   data: Value,
   partials: Dict(String, String),
-) -> Result(String, Error) {
-  let Template(template) = template
-  template(data, partials)
-  |> result.map(string_tree.to_string)
-  |> result.map_error(error_from_runtime_error)
-}
-
-pub fn apply_tree(
-  template: Template,
-  data: Value,
-  partials: Dict(String, String),
 ) -> Result(StringTree, Error) {
   let Template(template) = template
   template(data, partials)
   |> result.map_error(error_from_runtime_error)
+}
+
+pub fn apply_string(
+  template: Template,
+  data: Value,
+  partials: Dict(String, String),
+) -> Result(String, Error) {
+  apply(template, data, partials)
+  |> result.map(string_tree.to_string)
 }
 
 // errors
