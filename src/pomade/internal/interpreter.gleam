@@ -25,50 +25,61 @@ pub opaque type PartialError {
   RuntimeError(RuntimeError)
 }
 
+type PartialCache =
+  Dict(#(String, Option(String)), List(parser.Expression))
+
 pub fn interpret(
   template: List(parser.Expression),
   environment: value.Value,
   partials: Dict(String, String),
 ) -> Result(String, RuntimeError) {
-  evaluate_exprs(
-    template,
-    environment.Environment(environment, partials, None),
-    "",
-  )
+  case
+    evaluate_exprs(
+      template,
+      dict.new(),
+      environment.Environment(environment, partials, None),
+      "",
+    )
+  {
+    Ok(#(value, _)) -> Ok(value)
+    Error(error) -> Error(error)
+  }
 }
 
 fn evaluate_exprs(
   exprs: List(parser.Expression),
+  cache: PartialCache,
   env: environment.Environment,
   acc: String,
-) -> Result(String, RuntimeError) {
+) -> Result(#(String, PartialCache), RuntimeError) {
   case exprs {
-    [] -> Ok(acc)
+    [] -> Ok(#(acc, cache))
     [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
-      evaluate_exprs(tail, env, acc <> value)
+      evaluate_exprs(tail, cache, env, acc <> value)
     [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
-      evaluate_exprs(tail, env, acc <> evaluate_variable(path, env))
+      evaluate_exprs(tail, cache, env, acc <> evaluate_variable(path, env))
     [parser.RawVariable(rewriter.RawVariable(_, path)), ..tail] ->
-      evaluate_exprs(tail, env, acc <> evaluate_raw_variable(path, env))
+      evaluate_exprs(tail, cache, env, acc <> evaluate_raw_variable(path, env))
     [expr, ..tail] ->
-      case evaluate_with_nested(expr, env) {
-        Ok(value) -> evaluate_exprs(tail, env, acc <> value)
-        error -> error
+      case evaluate_with_nested(expr, cache, env) {
+        Ok(#(value, cache)) -> evaluate_exprs(tail, cache, env, acc <> value)
+        Error(error) -> Error(error)
       }
   }
 }
 
 fn evaluate_with_nested(
   expr: parser.Expression,
+  cache: PartialCache,
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
+) -> Result(#(String, PartialCache), RuntimeError) {
   case expr {
     parser.Section(rewriter.SectionStart(_, path), content) ->
-      evaluate_section(path, content, env)
+      evaluate_section(path, content, cache, env)
     parser.InvertedSection(rewriter.InvertedSectionStart(_, path), content) ->
-      evaluate_inverted_section(path, content, env)
+      evaluate_inverted_section(path, content, cache, env)
     parser.Partial(rewriter.Partial(_, name), indentation) ->
-      evaluate_partial(name, indentation, env)
+      evaluate_partial(name, indentation, cache, env)
     _ -> Error(UnknownExpressionError)
   }
 }
@@ -90,25 +101,25 @@ fn evaluate_raw_variable(
 fn evaluate_section(
   path: List(String),
   content: List(parser.Expression),
+  cache: PartialCache,
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
+) -> Result(#(String, PartialCache), RuntimeError) {
   case environment.get(env, path) {
-    Error(Nil) | Ok(value.Bool(False)) -> Ok("")
+    Error(Nil) | Ok(value.Bool(False)) -> Ok(#("", cache))
     Ok(value.List(l)) ->
-      list.map(l, fn(c) {
-        evaluate_exprs(
+      list.try_fold(l, #("", cache), fn(acc, c) {
+        use #(output, cache) <- result.map(evaluate_exprs(
           content,
+          acc.1,
           environment.Environment(..env, value: c, parent: Some(env)),
           "",
-        )
-      })
-      |> result.all()
-      |> result.map(fn(trees) {
-        list.fold(trees, "", fn(acc, val) { acc <> val })
+        ))
+        #(acc.0 <> output, cache)
       })
     Ok(context) ->
       evaluate_exprs(
         content,
+        cache,
         environment.Environment(..env, value: context, parent: Some(env)),
         "",
       )
@@ -118,39 +129,62 @@ fn evaluate_section(
 fn evaluate_inverted_section(
   path: List(String),
   content: List(parser.Expression),
+  cache: PartialCache,
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
+) -> Result(#(String, PartialCache), RuntimeError) {
   case environment.get(env, path) {
     Error(Nil) | Ok(value.Bool(False)) | Ok(value.List([])) ->
-      evaluate_exprs(content, env, "")
-    _ -> Ok("")
+      evaluate_exprs(content, cache, env, "")
+    _ -> Ok(#("", cache))
   }
 }
 
 fn evaluate_partial(
   name: String,
   indentation: Option(String),
+  cache: PartialCache,
   env: environment.Environment,
-) -> Result(String, RuntimeError) {
-  case environment.get_partial(env, name) {
-    Ok(source) -> {
-      use tokens <- result.try(
-        scanner.scan(source)
-        |> result.map_error(fn(e) { PartialError(name, LexicalError(e)) }),
-      )
-      let rewritten = rewriter.rewrite(tokens, indentation)
-      use ast <- result.try(
-        parser.parse(rewritten)
-        |> result.map_error(fn(e) { PartialError(name, SyntaxError(e)) }),
-      )
-      use partial_result <- result.map(
-        evaluate_exprs(ast, env, "")
-        |> result.map_error(fn(e) { PartialError(name, RuntimeError(e)) }),
-      )
-      partial_result
-    }
-    Error(_) -> Ok("")
+) -> Result(#(String, PartialCache), RuntimeError) {
+  case get_partial(name, indentation, env, cache) {
+    Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, "")
+    Error(error) -> Error(PartialError(name, error))
   }
+}
+
+fn get_partial(
+  name: String,
+  indentation: Option(String),
+  env: environment.Environment,
+  cache: PartialCache,
+) -> Result(#(List(parser.Expression), PartialCache), PartialError) {
+  case dict.get(cache, #(name, indentation)) {
+    Ok(ast) -> Ok(#(ast, cache))
+    Error(_) ->
+      case environment.get_partial(env, name) {
+        Ok(source) ->
+          case compile_partial(source, indentation) {
+            Ok(ast) -> Ok(#(ast, dict.insert(cache, #(name, indentation), ast)))
+            Error(error) -> Error(error)
+          }
+        Error(_) -> Ok(#([], cache))
+      }
+  }
+}
+
+fn compile_partial(
+  source: String,
+  indentation: Option(String),
+) -> Result(List(parser.Expression), PartialError) {
+  use tokens <- result.try(
+    scanner.scan(source)
+    |> result.map_error(fn(e) { LexicalError(e) }),
+  )
+  let rewritten = rewriter.rewrite(tokens, indentation)
+  use ast <- result.map(
+    parser.parse(rewritten)
+    |> result.map_error(fn(e) { SyntaxError(e) }),
+  )
+  ast
 }
 
 // formatting
