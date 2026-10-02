@@ -17,12 +17,6 @@ const partial = "
 "
 
 pub fn main() {
-  // Configuration is optional
-  // configuration.initialize()
-  // configuration.set_pair(configuration.Warmup, 2)
-  // configuration.set_pair(configuration.Parallel, 2)
-
-  // compile template beforehand, as the Ruby benchmarks do
   let assert Ok(compiled) = pomade.compile(template)
 
   let data =
@@ -30,7 +24,6 @@ pub fn main() {
 
   let partials = dict.from_list([#("user", partial)])
 
-  // Run the benchmarks
   benchmark.run(
     [
       benchmark.Function(label: "render partials", callable: fn(args) {

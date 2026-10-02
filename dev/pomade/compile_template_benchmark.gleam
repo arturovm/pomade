@@ -20,12 +20,6 @@ const template = "
 "
 
 pub fn main() {
-  // Configuration is optional
-  // configuration.initialize()
-  // configuration.set_pair(configuration.Warmup, 2)
-  // configuration.set_pair(configuration.Parallel, 2)
-
-  // Run the benchmarks
   benchmark.run(
     [
       benchmark.Function(label: "compile template", callable: fn(template) {
