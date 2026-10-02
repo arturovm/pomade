@@ -7,20 +7,20 @@ _Add a little Gleam to your Mustache_
 
 ## Tabe of contents
 
-- What
-  - Compatibility
-- How
-  - Installing it
-  - Using it
-    - Rendering templates
-    - Using partials
-    - Pre-compilation
-- Information for nerds
-  - Working on it
-  - Benchmarking it
-    - Results
-- License
-- Important
+- [What](#what)
+  - [Compatibility](#compatibility)
+- [How](#how)
+  - [Installing it](#installing-it)
+  - [Using it](#using-it)
+    - [Rendering templates](#rendering-template)
+    - [Using partials](#using-partials)
+    - [Pre-compilation](#pre-compilation)
+- [Information for nerds](#information-for-nerds)
+  - [Working on it](#working-on-it)
+  - [Benchmarking it](#benchmarking-it)
+    - [Results](#results)
+- [License](#license)
+- [Important](#important)
 
 
 ## What
