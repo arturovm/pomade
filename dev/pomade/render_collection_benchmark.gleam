@@ -38,7 +38,7 @@ pub fn main() {
     [
       benchmark.Function(label: "render collection", callable: fn(args) {
         let #(template, data) = args
-        fn() { pomade.apply_tree(template, data, dict.new()) }
+        fn() { pomade.apply(template, data, dict.new()) }
       }),
     ],
     [
