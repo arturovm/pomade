@@ -125,6 +125,10 @@ pub fn render_compiled(
     pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
   pomade.apply_string(template, data, dict.new())
   // -> Ok("No. I am your father.")
+  //
+  // Or:
+  // pomade.apply(template, data, dict.new())
+  // -> Ok(StringTree)
 }
 ```
 
@@ -149,7 +153,7 @@ Or whatever.
 
 ### Benchmarking it
 
-`pomade` comes with a few Glychee benchmarks, lifted (ported) shamelessly from
+`pomade` comes with a few Glychee benchmarks, shamelessly lifted (ported) from
 the repository of the Ruby version of Mustache. You can find them under
 `dev/pomade`, and you can run them like so:
 

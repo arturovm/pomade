@@ -1,3 +1,5 @@
+//// `pomade` is a [Mustache](https://mustache.github.io) library written in Gleam.
+
 import gleam/dict.{type Dict}
 import gleam/option.{None}
 import gleam/result
@@ -19,6 +21,30 @@ pub opaque type Template {
 
 /// `render` renders a template source string directly. Useful when convenience
 /// is the priority.
+///
+/// ### Examples
+///
+/// Basic usage:
+///
+/// ```gleam
+/// let template = "Hello, {{target}}!"
+/// let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
+/// pomade.render(template, data, dict.new())
+/// // -> Ok(StringTree)
+/// // -> "Hello, world!"
+/// ```
+///
+/// With partials:
+///
+/// ```
+/// let template = "Fly, you {{>other_template}}!"
+/// let data =
+///   pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
+/// let partials = dict.from_list([#("other_template", "{{adjective}}")])
+/// pomade.render(template, data, partials)
+/// // -> Ok(StringTree)
+/// // -> "Fly, you fools!"
+/// ```
 pub fn render(
   template: String,
   data: Value,
@@ -44,6 +70,14 @@ pub fn render_string(
 /// `compile` prepares a template for future application, to avoid the overhead
 /// of scanning and parsing a template from scratch every time. Prefer this
 /// when speed is important.
+///
+/// ### Examples
+///
+/// ```gleam
+/// let template_source = "No. I am your {{relative}}."
+/// pomade.compile(template_source)
+/// // -> Ok(template)
+/// ```
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
     scanner.scan(template) |> result.map_error(error_from_lexical_error),
@@ -57,6 +91,15 @@ pub fn compile(template: String) -> Result(Template, Error) {
 
 /// `apply` takes a pre-compiled template and applies it to the supplied data
 /// and partials.
+///
+/// ### Examples
+///
+/// ```gleam
+/// let data = pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
+/// pomade.apply(template, data, dict.new())
+/// // pomade.apply(template, data, dict.new())
+/// // -> Ok(StringTree)
+/// // -> "No. I am your father."
 pub fn apply(
   template: Template,
   data: Value,
@@ -82,7 +125,7 @@ pub fn apply_string(
 
 // errors
 
-/// Error is used to report an error from the API.
+/// `Error` is used to report an error from the API.
 pub type Error {
   /// `CompilationError` represents an error encountered either during scanning
   /// or during parsing.
