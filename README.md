@@ -5,24 +5,6 @@ _Add a little Gleam to your Mustache_
 [![Package Version](https://img.shields.io/hexpm/v/pomade)](https://hex.pm/packages/pomade)
 [![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://pomade.hexdocs.pm/)
 
-## Tabe of contents
-
-- [What](#what)
-  - [Compatibility](#compatibility)
-- [How](#how)
-  - [Installing it](#installing-it)
-  - [Using it](#using-it)
-    - [Rendering templates](#rendering-template)
-    - [Using partials](#using-partials)
-    - [Pre-compilation](#pre-compilation)
-- [Information for nerds](#information-for-nerds)
-  - [Working on it](#working-on-it)
-  - [Benchmarking it](#benchmarking-it)
-    - [Results](#results)
-- [License](#license)
-- [Important](#important)
-
-
 ## What
 
 `pomade` is a [Mustache](https://mustache.github.io) library written in Gleam. I
