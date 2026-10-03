@@ -9,8 +9,7 @@ import pomade/internal/rewriter
 import pomade/internal/scanner
 import pomade/internal/value
 
-/// `Template` represents a compiled template. Since this is a type alias to a
-/// function, simply pass it a dictionary of input values.
+/// `Template` represents a compiled template.
 pub opaque type Template {
   Template(
     fn(value.Value, Dict(String, String)) ->
@@ -29,6 +28,10 @@ pub fn render(
   apply(template, data, partials)
 }
 
+/// `render_string` is like `render`, but it returns a `String` instead of a
+/// `StringTree`. Internally, `render_string` calls `render`, and then converts
+/// the result, so some allocations are implied. Because of this, prefer
+/// `render` whenever possible, if your target API permits it.
 pub fn render_string(
   template: String,
   data: Value,
@@ -64,6 +67,10 @@ pub fn apply(
   |> result.map_error(error_from_runtime_error)
 }
 
+/// `apply_string` is like `apply`, but it returns a `String` instead of a
+/// `StringTree`. Internally, `apply_string` calls `apply`, and then converts
+/// the result, so some allocations are implied. Because of this, prefer
+/// `apply` whenever possible, if your target API permits it.
 pub fn apply_string(
   template: Template,
   data: Value,
@@ -75,8 +82,12 @@ pub fn apply_string(
 
 // errors
 
+/// Error is used to report an error from the API.
 pub type Error {
+  /// `CompilationError` represents an error encountered either during scanning
+  /// or during parsing.
   CompilationError(String)
+  /// `RuntimeError` represents an error encountered during interpretation.
   RuntimeError(String)
 }
 
@@ -94,29 +105,38 @@ fn error_from_runtime_error(error: interpreter.RuntimeError) -> Error {
 
 // value
 
+/// `Value` is used to represent the input types that a Mustache template
+/// accepts. It also allows the API to accept heterogeneous dictionaries, which
+/// Gleam, understandably, does not support natively.
 pub type Value =
   value.Value
 
+/// `dict` creates a `Value` from a `Dict(String, Value)`.
 pub fn dict(value: Dict(String, Value)) -> Value {
   value.Dict(value)
 }
 
+/// `int` creates a `Value` from an `Int`.
 pub fn int(value: Int) -> Value {
   value.Int(value)
 }
 
+/// `float` creates a `Value` from a `Float`.
 pub fn float(value: Float) -> Value {
   value.Float(value)
 }
 
+/// `string` creates a `Value` from a `String`.
 pub fn string(value: String) -> Value {
   value.String(value)
 }
 
+/// `bool` creates a `Value` from a `Bool`.
 pub fn bool(value: Bool) -> Value {
   value.Bool(value)
 }
 
+/// `list` creates a `Value` from a `List(Value)`.
 pub fn list(value: List(Value)) -> Value {
   value.List(value)
 }
