@@ -24,7 +24,7 @@ Mustache specification, which means:
 - Inverted sections
 - Partials
 
-As of version 0.0.1, this target has been achieved, but no support for the
+As of version 0.1.0, this target has been achieved, but no support for the
 optional parts of the specification is planned before the first stable release.
 These unsupported aspects are:
 
