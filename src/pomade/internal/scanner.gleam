@@ -169,13 +169,12 @@ fn read_name(
 ) -> Result(#(List(String), String), LexicalError) {
   case source {
     "." <> rest -> Ok(#(["."], rest))
-    _ -> {
+    _ ->
       case read_identifier(lexer, source) {
         Ok(#(identifier, tail)) ->
           read_dot_identifier(lexer, tail, [identifier])
         Error(error) -> Error(error)
       }
-    }
   }
 }
 
@@ -183,15 +182,10 @@ fn read_identifier(
   lexer: Lexer,
   source: String,
 ) -> Result(#(String, String), LexicalError) {
-  let #(value, rest) = splitter.split_before(lexer.identifier_splitter, source)
-  case rest {
-    "" -> Error(UnterminatedTagError(lexer.line))
-    _ -> {
-      case value {
-        "" -> Error(MalformedIdentifierError(lexer.line))
-        _ -> Ok(#(value, rest))
-      }
-    }
+  case splitter.split_before(lexer.identifier_splitter, source) {
+    #(_, "") -> Error(UnterminatedTagError(lexer.line))
+    #("", _) -> Error(MalformedIdentifierError(lexer.line))
+    any -> Ok(any)
   }
 }
 
@@ -201,13 +195,12 @@ fn read_dot_identifier(
   acc: List(String),
 ) -> Result(#(List(String), String), LexicalError) {
   case source {
-    "." <> tail -> {
+    "." <> tail ->
       case read_identifier(lexer, tail) {
         Ok(#(identifier, tail)) ->
           read_dot_identifier(lexer, tail, [identifier, ..acc])
         Error(error) -> Error(error)
       }
-    }
     tail -> Ok(#(list.reverse(acc), tail))
   }
 }
@@ -408,34 +401,16 @@ fn scan_newline_top_level(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   case source {
-    "\r\n" <> _ | "\n" <> _ -> {
-      case scan_newline(lexer, source, stream) {
+    "\r\n" as nl <> tail | "\n" as nl <> tail -> {
+      let newline = Newline(lexer.line, nl)
+      let lexer = Lexer(..lexer, line: lexer.line + 1)
+      case scan_top_level(lexer, tail, [newline, ..stream]) {
         Ok(#(lexer, stream, tail)) ->
-          case scan_top_level(lexer, tail, stream) {
-            Ok(#(lexer, stream, tail)) ->
-              scan_newline_top_level(lexer, tail, stream)
-            error -> error
-          }
+          scan_newline_top_level(lexer, tail, stream)
         error -> error
       }
     }
-    _ -> Ok(#(lexer, stream, source))
-  }
-}
-
-fn scan_newline(
-  lexer: Lexer,
-  source: String,
-  stream: List(Token),
-) -> Result(#(Lexer, List(Token), String), LexicalError) {
-  case source {
-    "\r\n" as nl <> tail | "\n" as nl <> tail ->
-      Ok(#(
-        Lexer(..lexer, line: lexer.line + 1),
-        [Newline(lexer.line, nl), ..stream],
-        tail,
-      ))
-    _ -> Error(unexpected_character_error(lexer.line, source))
+    source -> Ok(#(lexer, stream, source))
   }
 }
 
