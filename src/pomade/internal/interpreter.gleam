@@ -121,13 +121,12 @@ fn evaluate_section(
     Error(Nil) | Ok(value.Bool(False)) -> Ok(#(acc, cache))
     Ok(value.List(l)) ->
       list.try_fold(l, #(acc, cache), fn(acc, c) {
-        use #(output, cache) <- result.map(evaluate_exprs(
+        evaluate_exprs(
           content,
           acc.1,
           environment.Environment(..env, value: c, parent: Some(env)),
           acc.0,
-        ))
-        #(output, cache)
+        )
       })
     Ok(context) ->
       evaluate_exprs(
