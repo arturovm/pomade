@@ -75,7 +75,7 @@ pub fn main() {
           [
             #(
               "products",
-              chaplin.list(list.repeat(chaplin.object(chaplin_data), 1000)),
+              chaplin.list(list.repeat(chaplin.object(chaplin_data), 10)),
             ),
           ],
         ),
@@ -93,7 +93,7 @@ pub fn main() {
           [
             #(
               "products",
-              chaplin.list(list.repeat(chaplin.object(chaplin_data), 1000)),
+              chaplin.list(list.repeat(chaplin.object(chaplin_data), 100)),
             ),
           ],
         ),

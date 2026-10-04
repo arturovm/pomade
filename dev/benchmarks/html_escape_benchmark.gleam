@@ -52,7 +52,11 @@ pub fn main() {
               #("image", pomade.string("products/product.jpg")),
             ]),
           ),
-          [#("external_index", chaplin.string(""))],
+          [
+            #("external_index", chaplin.string("product")),
+            #("url", chaplin.string("/products/7")),
+            #("image", chaplin.string("products/product.jpg")),
+          ],
         ),
       ),
       benchmark.Data(
@@ -66,7 +70,11 @@ pub fn main() {
               #("image", pomade.string("products/<h1>Bear > Shark</h1>.jpg")),
             ]),
           ),
-          [#("external_index", chaplin.string(""))],
+          [
+            #("external_index", chaplin.string("<h1>Bear > Shark</h1>")),
+            #("url", chaplin.string("/<h1>Bear > Shark</h1>/7")),
+            #("image", chaplin.string("products/<h1>Bear > Shark</h1>.jpg")),
+          ],
         ),
       ),
     ],
