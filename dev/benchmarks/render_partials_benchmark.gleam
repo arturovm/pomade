@@ -18,10 +18,8 @@ const partial = "
 
 pub fn main() {
   let assert Ok(compiled) = pomade.compile(template)
-
   let data =
     pomade.dict(dict.from_list([#("name", pomade.string("Charlie Chaplin"))]))
-
   let partials = dict.from_list([#("user", partial)])
 
   benchmark.run(

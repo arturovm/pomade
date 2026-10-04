@@ -1,5 +1,6 @@
 import glychee/benchmark
 
+import chaplin
 import pomade
 
 const template = "
@@ -22,9 +23,24 @@ const template = "
 pub fn main() {
   benchmark.run(
     [
-      benchmark.Function(label: "compile template", callable: fn(template) {
-        fn() { pomade.compile(template) }
-      }),
+      benchmark.Function(
+        label: "pomade: compile template",
+        callable: fn(template) {
+          fn() {
+            let _ = pomade.compile(template)
+            Nil
+          }
+        },
+      ),
+      benchmark.Function(
+        label: "chaplin: compile template",
+        callable: fn(template) {
+          fn() {
+            let _ = chaplin.compile(template)
+            Nil
+          }
+        },
+      ),
     ],
     [benchmark.Data(label: "template", data: template)],
   )

@@ -7,7 +7,9 @@
 # You should check this file into your source control repository.
 
 packages = [
+  { name = "bbmustache", version = "1.12.2", build_tools = ["rebar3"], requirements = [], otp_app = "bbmustache", source = "hex", outer_checksum = "688B33A4D5CC2D51F575ADF0B3683FC40A38314A2F150906EDCFC77F5B577B3B" },
   { name = "benchee", version = "1.5.1", build_tools = ["mix"], requirements = ["deep_merge", "statistex", "table"], otp_app = "benchee", source = "hex", outer_checksum = "A539301F8DFD4EFC5C5123BFB9D47EBDE20092A863A5B5B16C2A60D2243DFCE7" },
+  { name = "chaplin", version = "1.1.0", build_tools = ["gleam"], requirements = ["bbmustache", "gleam_stdlib"], otp_app = "chaplin", source = "hex", outer_checksum = "FF49019F7C263D8BF95D2CE8C1AA7A64F90D690BDE564454DA9FA6EBAF5335E0" },
   { name = "deep_merge", version = "1.0.2", build_tools = ["mix"], requirements = [], otp_app = "deep_merge", source = "hex", outer_checksum = "737A53CDC9758FEDBB608BDC213969E65729466C4EF3CD8E8726D0335DFF116C" },
   { name = "filepath", version = "1.1.2", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "filepath", source = "hex", outer_checksum = "B06A9AF0BF10E51401D64B98E4B627F1D2E48C154967DA7AF4D0914780A6D40A" },
   { name = "gleam_json", version = "3.1.0", build_tools = ["gleam"], requirements = ["gleam_stdlib"], otp_app = "gleam_json", source = "hex", outer_checksum = "44FDAA8847BE8FC48CA7A1C089706BD54BADCC4C45B237A992EDDF9F2CDB2836" },
@@ -21,6 +23,7 @@ packages = [
 ]
 
 [requirements]
+chaplin = { version = ">= 1.1.0 and < 2.0.0" }
 filepath = { version = ">= 1.1.2 and < 2.0.0" }
 gleam_json = { version = ">= 3.1.0 and < 4.0.0" }
 gleam_stdlib = { version = ">= 1.0.0 and < 2.0.0" }

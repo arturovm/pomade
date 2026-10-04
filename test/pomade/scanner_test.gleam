@@ -5,26 +5,23 @@ pub fn empty_scanner_test() {
 }
 
 pub fn scan_whitespace_test() {
-  assert Ok([scanner.Whitespace(1, " "), scanner.Eof(1)]) == scanner.scan(" ")
+  assert Ok([scanner.Whitespace(1, "  "), scanner.Eof(1)]) == scanner.scan("  ")
   assert Ok([
-      scanner.Whitespace(1, "\t    "),
-      scanner.Text(1, "indented"),
+      scanner.Text(1, "\t    indented"),
       scanner.Eof(1),
     ])
     == scanner.scan("\t    indented")
   assert Ok([
-      scanner.Text(1, "hello,"),
-      scanner.Whitespace(1, " "),
-      scanner.Text(1, "this"),
-      scanner.Whitespace(1, " "),
-      scanner.Text(1, "is"),
-      scanner.Whitespace(1, " "),
-      scanner.Text(1, "a"),
-      scanner.Whitespace(1, " "),
-      scanner.Text(1, "message"),
+      scanner.Text(1, "hello, this is a message"),
       scanner.Eof(1),
     ])
     == scanner.scan("hello, this is a message")
+  assert Ok([
+      scanner.Whitespace(1, "  \t"),
+      scanner.Newline(1, "\n"),
+      scanner.Eof(2),
+    ])
+    == scanner.scan("  \t\n")
 }
 
 pub fn scan_variable_test() {
@@ -78,8 +75,7 @@ pub fn scan_comments_test() {
   let assert Ok([
     scanner.Text(1, "Hello,"),
     scanner.Comment(1),
-    scanner.Whitespace(1, " "),
-    scanner.Text(1, "world!"),
+    scanner.Text(1, " world!"),
     scanner.Eof(1),
   ]) = scanner.scan("Hello,{{! this is a comment }} world!")
 }
@@ -105,8 +101,11 @@ pub fn scan_triple_mustache_test() {
 }
 
 pub fn scan_dotted_names_test() {
-  let assert Ok([scanner.Variable(1, ["hello", "world"]), scanner.Eof(1)]) =
-    scanner.scan("{{hello.world}}")
+  assert Ok([scanner.Variable(1, ["hello", "world"]), scanner.Eof(1)])
+    == scanner.scan("{{hello.world}}")
+
+  assert Error(scanner.UnexpectedCharacterError(1, "f"))
+    == scanner.scan("{{.foo}}")
 }
 
 pub fn scan_newline_test() {
@@ -129,9 +128,6 @@ pub fn scan_newline_test() {
     scanner.Text(3, "Bar"),
     scanner.Eof(3),
   ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
-
-  let assert Error(scanner.UnexpectedCharacterError(1, "f")) =
-    scanner.scan("{{.foo}}")
 }
 
 pub fn scan_multiline_comment_test() {

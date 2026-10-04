@@ -80,9 +80,7 @@ pub fn standalone_without_newline_test() {
 pub fn indented_inline_test() {
   let assert Ok(tokens) = scanner.scan("  12 {{! 34 }}\n")
   assert [
-      scanner.Whitespace(1, "  "),
-      scanner.Text(1, "12"),
-      scanner.Whitespace(1, " "),
+      scanner.Text(1, "  12 "),
       scanner.Comment(1),
       scanner.Newline(1, "\n"),
       scanner.Eof(2),
