@@ -115,7 +115,7 @@ pub fn precompile() -> Result(String, pomade.Error) {
 }
 ```
 
-You can then, of course, simply apply the pre-compiled template:
+You can then, of course, simply expand the pre-compiled template:
 
 ```gleam
 pub fn render_compiled(
@@ -123,11 +123,11 @@ pub fn render_compiled(
 ) -> Result(String, pomade.Error) {
   let data =
     pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-  pomade.apply_string(template, data, dict.new())
+  pomade.expand_string(template, data, dict.new())
   // -> Ok("No. I am your father.")
   //
   // Or:
-  // pomade.apply(template, data, dict.new())
+  // pomade.expand(template, data, dict.new())
   // -> Ok(StringTree)
 }
 ```

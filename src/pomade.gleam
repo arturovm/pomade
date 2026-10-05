@@ -19,8 +19,8 @@ pub opaque type Template {
   )
 }
 
-/// `render` renders a template source string directly. Useful when convenience
-/// is the priority.
+/// `render` compiles and expands a template source string in a single step.
+/// Useful when convenience is the priority.
 ///
 /// ### Examples
 ///
@@ -51,7 +51,7 @@ pub fn render(
   partials: Dict(String, String),
 ) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
-  apply(template, data, partials)
+  expand(template, data, partials)
 }
 
 /// `render_string` is like `render`, but it returns a `String` instead of a
@@ -89,18 +89,17 @@ pub fn compile(template: String) -> Result(Template, Error) {
   Template(fn(data, partials) { interpreter.interpret(ast, data, partials) })
 }
 
-/// `apply` takes a pre-compiled template and applies it to the supplied data
+/// `expand` takes a pre-compiled template and applies it to the supplied data
 /// and partials.
 ///
 /// ### Examples
 ///
 /// ```gleam
 /// let data = pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-/// pomade.apply(template, data, dict.new())
-/// // pomade.apply(template, data, dict.new())
+/// pomade.expand(template, data, dict.new())
 /// // -> Ok(StringTree)
 /// // -> "No. I am your father."
-pub fn apply(
+pub fn expand(
   template: Template,
   data: Value,
   partials: Dict(String, String),
@@ -110,16 +109,16 @@ pub fn apply(
   |> result.map_error(error_from_runtime_error)
 }
 
-/// `apply_string` is like `apply`, but it returns a `String` instead of a
-/// `StringTree`. Internally, `apply_string` calls `apply`, and then converts
+/// `expand_string` is like `expand`, but it returns a `String` instead of a
+/// `StringTree`. Internally, `expand_string` calls `expand`, and then converts
 /// the result, so some allocations are implied. Because of this, prefer
-/// `apply` whenever possible, if your target API permits it.
-pub fn apply_string(
+/// `expand` whenever possible, if your target API permits it.
+pub fn expand_string(
   template: Template,
   data: Value,
   partials: Dict(String, String),
 ) -> Result(String, Error) {
-  apply(template, data, partials)
+  expand(template, data, partials)
   |> result.map(string_tree.to_string)
 }
 
