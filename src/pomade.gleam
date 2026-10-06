@@ -80,7 +80,7 @@ pub fn compile_and_render_string(
 /// ```gleam
 /// let template_source = "No. I am your {{relative}}."
 /// pomade.compile(template_source)
-/// // -> Ok(template)
+/// // -> Ok(Template)
 /// ```
 pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
