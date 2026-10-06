@@ -95,7 +95,7 @@ fn run(loaded_test: Test) {
   let assert Ok(template) = pomade.compile(loaded_test.template)
     as loaded_test.name
   let assert Ok(result) =
-    pomade.expand_string(template, loaded_test.data, loaded_test.partials)
+    pomade.render_string(template, loaded_test.data, loaded_test.partials)
     as loaded_test.name
   assert loaded_test.expected == result as loaded_test.name
 }

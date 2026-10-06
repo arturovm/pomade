@@ -1,15 +1,15 @@
 //// Mustache syntactical grammar:
 ////
-//// template                 -> {expression} EOF;
+//// template                 -> {expression} EOF ;
 //// expression               -> Parent ;
-//// Parent                   -> PARENT_START {expression} END | Block;
+//// Parent                   -> PARENT_START {expression} END | Block ;
 //// Block                    -> BLOCK_START {expression} END | InvertedSection ;
 //// InvertedSection          -> INVERTED_SECTION_START {expression} END | Section;
 //// Section                  -> SECTION_START {expression} END | Partial ;
 //// Partial                  -> [INDENTATION] PARTIAL | RawVariable ;
 //// RawVariable              -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
 //// Variable                 -> VARIABLE | Literal ;
-//// Literal                  -> TEXT | WHITESPACE | NEWLINE
+//// Literal                  -> TEXT | WHITESPACE | NEWLINE ;
 
 import gleam/int
 import gleam/list
