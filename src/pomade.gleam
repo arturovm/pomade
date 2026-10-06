@@ -19,9 +19,11 @@ pub opaque type Template {
   )
 }
 
-/// `compile_and_render` is a convenience function that compiles and expands a
-/// template source string in a single step. Useful for one-off or infrequent
-/// rendering of a template (e.g. in batch programs, etc).
+/// `render` is a convenience function that compiles and expands a template
+/// source string in a single step. Useful for one-off or infrequent rendering
+/// of a template (e.g. in batch programs, etc). If you plan on rendering a
+/// template repeatedly, then pre-compile it (with `compile`) and keep that
+/// value in memory for later expansion (with `expand`).
 ///
 /// ### Examples
 ///
@@ -30,7 +32,7 @@ pub opaque type Template {
 /// ```gleam
 /// let template = "Hello, {{target}}!"
 /// let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
-/// pomade.compile_and_render(template, data, dict.new())
+/// pomade.render(template, data, dict.new())
 /// // -> Ok(StringTree)
 /// // -> "Hello, world!"
 /// ```
@@ -42,30 +44,29 @@ pub opaque type Template {
 /// let data =
 ///   pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
 /// let partials = dict.from_list([#("other_template", "{{adjective}}")])
-/// pomade.compile_and_render(template, data, partials)
+/// pomade.render(template, data, partials)
 /// // -> Ok(StringTree)
 /// // -> "Fly, you fools!"
 /// ```
-pub fn compile_and_render(
+pub fn render(
   template: String,
   data: Value,
   partials: Dict(String, String),
 ) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
-  render(template, data, partials)
+  expand(template, data, partials)
 }
 
-/// `compile_and_render_string` is like `compile_and_render`, but it returns a
-/// `String` instead of a `StringTree`. Internally, `compile_and_render_string`
-/// calls `compile_and_render`, and then converts the result, so some
-/// allocations are implied. Because of this, prefer `compile_and_render`
-/// whenever possible, if your target API permits it.
-pub fn compile_and_render_string(
+/// `render_string` is like `render`, but it returns a `String` instead of a
+/// `StringTree`. Internally, `render_string` calls `render`, and then converts
+/// the result, so some allocations are implied. Because of this, prefer
+/// `render` whenever possible, if your target API permits it.
+pub fn render_string(
   template: String,
   data: Value,
   partials: Dict(String, String),
 ) -> Result(String, Error) {
-  compile_and_render(template, data, partials)
+  render(template, data, partials)
   |> result.map(string_tree.to_string)
 }
 
@@ -91,17 +92,17 @@ pub fn compile(template: String) -> Result(Template, Error) {
   Template(fn(data, partials) { interpreter.interpret(ast, data, partials) })
 }
 
-/// `render` takes a pre-compiled template and applies it to the supplied data
+/// `expand` takes a pre-compiled template and applies it to the supplied data
 /// and partials.
 ///
 /// ### Examples
 ///
 /// ```gleam
 /// let data = pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-/// pomade.render(template, data, dict.new())
+/// pomade.expand(template, data, dict.new())
 /// // -> Ok(StringTree)
 /// // -> "No. I am your father."
-pub fn render(
+pub fn expand(
   template: Template,
   data: Value,
   partials: Dict(String, String),
@@ -111,16 +112,16 @@ pub fn render(
   |> result.map_error(error_from_runtime_error)
 }
 
-/// `render_string` is like `render`, but it returns a `String` instead of a
-/// `StringTree`. Internally, `render_string` calls `render`, and then converts
+/// `expand_string` is like `expand`, but it returns a `String` instead of a
+/// `StringTree`. Internally, `expand_string` calls `expand`, and then converts
 /// the result, so some allocations are implied. Because of this, prefer
-/// `render` whenever possible, if your target API permits it.
-pub fn render_string(
+/// `expand` whenever possible, if your target API permits it.
+pub fn expand_string(
   template: Template,
   data: Value,
   partials: Dict(String, String),
 ) -> Result(String, Error) {
-  render(template, data, partials)
+  expand(template, data, partials)
   |> result.map(string_tree.to_string)
 }
 
@@ -144,7 +145,7 @@ fn error_from_syntax_error(error: parser.SyntaxError) -> Error {
 }
 
 fn error_from_runtime_error(error: interpreter.RuntimeError) -> Error {
-  RuntimeError(interpreter.error_to_string(error))
+  RuntimeError("runtime error: " <> interpreter.error_to_string(error))
 }
 
 // value

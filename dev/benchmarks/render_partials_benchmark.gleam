@@ -26,7 +26,7 @@ pub fn main() {
     [
       benchmark.Function(label: "render partials", callable: fn(args) {
         let #(template, data, partials) = args
-        fn() { pomade.render(template, data, partials) }
+        fn() { pomade.expand(template, data, partials) }
       }),
     ],
     [

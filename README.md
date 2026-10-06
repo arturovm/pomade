@@ -63,7 +63,7 @@ The most basic use case is rendering a template with a single call:
 pub fn render_template() -> Result(StringTree, pomade.Error) {
   let template = "Hello, {{target}}!"
   let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
-  pomade.compile_and_render(template, data, dict.new())
+  pomade.render(template, data, dict.new())
   // -> Ok(StringTree)
   // -> "Hello, world!"
 }
@@ -76,7 +76,7 @@ By default, the API returns `StringTree`s, but there's a version that returns
 pub fn render_string() -> Result(String, pomade.Error) {
   let template = "Goodbye, {{target}}"
   let data = pomade.dict(dict.from_list([#("target", pomade.string("horses"))]))
-  pomade.compile_and_render_string(template, data, dict.new())
+  pomade.render_string(template, data, dict.new())
   // -> Ok("Goodbye, horses") 
 }
 ```
@@ -92,7 +92,7 @@ pub fn render_with_partials() -> Result(String, pomade.Error) {
   let data =
     pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
   let partials = dict.from_list([#("other_template", "{{adjective}}")])
-  pomade.compile_and_render_string(template, data, partials)
+  pomade.render_string(template, data, partials)
   // -> Ok("Fly, you fools!")
 }
 ```
@@ -123,11 +123,11 @@ pub fn render_compiled(
 ) -> Result(String, pomade.Error) {
   let data =
     pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-  pomade.render_string(template, data, dict.new())
+  pomade.expand_string(template, data, dict.new())
   // -> Ok("No. I am your father.")
   //
   // Or:
-  // pomade.render(template, data, dict.new())
+  // pomade.expand(template, data, dict.new())
   // -> Ok(StringTree)
 }
 ```

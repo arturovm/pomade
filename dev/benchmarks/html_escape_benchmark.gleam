@@ -27,7 +27,7 @@ pub fn main() {
         let #(template, data, _) = args
         fn() {
           let assert Ok(compiled) = pomade.compile(template)
-          let _ = pomade.render(compiled, data, dict.new())
+          let _ = pomade.expand(compiled, data, dict.new())
           Nil
         }
       }),
