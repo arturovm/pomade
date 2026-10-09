@@ -14,8 +14,7 @@ and learn Gleam in the process.
 
 ### Compatibility
 
-The goal for version 1.0 is to fully support the required portions of the
-Mustache specification, which means:
+Version 1.0 fully supports the required portions of the Mustache specification:
 
 - Variables
 - Raw variables
@@ -24,15 +23,15 @@ Mustache specification, which means:
 - Inverted sections
 - Partials
 
-As of version 0.1.0, this target has been achieved, but no support for the
-optional parts of the specification is planned before the first stable release.
-These unsupported aspects are:
+`pomade` passes the full [suite of tests](https://github.com/mustache/spec) for
+these mandatory features.
 
+The optional, as-of-yet unsupported aspects are:
+
+- Dynamic names for partials
 - Inheritance (blocks and parents)
 - Lambdas and functions
 
-`pomade` passes the full [suite of tests](https://github.com/mustache/spec) for
-the mandatory features of the specification.
 
 ## How
 
