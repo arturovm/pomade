@@ -133,3 +133,8 @@ pub fn partials_test() {
   let tests = load_tests_from_file("partials.json")
   run_all(tests)
 }
+
+pub fn dynamic_names_test() {
+  let tests = load_tests_from_file("~dynamic-names.json")
+  run_all(tests)
+}

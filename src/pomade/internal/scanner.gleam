@@ -11,7 +11,7 @@
 //// BLOCK_START            -> left_delimiter "$" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// PARENT_START           -> left_delimiter "<" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// END                    -> left_delimiter "/" [WHITESPACE] name [WHITESPACE] right_delimiter ;
-//// PARTIAL                -> left_delimiter ">" [WHITESPACE] ("*" name | identifier) [WHITESPACE] right_delimiter ;
+//// PARTIAL                -> left_delimiter ">" [WHITESPACE] ("*" [WHITESPACE] name | identifier) [WHITESPACE] right_delimiter ;
 //// RAW_VARIABLE           -> left_delimiter "&" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// VARIABLE               -> left_delimiter [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// WHITESPACE             -> (" " | "\t") {" " | "\t"} ;
@@ -337,7 +337,8 @@ fn scan_partial_name(
 ) -> Result(#(PartialName, String), LexicalError) {
   case source {
     "*" <> rest -> {
-      use #(path, tail) <- result.map(read_name(lexer, rest))
+      let tail = discard_optional(lexer, rest, read_whitespace)
+      use #(path, tail) <- result.map(read_name(lexer, tail))
       #(DynamicName(path), tail)
     }
     _ -> {
