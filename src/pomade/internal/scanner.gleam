@@ -326,12 +326,12 @@ fn scan_partial(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let tail = discard_optional(lexer, source, read_whitespace)
-  use #(name, tail) <- result.map(scan_partial_name(lexer, tail))
+  use #(name, tail) <- result.map(read_partial_name(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
   #(lexer, [Partial(lexer.line, name), ..stream], tail)
 }
 
-fn scan_partial_name(
+fn read_partial_name(
   lexer: Lexer,
   source: String,
 ) -> Result(#(PartialName, String), LexicalError) {
