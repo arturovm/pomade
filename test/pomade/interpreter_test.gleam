@@ -166,3 +166,35 @@ pub fn partial_test() {
     )
     |> result.map(string_tree.to_string)
 }
+
+pub fn partial_with_dynamic_name_test() {
+  let assert Ok("Hello, world!") =
+    interpreter.interpret(
+      [
+        parser.Literal(rewriter.Literal(0, "Hello, ")),
+        parser.Partial(
+          rewriter.Partial(0, scanner.DynamicName(["one", "two", "three"])),
+          None,
+        ),
+      ],
+      value.Dict(
+        dict.from_list([
+          #(
+            "one",
+            value.Dict(
+              dict.from_list([
+                #(
+                  "two",
+                  value.Dict(
+                    dict.from_list([#("three", value.String("other_template"))]),
+                  ),
+                ),
+              ]),
+            ),
+          ),
+        ]),
+      ),
+      dict.from_list([#("other_template", "world!")]),
+    )
+    |> result.map(string_tree.to_string)
+}
