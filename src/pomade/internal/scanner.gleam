@@ -12,6 +12,7 @@
 //// PARENT_START           -> left_delimiter "<" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// END                    -> left_delimiter "/" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// PARTIAL                -> left_delimiter ">" [WHITESPACE] identifier [WHITESPACE] right_delimiter ;
+//// PARTIAL                -> left_delimiter ">" [WHITESPACE] "*" name [WHITESPACE] right_delimiter ;
 //// RAW_VARIABLE           -> left_delimiter "&" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// VARIABLE               -> left_delimiter [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// WHITESPACE             -> (" " | "\t") {" " | "\t"} ;
@@ -58,12 +59,13 @@ pub type Token {
   Whitespace(line: Int, lexeme: String)
   Newline(line: Int, lexeme: String)
   // tags
-  SectionStart(line: Int, path: List(String))
-  InvertedSectionStart(line: Int, path: List(String))
-  End(line: Int, path: List(String))
-  Partial(line: Int, path: String)
-  RawVariable(line: Int, path: List(String))
-  Variable(line: Int, path: List(String))
+  SectionStart(line: Int, name: List(String))
+  InvertedSectionStart(line: Int, name: List(String))
+  End(line: Int, name: List(String))
+  Partial(line: Int, name: String)
+  DynamicPartial(line: Int, name: List(String))
+  RawVariable(line: Int, name: List(String))
+  Variable(line: Int, name: List(String))
   // special forms
   SetDelimiters(line: Int, tag_start: String, tag_end: String)
   Comment(line: Int)
@@ -241,7 +243,7 @@ fn scan_tag_content(
     "#" <> tail -> scan_special(lexer, tail, stream, SectionStart)
     "^" <> tail -> scan_special(lexer, tail, stream, InvertedSectionStart)
     "/" <> tail -> scan_special(lexer, tail, stream, End)
-    ">" <> tail -> scan_partial(lexer, tail, stream, Partial)
+    ">" <> tail -> scan_partial(lexer, tail, stream)
     "&" <> tail -> scan_special(lexer, tail, stream, RawVariable)
     _ -> scan_variable(lexer, source, stream)
   }
@@ -319,12 +321,27 @@ fn scan_partial(
   lexer: Lexer,
   source: String,
   stream: List(Token),
-  constructor: fn(Int, String) -> Token,
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let tail = discard_optional(lexer, source, read_whitespace)
-  use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
+  use #(token, tail) <- result.map(scan_partial_inner(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
-  #(lexer, [constructor(lexer.line, identifier), ..stream], tail)
+  #(lexer, [token, ..stream], tail)
+}
+
+fn scan_partial_inner(
+  lexer: Lexer,
+  source: String,
+) -> Result(#(Token, String), LexicalError) {
+  case source {
+    "*" <> rest -> {
+      use #(path, tail) <- result.map(read_name(lexer, rest))
+      #(DynamicPartial(lexer.line, path), tail)
+    }
+    _ -> {
+      use #(identifier, tail) <- result.map(read_identifier(lexer, source))
+      #(Partial(lexer.line, identifier), tail)
+    }
+  }
 }
 
 fn scan_variable(
@@ -473,30 +490,6 @@ fn is_blank(lexeme: String) -> Bool {
     " " <> tail | "\t" <> tail -> is_blank(tail)
     _ -> False
   }
-}
-
-// formatting
-
-pub fn token_to_string(token: Token) -> String {
-  case token {
-    Text(_, _) -> "TEXT"
-    Whitespace(_, _) -> "WHITESPACE"
-    Newline(_, _) -> "NEWLINE"
-    SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
-    InvertedSectionStart(_, path) ->
-      token_name_with_path("INVERTED_SECTION_START", path)
-    End(_, path) -> token_name_with_path("END_TAG", path)
-    Partial(_, name) -> token_name_with_path("PARTIAL", [name])
-    RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
-    Variable(_, path) -> token_name_with_path("VARIABLE", path)
-    SetDelimiters(_, _, _) -> "SET_DELIMITERS"
-    Comment(_) -> "COMMENT"
-    Eof(_) -> "EOF"
-  }
-}
-
-fn token_name_with_path(name: String, path: List(String)) -> String {
-  name <> "(" <> string.join(path, ".") <> ")"
 }
 
 pub fn error_to_string(error: LexicalError) -> String {

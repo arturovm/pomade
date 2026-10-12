@@ -5,14 +5,16 @@ import glychee/benchmark
 
 import pomade
 
-const template = "
+const template =
+  "
 <h2>Names</h2>
 {{#names}}
   {{> user}}
 {{/names}}
 "
 
-const partial = "
+const partial =
+  "
 <strong>{{name}}</strong>
 "
 

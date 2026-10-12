@@ -54,6 +54,11 @@ pub fn scan_partial_test() {
     scanner.scan("{{> next_more}}")
 }
 
+pub fn scan_dynamic_partial_test() {
+  let assert Ok([scanner.DynamicPartial(1, ["next", "more"]), scanner.Eof(1)]) =
+    scanner.scan("{{>*next.more }}")
+}
+
 pub fn scan_set_delimiter_start_test() {
   let assert Ok([
     scanner.SetDelimiters(1, "<%", "%>"),

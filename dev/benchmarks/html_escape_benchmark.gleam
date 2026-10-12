@@ -5,7 +5,8 @@ import glychee/benchmark
 import chaplin
 import pomade
 
-const template = "
+const template =
+  "
 <div class='product_brick'>
   <div class='container'>
     <div class='element'>

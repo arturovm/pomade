@@ -3,7 +3,8 @@ import glychee/benchmark
 import chaplin
 import pomade
 
-const template = "
+const template =
+  "
 {{#products}}
   <div class='product_brick'>
     <div class='container'>

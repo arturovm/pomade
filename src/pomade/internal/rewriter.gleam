@@ -20,7 +20,8 @@ pub type Token {
   SectionStart(line: Int, path: List(String))
   InvertedSectionStart(line: Int, path: List(String))
   End(line: Int, path: List(String))
-  Partial(line: Int, path: String)
+  Partial(line: Int, name: String)
+  DynamicPartial(line: Int, path: List(String))
   RawVariable(line: Int, path: List(String))
   Variable(line: Int, path: List(String))
   // eof
@@ -179,6 +180,8 @@ fn transform_other(
       transform_other(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->
       transform_other(tail, [Partial(line, path), ..output])
+    [scanner.DynamicPartial(line, path), ..tail] ->
+      transform_other(tail, [DynamicPartial(line, path), ..output])
     [scanner.RawVariable(line, path), ..tail] ->
       transform_other(tail, [RawVariable(line, path), ..output])
     [scanner.Variable(line, path), ..tail] ->
@@ -239,6 +242,7 @@ pub fn token_to_string(token: Token) -> String {
       token_name_with_path("INVERTED_SECTION_START", path)
     End(_, path) -> token_name_with_path("END_TAG", path)
     Partial(_, name) -> token_name_with_path("PARTIAL", [name])
+    DynamicPartial(_, path) -> token_name_with_path("DYNAMIC_PARTIAL", path)
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
     Indentation(_, _) -> "INDENTATION"
