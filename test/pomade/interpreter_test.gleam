@@ -6,6 +6,7 @@ import gleam/string_tree
 import pomade/internal/interpreter
 import pomade/internal/parser
 import pomade/internal/rewriter
+import pomade/internal/scanner
 import pomade/internal/value.{Dict, Float, String}
 
 pub fn empty_test() {
@@ -129,7 +130,10 @@ pub fn partial_test() {
     interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
-        parser.Partial(rewriter.Partial(0, "other_template"), None),
+        parser.Partial(
+          rewriter.Partial(0, scanner.StaticName("other_template")),
+          None,
+        ),
       ],
       value.Dict(dict.new()),
       dict.from_list([#("other_template", "world!")]),
@@ -139,7 +143,10 @@ pub fn partial_test() {
     interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
-        parser.Partial(rewriter.Partial(0, "other_template"), None),
+        parser.Partial(
+          rewriter.Partial(0, scanner.StaticName("other_template")),
+          None,
+        ),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       dict.from_list([#("other_template", "{{greeting}}")]),
@@ -148,7 +155,10 @@ pub fn partial_test() {
   let assert Ok("  >\n  >>") =
     interpreter.interpret(
       [
-        parser.Partial(rewriter.Partial(0, "partial"), Some("  ")),
+        parser.Partial(
+          rewriter.Partial(0, scanner.StaticName("partial")),
+          Some("  "),
+        ),
         parser.Literal(rewriter.Literal(0, ">")),
       ],
       value.Dict(dict.new()),

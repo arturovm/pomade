@@ -153,15 +153,19 @@ fn evaluate_inverted_section(
 }
 
 fn evaluate_partial(
-  name: String,
+  name: scanner.PartialName,
   indentation: Option(String),
   cache: PartialCache,
   env: environment.Environment,
   acc: StringTree,
 ) -> Result(#(StringTree, PartialCache), RuntimeError) {
-  case get_partial(name, indentation, env, cache) {
-    Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
-    Error(error) -> Error(PartialError(name, error))
+  case name {
+    scanner.StaticName(name) ->
+      case get_partial(name, indentation, env, cache) {
+        Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
+        Error(error) -> Error(PartialError(name, error))
+      }
+    _ -> Error(UnknownExpressionError)
   }
 }
 

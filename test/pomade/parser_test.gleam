@@ -2,6 +2,7 @@ import gleam/option.{None, Some}
 
 import pomade/internal/parser
 import pomade/internal/rewriter
+import pomade/internal/scanner
 
 pub fn empty_parser_test() {
   let assert Ok([]) = parser.parse([rewriter.Eof(0)])
@@ -78,16 +79,20 @@ pub fn inverted_section_test() {
 }
 
 pub fn partial_test() {
-  let assert Ok([parser.Partial(rewriter.Partial(_, "box"), None)]) =
+  let assert Ok([
+    parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), None),
+  ]) =
     parser.parse([
-      rewriter.Partial(0, "box"),
+      rewriter.Partial(0, scanner.StaticName("box")),
       rewriter.Eof(0),
     ])
 
-  let assert Ok([parser.Partial(rewriter.Partial(_, "box"), Some("  \t"))]) =
+  let assert Ok([
+    parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), Some("  \t")),
+  ]) =
     parser.parse([
       rewriter.Indentation(0, "  \t"),
-      rewriter.Partial(0, "box"),
+      rewriter.Partial(0, scanner.StaticName("box")),
       rewriter.Eof(0),
     ])
 }

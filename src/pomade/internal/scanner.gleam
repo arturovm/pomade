@@ -62,8 +62,7 @@ pub type Token {
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
   End(line: Int, name: List(String))
-  Partial(line: Int, name: String)
-  DynamicPartial(line: Int, name: List(String))
+  Partial(line: Int, name: PartialName)
   RawVariable(line: Int, name: List(String))
   Variable(line: Int, name: List(String))
   // special forms
@@ -71,6 +70,11 @@ pub type Token {
   Comment(line: Int)
   // eof
   Eof(line: Int)
+}
+
+pub type PartialName {
+  StaticName(String)
+  DynamicName(List(String))
 }
 
 /// `LexicalError` represents an error encountered during scanning.
@@ -323,23 +327,23 @@ fn scan_partial(
   stream: List(Token),
 ) -> Result(#(Lexer, List(Token), String), LexicalError) {
   let tail = discard_optional(lexer, source, read_whitespace)
-  use #(token, tail) <- result.map(scan_partial_inner(lexer, tail))
+  use #(name, tail) <- result.map(scan_partial_name(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
-  #(lexer, [token, ..stream], tail)
+  #(lexer, [Partial(lexer.line, name), ..stream], tail)
 }
 
-fn scan_partial_inner(
+fn scan_partial_name(
   lexer: Lexer,
   source: String,
-) -> Result(#(Token, String), LexicalError) {
+) -> Result(#(PartialName, String), LexicalError) {
   case source {
     "*" <> rest -> {
       use #(path, tail) <- result.map(read_name(lexer, rest))
-      #(DynamicPartial(lexer.line, path), tail)
+      #(DynamicName(path), tail)
     }
     _ -> {
       use #(identifier, tail) <- result.map(read_identifier(lexer, source))
-      #(Partial(lexer.line, identifier), tail)
+      #(StaticName(identifier), tail)
     }
   }
 }

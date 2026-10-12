@@ -50,13 +50,15 @@ pub fn scan_inverted_section_start_test() {
 }
 
 pub fn scan_partial_test() {
-  let assert Ok([scanner.Partial(1, "next_more"), scanner.Eof(1)]) =
-    scanner.scan("{{> next_more}}")
-}
+  let assert Ok([
+    scanner.Partial(1, scanner.StaticName("next_more")),
+    scanner.Eof(1),
+  ]) = scanner.scan("{{> next_more}}")
 
-pub fn scan_dynamic_partial_test() {
-  let assert Ok([scanner.DynamicPartial(1, ["next", "more"]), scanner.Eof(1)]) =
-    scanner.scan("{{>*next.more }}")
+  let assert Ok([
+    scanner.Partial(1, scanner.DynamicName(["next", "more"])),
+    scanner.Eof(1),
+  ]) = scanner.scan("{{>*next.more }}")
 }
 
 pub fn scan_set_delimiter_start_test() {

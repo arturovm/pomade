@@ -98,13 +98,13 @@ pub fn indented_inline_test() {
 pub fn indented_partial_test() {
   assert [
       rewriter.Indentation(0, "  \t"),
-      rewriter.Partial(0, "hello"),
+      rewriter.Partial(0, scanner.StaticName("hello")),
       rewriter.Eof(0),
     ]
     == rewriter.rewrite(
       [
         scanner.Whitespace(0, "  \t"),
-        scanner.Partial(0, "hello"),
+        scanner.Partial(0, scanner.StaticName("hello")),
         scanner.Newline(0, "\n"),
         scanner.Eof(0),
       ],
