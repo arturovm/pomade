@@ -15,9 +15,6 @@ pub type RuntimeError {
   /// `UnknownExpressionError` is returned when the interpreter doesn't know
   /// how to evaluate a given expression.
   UnknownExpressionError
-  /// `InvalidPartialName` is returned when the value of a dynamic name does
-  /// not resolve ot a `String`.
-  InvalidPartialName
   /// `PartialError` is used to report that an error occurred during partial
   /// evaluation.
   PartialError(name: String, error: PartialError)
@@ -162,23 +159,20 @@ fn evaluate_partial(
   env: environment.Environment,
   acc: StringTree,
 ) -> Result(#(StringTree, PartialCache), RuntimeError) {
+  let name = resolve_partial_name(name, env)
+  case get_partial(name, indentation, env, cache) {
+    Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
+    Error(error) -> Error(PartialError(name, error))
+  }
+}
+
+fn resolve_partial_name(
+  name: scanner.PartialName,
+  env: environment.Environment,
+) -> String {
   case name {
-    scanner.StaticName(name) ->
-      case get_partial(name, indentation, env, cache) {
-        Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
-        Error(error) -> Error(PartialError(name, error))
-      }
-    scanner.DynamicName(path) -> {
-      case environment.get(env, path) {
-        Ok(value.String(name)) ->
-          case get_partial(name, indentation, env, cache) {
-            Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
-            Error(error) -> Error(PartialError(name, error))
-          }
-        Ok(_) -> Error(InvalidPartialName)
-        Error(_) -> Ok(#(acc, cache))
-      }
-    }
+    scanner.StaticName(name) -> name
+    scanner.DynamicName(path) -> environment.get_and_format(env, path)
   }
 }
 
@@ -223,7 +217,6 @@ fn compile_partial(
 pub fn error_to_string(error: RuntimeError) -> String {
   case error {
     UnknownExpressionError -> "unknown expression"
-    InvalidPartialName -> "invalid partial name"
     PartialError(name, error) ->
       "error found while rendering partial '"
       <> name
