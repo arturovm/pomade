@@ -11,8 +11,7 @@
 //// BLOCK_START            -> left_delimiter "$" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// PARENT_START           -> left_delimiter "<" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// END                    -> left_delimiter "/" [WHITESPACE] name [WHITESPACE] right_delimiter ;
-//// PARTIAL                -> left_delimiter ">" [WHITESPACE] identifier [WHITESPACE] right_delimiter ;
-//// PARTIAL                -> left_delimiter ">" [WHITESPACE] "*" name [WHITESPACE] right_delimiter ;
+//// PARTIAL                -> left_delimiter ">" [WHITESPACE] ("*" name | identifier) [WHITESPACE] right_delimiter ;
 //// RAW_VARIABLE           -> left_delimiter "&" [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// VARIABLE               -> left_delimiter [WHITESPACE] name [WHITESPACE] right_delimiter ;
 //// WHITESPACE             -> (" " | "\t") {" " | "\t"} ;
