@@ -100,6 +100,31 @@ pub fn render_with_partials() -> Result(String, pomade.Error) {
 with the Mustache spec, to save on the costs of compiling the template at
 runtime every time it's needed.
 
+Additionally, you can use _dynamic names_, by prefixing a path with `*`, which
+will resolve the name of the partial from whatever value is contained at that
+path, in the input data:
+
+```gleam
+pub fn render_partials_with_dynamic_names() -> Result(String, pomade.Error) {
+  let template = "1.21 {{>*dig.down}}!"
+  let data =
+    pomade.dict(
+      dict.from_list([
+        #(
+          "dig",
+          pomade.dict(
+            dict.from_list([#("down", pomade.string("partial_name"))]),
+          ),
+        ),
+        #("unit", pomade.string("gigawatts")),
+      ]),
+    )
+  let partials = dict.from_list([#("partial_name", "{{unit}}")])
+  pomade.compile_and_render_string(template, data, partials)
+  // -> Ok("1.21 gigawatts!")
+}
+```
+
 #### Pre-compilation
 
 If you anticipate that you'll be rendering a template often during the lifespan
