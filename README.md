@@ -190,26 +190,26 @@ We have the following benchmarks:
 
 ```
 Name                                ips        average  deviation         median         99th %
-pomade: compile template        82.27 K       12.15 μs    ±27.74%       11.54 μs       16.13 μs
-chaplin: compile template       40.84 K       24.48 μs    ±12.77%       23.88 μs       32.54 μs
+pomade: compile template        80.00 K       12.50 μs    ±19.23%       11.92 μs       17.25 μs
+chaplin: compile template       41.72 K       23.97 μs    ±11.32%       23.58 μs          31 μs
 
 Comparison:
-pomade: compile template        82.27 K
-chaplin: compile template       40.84 K - 2.01x slower +12.33 μs
+pomade: compile template        80.00 K
+chaplin: compile template       41.72 K - 1.92x slower +11.47 μs
 
 Memory usage statistics:
 
 Name                         Memory usage
-pomade: compile template         27.85 KB
-chaplin: compile template         5.68 KB - 0.20x memory usage -22.17188 KB
+pomade: compile template         27.03 KB
+chaplin: compile template         5.68 KB - 0.21x memory usage -21.35156 KB
 
 **All measurements for memory usage were the same**
 
 Reduction count statistics:
 
 Name                      Reduction count
-pomade: compile template           1.52 K
-chaplin: compile template          0.40 K - 0.26x reduction count -1.12800 K
+pomade: compile template           1.49 K
+chaplin: compile template          0.40 K - 0.26x reduction count -1.09600 K
 
 **All measurements for reduction count were the same**
 ```
@@ -218,26 +218,26 @@ chaplin: compile template          0.40 K - 0.26x reduction count -1.12800 K
 
 ```
 Name                           ips        average  deviation         median         99th %
-pomade: html escape        83.71 K       11.95 μs    ±27.42%       10.92 μs       23.71 μs
-chaplin: html escape       46.16 K       21.66 μs    ±13.53%       21.17 μs       30.08 μs
+pomade: html escape        85.57 K       11.69 μs    ±19.94%          11 μs          16 μs
+chaplin: html escape       42.53 K       23.51 μs    ±20.85%       22.71 μs       35.29 μs
 
 Comparison:
-pomade: html escape        83.71 K
-chaplin: html escape       46.16 K - 1.81x slower +9.72 μs
+pomade: html escape        85.57 K
+chaplin: html escape       42.53 K - 2.01x slower +11.83 μs
 
 Memory usage statistics:
 
 Name                    Memory usage
-pomade: html escape         23.79 KB
-chaplin: html escape         7.23 KB - 0.30x memory usage -16.56250 KB
+pomade: html escape         23.10 KB
+chaplin: html escape         7.23 KB - 0.31x memory usage -15.87500 KB
 
 **All measurements for memory usage were the same**
 
 Reduction count statistics:
 
 Name                 Reduction count
-pomade: html escape           1.36 K
-chaplin: html escape          0.65 K - 0.48x reduction count -0.71000 K
+pomade: html escape           1.34 K
+chaplin: html escape          0.65 K - 0.49x reduction count -0.68400 K
 
 **All measurements for reduction count were the same**
 ```
@@ -246,26 +246,26 @@ chaplin: html escape          0.65 K - 0.48x reduction count -0.71000 K
 
 ```
 Name                           ips        average  deviation         median         99th %
-pomade: html escape        82.00 K       12.19 μs    ±30.01%       11.50 μs       17.29 μs
-chaplin: html escape       43.12 K       23.19 μs    ±14.29%       22.54 μs       42.17 μs
+pomade: html escape        74.58 K       13.41 μs    ±29.24%       12.46 μs       20.71 μs
+chaplin: html escape       40.05 K       24.97 μs    ±12.63%       24.17 μs       37.71 μs
 
 Comparison:
-pomade: html escape        82.00 K
-chaplin: html escape       43.12 K - 1.90x slower +11.00 μs
+pomade: html escape        74.58 K
+chaplin: html escape       40.05 K - 1.86x slower +11.56 μs
 
 Memory usage statistics:
 
 Name                    Memory usage
-pomade: html escape         23.79 KB
-chaplin: html escape         8.45 KB - 0.36x memory usage -15.34375 KB
+pomade: html escape         23.10 KB
+chaplin: html escape         8.45 KB - 0.37x memory usage -14.65625 KB
 
 **All measurements for memory usage were the same**
 
 Reduction count statistics:
 
 Name                 Reduction count
-pomade: html escape           1.43 K
-chaplin: html escape          0.90 K - 0.63x reduction count -0.53400 K
+pomade: html escape           1.41 K
+chaplin: html escape          0.90 K - 0.64x reduction count -0.50800 K
 
 **All measurements for reduction count were the same**
 ```
@@ -274,26 +274,26 @@ chaplin: html escape          0.90 K - 0.63x reduction count -0.53400 K
 
 ```
 Name                                 ips        average  deviation         median         99th %
-pomade: render collection         1.73 K        0.58 ms    ±11.12%        0.56 ms        0.76 ms
-chaplin: render collection        0.35 K        2.88 ms     ±4.14%        2.90 ms        3.09 ms
+pomade: render collection         1.63 K        0.61 ms    ±10.54%        0.59 ms        0.81 ms
+chaplin: render collection        0.33 K        3.01 ms     ±3.77%        3.01 ms        3.25 ms
 
 Comparison:
-pomade: render collection         1.73 K
-chaplin: render collection        0.35 K - 4.97x slower +2.30 ms
+pomade: render collection         1.63 K
+chaplin: render collection        0.33 K - 4.91x slower +2.39 ms
 
 Memory usage statistics:
 
 Name                          Memory usage
-pomade: render collection          0.78 MB
-chaplin: render collection         2.98 MB - 3.83x memory usage +2.20 MB
+pomade: render collection          0.76 MB
+chaplin: render collection         2.98 MB - 3.95x memory usage +2.23 MB
 
 **All measurements for memory usage were the same**
 
 Reduction count statistics:
 
 Name                       Reduction count
-pomade: render collection         129.29 K
-chaplin: render collection        376.78 K - 2.91x reduction count +247.49 K
+pomade: render collection         126.34 K
+chaplin: render collection        376.78 K - 2.98x reduction count +250.44 K
 
 **All measurements for reduction count were the same**
 ```
@@ -302,19 +302,19 @@ chaplin: render collection        376.78 K - 2.91x reduction count +247.49 K
 
 ```
 Name                      ips        average  deviation         median         99th %
-render partials        3.91 K      256.07 μs    ±17.10%      244.83 μs      435.27 μs
+render partials        3.94 K      253.57 μs    ±16.24%      243.69 μs      432.65 μs
 
 Memory usage statistics:
 
 Name               Memory usage
-render partials       521.98 KB
+render partials       498.34 KB
 
 **All measurements for memory usage were the same**
 
 Reduction count statistics:
 
 Name            Reduction count
-render partials         66.84 K
+render partials         62.93 K
 
 **All measurements for reduction count were the same**
 ```
