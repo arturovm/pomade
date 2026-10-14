@@ -3,6 +3,7 @@ import gleam/dict.{type Dict}
 import gleam/float
 import gleam/int
 import gleam/option.{type Option, None, Some}
+import pomade/internal/parser
 
 import houdini
 
@@ -11,7 +12,7 @@ import pomade/internal/value.{type Value, Bool, Dict, Float, Int, String}
 pub type Environment {
   Environment(
     value: Value,
-    partials: Dict(String, String),
+    partials: Dict(String, List(parser.Expression)),
     parent: Option(Environment),
     indentation: Option(String),
   )
@@ -89,6 +90,9 @@ fn format(val: Value) -> String {
   }
 }
 
-pub fn get_partial(env: Environment, name: String) -> Result(String, Nil) {
+pub fn get_partial(
+  env: Environment,
+  name: String,
+) -> Result(List(parser.Expression), Nil) {
   dict.get(env.partials, name)
 }

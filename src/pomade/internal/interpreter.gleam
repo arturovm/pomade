@@ -1,7 +1,6 @@
 import gleam/dict.{type Dict}
 import gleam/list
 import gleam/option.{type Option, None, Some}
-import gleam/result
 import gleam/string_tree.{type StringTree}
 
 import pomade/internal/environment
@@ -10,94 +9,58 @@ import pomade/internal/rewriter
 import pomade/internal/scanner
 import pomade/internal/value
 
-/// `RuntimeError` represents an error encountered during interpreting.
-pub type RuntimeError {
-  /// `UnknownExpressionError` is returned when the interpreter doesn't know
-  /// how to evaluate a given expression.
-  UnknownExpressionError
-  /// `PartialError` is used to report that an error occurred during partial
-  /// evaluation.
-  PartialError(name: String, error: PartialError)
-}
-
-pub opaque type PartialError {
-  LexicalError(scanner.LexicalError)
-  SyntaxError(parser.SyntaxError)
-  RuntimeError(RuntimeError)
-}
-
-type PartialCache =
-  Dict(String, List(parser.Expression))
-
 pub fn interpret(
   template: List(parser.Expression),
   environment: value.Value,
-  partials: Dict(String, String),
-) -> Result(StringTree, RuntimeError) {
-  case
-    evaluate_exprs(
-      template,
-      dict.new(),
-      environment.Environment(environment, partials, None, None),
-      string_tree.new(),
-    )
-  {
-    Ok(#(value, _)) -> Ok(value)
-    Error(error) -> Error(error)
-  }
+  partials: Dict(String, List(parser.Expression)),
+) -> StringTree {
+  evaluate_exprs(
+    template,
+    environment.Environment(environment, partials, None, None),
+    string_tree.new(),
+  )
 }
 
 fn evaluate_exprs(
   exprs: List(parser.Expression),
-  cache: PartialCache,
   env: environment.Environment,
   acc: StringTree,
-) -> Result(#(StringTree, PartialCache), RuntimeError) {
+) -> StringTree {
   case exprs {
-    [] -> Ok(#(acc, cache))
+    [] -> acc
     [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
-      evaluate_exprs(tail, cache, env, string_tree.append(acc, value))
+      evaluate_exprs(tail, env, string_tree.append(acc, value))
     [parser.Indent, ..tail] ->
-      evaluate_exprs(tail, cache, env, case env.indentation {
+      evaluate_exprs(tail, env, case env.indentation {
         None -> acc
         Some(indentation) -> string_tree.append(acc, indentation)
       })
     [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
       evaluate_exprs(
         tail,
-        cache,
         env,
         string_tree.append(acc, evaluate_variable(path, env)),
       )
     [parser.RawVariable(rewriter.RawVariable(_, path)), ..tail] ->
       evaluate_exprs(
         tail,
-        cache,
         env,
         string_tree.append(acc, evaluate_raw_variable(path, env)),
       )
-    [expr, ..tail] ->
-      case evaluate_with_nested(expr, cache, env, acc) {
-        Ok(#(value, cache)) -> evaluate_exprs(tail, cache, env, value)
-        Error(error) -> Error(error)
-      }
-  }
-}
-
-fn evaluate_with_nested(
-  expr: parser.Expression,
-  cache: PartialCache,
-  env: environment.Environment,
-  acc: StringTree,
-) -> Result(#(StringTree, PartialCache), RuntimeError) {
-  case expr {
-    parser.Section(rewriter.SectionStart(_, path), content) ->
-      evaluate_section(path, content, cache, env, acc)
-    parser.InvertedSection(rewriter.InvertedSectionStart(_, path), content) ->
-      evaluate_inverted_section(path, content, cache, env, acc)
-    parser.Partial(rewriter.Partial(_, name), indentation) ->
-      evaluate_partial(name, indentation, cache, env, acc)
-    _ -> Error(UnknownExpressionError)
+    [parser.Section(rewriter.SectionStart(_, path), content), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_section(path, content, env, acc))
+    [
+      parser.InvertedSection(rewriter.InvertedSectionStart(_, path), content),
+      ..tail
+    ] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_inverted_section(path, content, env, acc),
+      )
+    [parser.Partial(rewriter.Partial(_, name), indentation), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
+    _ -> acc
   }
 }
 
@@ -118,25 +81,22 @@ fn evaluate_raw_variable(
 fn evaluate_section(
   path: List(String),
   content: List(parser.Expression),
-  cache: PartialCache,
   env: environment.Environment,
   acc: StringTree,
-) -> Result(#(StringTree, PartialCache), RuntimeError) {
+) -> StringTree {
   case environment.get(env, path) {
-    Error(Nil) | Ok(value.Bool(False)) -> Ok(#(acc, cache))
+    Error(Nil) | Ok(value.Bool(False)) -> acc
     Ok(value.List(l)) ->
-      list.try_fold(l, #(acc, cache), fn(acc, c) {
+      list.fold(l, acc, fn(acc, c) {
         evaluate_exprs(
           content,
-          acc.1,
           environment.Environment(..env, value: c, parent: Some(env)),
-          acc.0,
+          acc,
         )
       })
     Ok(context) ->
       evaluate_exprs(
         content,
-        cache,
         environment.Environment(..env, value: context, parent: Some(env)),
         acc,
       )
@@ -146,35 +106,28 @@ fn evaluate_section(
 fn evaluate_inverted_section(
   path: List(String),
   content: List(parser.Expression),
-  cache: PartialCache,
   env: environment.Environment,
   acc: StringTree,
-) -> Result(#(StringTree, PartialCache), RuntimeError) {
+) -> StringTree {
   case environment.get(env, path) {
     Error(Nil) | Ok(value.Bool(False)) | Ok(value.List([])) ->
-      evaluate_exprs(content, cache, env, acc)
-    _ -> Ok(#(acc, cache))
+      evaluate_exprs(content, env, acc)
+    _ -> acc
   }
 }
 
 fn evaluate_partial(
   name: scanner.PartialName,
   indentation: Option(String),
-  cache: PartialCache,
   env: environment.Environment,
   acc: StringTree,
-) -> Result(#(StringTree, PartialCache), RuntimeError) {
+) -> StringTree {
   let name = resolve_partial_name(name, env)
-  case get_partial(name, env, cache) {
-    Ok(#(ast, cache)) ->
-      evaluate_exprs(
-        ast,
-        cache,
-        environment.Environment(..env, indentation: indentation),
-        acc,
-      )
-    Error(error) -> Error(PartialError(name, error))
-  }
+  get_partial(name, env)
+  |> evaluate_exprs(
+    environment.Environment(..env, indentation: indentation),
+    acc,
+  )
 }
 
 fn resolve_partial_name(
@@ -190,54 +143,9 @@ fn resolve_partial_name(
 fn get_partial(
   name: String,
   env: environment.Environment,
-  cache: PartialCache,
-) -> Result(#(List(parser.Expression), PartialCache), PartialError) {
-  case dict.get(cache, name) {
-    Ok(ast) -> Ok(#(ast, cache))
-    Error(_) ->
-      case environment.get_partial(env, name) {
-        Ok(source) ->
-          case compile_partial(source) {
-            Ok(ast) -> Ok(#(ast, dict.insert(cache, name, ast)))
-            Error(error) -> Error(error)
-          }
-        Error(_) -> Ok(#([], cache))
-      }
-  }
-}
-
-fn compile_partial(
-  source: String,
-) -> Result(List(parser.Expression), PartialError) {
-  use tokens <- result.try(
-    scanner.scan(source)
-    |> result.map_error(fn(e) { LexicalError(e) }),
-  )
-  let rewritten = rewriter.rewrite(tokens)
-  use ast <- result.map(
-    parser.parse(rewritten)
-    |> result.map_error(fn(e) { SyntaxError(e) }),
-  )
-  ast
-}
-
-// formatting
-
-pub fn error_to_string(error: RuntimeError) -> String {
-  case error {
-    UnknownExpressionError -> "unknown expression"
-    PartialError(name, error) ->
-      "error found while rendering partial '"
-      <> name
-      <> "': "
-      <> partial_error_to_string(error)
-  }
-}
-
-fn partial_error_to_string(error: PartialError) -> String {
-  case error {
-    LexicalError(error) -> scanner.error_to_string(error)
-    SyntaxError(error) -> parser.error_to_string(error)
-    RuntimeError(error) -> error_to_string(error)
+) -> List(parser.Expression) {
+  case dict.get(env.partials, name) {
+    Ok(ast) -> ast
+    Error(_) -> []
   }
 }

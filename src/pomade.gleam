@@ -1,6 +1,7 @@
 //// `pomade` is a [Mustache](https://mustache.github.io) library written in Gleam.
 
 import gleam/dict.{type Dict}
+import gleam/list
 import gleam/result
 import gleam/string_tree.{type StringTree}
 
@@ -12,10 +13,7 @@ import pomade/internal/value
 
 /// `Template` represents a compiled template.
 pub opaque type Template {
-  Template(
-    fn(value.Value, Dict(String, String)) ->
-      Result(StringTree, interpreter.RuntimeError),
-  )
+  Template(fn(value.Value, Dict(String, String)) -> Result(StringTree, Error))
 }
 
 /// `compile_and_render` is a convenience function that compiles and expands a
@@ -56,20 +54,6 @@ pub fn compile_and_render(
   render(template, data, partials)
 }
 
-/// `compile_and_render_string` is like `compile_and_render`, but it returns a
-/// `String` instead of a `StringTree`. Internally, `compile_and_render_string`
-/// calls `compile_and_render`, and then converts the result, so some
-/// allocations are implied. Because of this, prefer `compile_and_render`
-/// whenever possible, if your target API permits it.
-pub fn compile_and_render_string(
-  template: String,
-  data: Value,
-  partials: Dict(String, String),
-) -> Result(String, Error) {
-  compile_and_render(template, data, partials)
-  |> result.map(string_tree.to_string)
-}
-
 /// `compile` prepares a template for future application, to avoid the overhead
 /// of scanning and parsing a template from scratch every time. Prefer this
 /// when speed is important.
@@ -89,7 +73,10 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use ast <- result.map(
     parser.parse(rewritten) |> result.map_error(error_from_syntax_error),
   )
-  Template(fn(data, partials) { interpreter.interpret(ast, data, partials) })
+  Template(fn(data, partials) {
+    use partials <- result.map(compile_partials(partials))
+    interpreter.interpret(ast, data, partials)
+  })
 }
 
 /// `render` takes a pre-compiled template and applies it to the supplied data
@@ -109,7 +96,22 @@ pub fn render(
 ) -> Result(StringTree, Error) {
   let Template(template) = template
   template(data, partials)
-  |> result.map_error(error_from_runtime_error)
+}
+
+// convenience functions
+
+/// `compile_and_render_string` is like `compile_and_render`, but it returns a
+/// `String` instead of a `StringTree`. Internally, `compile_and_render_string`
+/// calls `compile_and_render`, and then converts the result, so some
+/// allocations are implied. Because of this, prefer `compile_and_render`
+/// whenever possible, if your target API permits it.
+pub fn compile_and_render_string(
+  template: String,
+  data: Value,
+  partials: Dict(String, String),
+) -> Result(String, Error) {
+  compile_and_render(template, data, partials)
+  |> result.map(string_tree.to_string)
 }
 
 /// `render_string` is like `render`, but it returns a `String` instead of a
@@ -123,6 +125,26 @@ pub fn render_string(
 ) -> Result(String, Error) {
   render(template, data, partials)
   |> result.map(string_tree.to_string)
+}
+
+// helpers
+
+fn compile_partials(
+  sources: Dict(String, String),
+) -> Result(Dict(String, List(parser.Expression)), Error) {
+  dict.to_list(sources)
+  |> list.map(fn(pair) {
+    use tokens <- result.try(
+      scanner.scan(pair.1) |> result.map_error(error_from_lexical_error),
+    )
+    let rewritten = rewriter.rewrite(tokens)
+    use ast <- result.map(
+      parser.parse(rewritten) |> result.map_error(error_from_syntax_error),
+    )
+    #(pair.0, ast)
+  })
+  |> result.all()
+  |> result.map(dict.from_list)
 }
 
 // errors
@@ -142,10 +164,6 @@ fn error_from_lexical_error(error: scanner.LexicalError) -> Error {
 
 fn error_from_syntax_error(error: parser.SyntaxError) -> Error {
   CompilationError("syntax error: " <> parser.error_to_string(error))
-}
-
-fn error_from_runtime_error(error: interpreter.RuntimeError) -> Error {
-  RuntimeError(interpreter.error_to_string(error))
 }
 
 // value

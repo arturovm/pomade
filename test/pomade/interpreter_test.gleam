@@ -1,6 +1,5 @@
 import gleam/dict
 import gleam/option.{None, Some}
-import gleam/result
 import gleam/string_tree
 
 import pomade/internal/interpreter
@@ -10,59 +9,59 @@ import pomade/internal/scanner
 import pomade/internal/value.{Dict, Float, String}
 
 pub fn empty_test() {
-  let assert Ok("") =
-    interpreter.interpret([], Dict(dict.new()), dict.new())
-    |> result.map(string_tree.to_string)
+  assert ""
+    == interpreter.interpret([], Dict(dict.new()), dict.new())
+    |> string_tree.to_string()
 }
 
 pub fn text_test() {
-  let assert Ok("hello, world!") =
-    interpreter.interpret(
+  assert "hello, world!"
+    == interpreter.interpret(
       [parser.Literal(rewriter.Literal(0, "hello, world!"))],
       Dict(dict.new()),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn newline_test() {
-  let assert Ok("foo\nbar\r\nbaz") =
-    interpreter.interpret(
+  assert "foo\nbar\r\nbaz"
+    == interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "foo\nbar\r\nbaz")),
       ],
       Dict(dict.new()),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn variable_test() {
-  let assert Ok("foo &amp; bar") =
-    interpreter.interpret(
+  assert "foo &amp; bar"
+    == interpreter.interpret(
       [parser.Variable(rewriter.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 
-  let assert Ok("1.21") =
-    interpreter.interpret(
+  assert "1.21"
+    == interpreter.interpret(
       [parser.Variable(rewriter.Variable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", Float(1.21))])),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn raw_variable_test() {
-  let assert Ok("foo & bar") =
-    interpreter.interpret(
+  assert "foo & bar"
+    == interpreter.interpret(
       [parser.RawVariable(rewriter.RawVariable(0, ["foo"]))],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn section_with_parent_context_test() {
@@ -89,8 +88,8 @@ pub fn section_with_parent_context_test() {
         ),
       ]),
     )
-  let assert Ok("foo, bar, baz") =
-    interpreter.interpret(
+  assert "foo, bar, baz"
+    == interpreter.interpret(
       [
         parser.Section(rewriter.SectionStart(0, ["sec"]), [
           parser.Variable(rewriter.Variable(0, ["a"])),
@@ -103,12 +102,12 @@ pub fn section_with_parent_context_test() {
       parent_env,
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn inverted_section_test() {
-  let assert Ok("No repos :(") =
-    interpreter.interpret(
+  assert "No repos :("
+    == interpreter.interpret(
       [
         parser.Section(rewriter.SectionStart(0, ["repo"]), [
           parser.Literal(rewriter.Literal(0, "  <b>")),
@@ -122,12 +121,12 @@ pub fn inverted_section_test() {
       Dict(dict.from_list([#("repo", value.List([]))])),
       dict.new(),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn partial_test() {
-  let assert Ok("Hello, world!") =
-    interpreter.interpret(
+  assert "Hello, world!"
+    == interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
@@ -136,11 +135,16 @@ pub fn partial_test() {
         ),
       ],
       value.Dict(dict.new()),
-      dict.from_list([#("other_template", "world!")]),
+      dict.from_list([
+        #("other_template", [
+          parser.Literal(rewriter.Literal(0, "world!")),
+        ]),
+      ]),
     )
-    |> result.map(string_tree.to_string)
-  let assert Ok("Hello, foo!") =
-    interpreter.interpret(
+    |> string_tree.to_string()
+
+  assert "Hello, foo!"
+    == interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
@@ -149,11 +153,16 @@ pub fn partial_test() {
         ),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
-      dict.from_list([#("other_template", "{{greeting}}")]),
+      dict.from_list([
+        #("other_template", [
+          parser.Variable(rewriter.Variable(0, ["greeting"])),
+        ]),
+      ]),
     )
-    |> result.map(string_tree.to_string)
-  let assert Ok("  >\n  >>") =
-    interpreter.interpret(
+    |> string_tree.to_string()
+
+  assert "  >\n  >>"
+    == interpreter.interpret(
       [
         parser.Partial(
           rewriter.Partial(0, scanner.StaticName("partial")),
@@ -162,14 +171,21 @@ pub fn partial_test() {
         parser.Literal(rewriter.Literal(0, ">")),
       ],
       value.Dict(dict.new()),
-      dict.from_list([#("partial", ">\n>")]),
+      dict.from_list([
+        #("partial", [
+          parser.Indent,
+          parser.Literal(rewriter.Literal(0, ">\n")),
+          parser.Indent,
+          parser.Literal(rewriter.Literal(1, ">")),
+        ]),
+      ]),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }
 
 pub fn partial_with_dynamic_name_test() {
-  let assert Ok("Hello, world!") =
-    interpreter.interpret(
+  assert "Hello, world!"
+    == interpreter.interpret(
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
@@ -194,7 +210,9 @@ pub fn partial_with_dynamic_name_test() {
           ),
         ]),
       ),
-      dict.from_list([#("other_template", "world!")]),
+      dict.from_list([
+        #("other_template", [parser.Literal(rewriter.Literal(0, "world!"))]),
+      ]),
     )
-    |> result.map(string_tree.to_string)
+    |> string_tree.to_string()
 }

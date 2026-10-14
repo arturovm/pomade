@@ -173,9 +173,9 @@ pub fn get_partial_test() {
   let env =
     Environment(
       value.String("hello"),
-      dict.from_list([#("some_partial", "foo")]),
+      dict.from_list([#("some_partial", [])]),
       None,
       None,
     )
-  assert Ok("foo") == environment.get_partial(env, "some_partial")
+  assert Ok([]) == environment.get_partial(env, "some_partial")
 }
