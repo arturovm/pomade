@@ -55,6 +55,7 @@ fn evaluate_exprs(
 ) -> Result(#(StringTree, PartialCache), RuntimeError) {
   case exprs {
     [] -> Ok(#(acc, cache))
+    [parser.Indent, ..tail] -> evaluate_exprs(tail, cache, env, acc)
     [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
       evaluate_exprs(tail, cache, env, string_tree.append(acc, value))
     [parser.Variable(rewriter.Variable(_, path)), ..tail] ->

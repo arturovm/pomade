@@ -1,15 +1,16 @@
 //// Mustache syntactical grammar:
 ////
-//// template                 -> {expression} EOF ;
-//// expression               -> Parent ;
-//// Parent                   -> PARENT_START {expression} END | Block ;
-//// Block                    -> BLOCK_START {expression} END | InvertedSection ;
-//// InvertedSection          -> INVERTED_SECTION_START {expression} END | Section;
-//// Section                  -> SECTION_START {expression} END | Partial ;
-//// Partial                  -> [INDENTATION] PARTIAL | RawVariable ;
-//// RawVariable              -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
-//// Variable                 -> VARIABLE | Literal ;
-//// Literal                  -> TEXT | WHITESPACE | NEWLINE ;
+//// template        -> {expression} EOF ;
+//// expression      -> Indent ;
+//// Indent          -> LINE_START | Parent ;
+//// Parent          -> PARENT_START {expression} END | Block ;
+//// Block           -> BLOCK_START {expression} END | InvertedSection ;
+//// InvertedSection -> INVERTED_SECTION_START {expression} END | Section;
+//// Section         -> SECTION_START {expression} END | Partial ;
+//// Partial         -> [INDENTATION] PARTIAL | RawVariable ;
+//// RawVariable     -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
+//// Variable        -> VARIABLE | Literal ;
+//// Literal         -> TEXT | WHITESPACE | NEWLINE ;
 
 import gleam/int
 import gleam/list
@@ -19,6 +20,7 @@ import gleam/result
 import pomade/internal/rewriter
 
 pub type Expression {
+  Indent
   Literal(token: rewriter.Token)
   Variable(token: rewriter.Token)
   RawVariable(token: rewriter.Token)
@@ -63,7 +65,6 @@ fn parse_expressions(
   case tokens {
     [rewriter.Eof(_)] | [rewriter.End(_, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
-    [rewriter.LineStart(_), ..tail] -> parse_expressions(tail, acc)
     non_empty ->
       case parse_expression(non_empty) {
         Ok(#(Some(some), tail)) -> parse_expressions(tail, [some, ..acc])
@@ -76,7 +77,16 @@ fn parse_expressions(
 fn parse_expression(
   tokens: List(rewriter.Token),
 ) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
-  parse_inverted_section(tokens)
+  parse_indent(tokens)
+}
+
+fn parse_indent(
+  tokens: List(rewriter.Token),
+) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
+  case tokens {
+    [rewriter.LineStart(_), ..tail] -> Ok(#(Some(Indent), tail))
+    _ -> parse_inverted_section(tokens)
+  }
 }
 
 fn parse_inverted_section(

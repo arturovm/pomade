@@ -5,7 +5,12 @@ import pomade/internal/rewriter
 import pomade/internal/scanner
 
 pub fn empty_parser_test() {
-  let assert Ok([]) = parser.parse([rewriter.Eof(0)])
+  assert Ok([]) == parser.parse([rewriter.Eof(0)])
+}
+
+pub fn indent_test() {
+  assert Ok([parser.Indent])
+    == parser.parse([rewriter.LineStart(0), rewriter.Eof(0)])
 }
 
 pub fn text_test() {
