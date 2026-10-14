@@ -1,21 +1,32 @@
 //// Rewrite rules for Mustache:
 ////
-//// _standalone_comment                         -> [WHITESPACE] COMMENT NEWLINE                => empty ;
-//// _standalone_comment_with_eof                -> [WHITESPACE] COMMENT EOF                    => EOF ;
-//// _standalone_set_delimiters                  -> [WHITESPACE] SET_DELIMITERS NEWLINE         => empty ;
-//// _standalone_set_delimiters_with_eof         -> [WHITESPACE] SET_DELIMITERS EOF             => EOF ;
-//// _standalone_section_start                   -> [WHITESPACE] SECTION_START NEWLINE          => SECTION_START ;
-//// _standalone_section_start_with_eof          -> [WHITESPACE] SECTION_START EOF              => SECTION_START EOF ;
-//// _standalone_inverted_section_start          -> [WHITESPACE] INVERTED_SECTION_START NEWLINE => INVERTED_SECTION_START ;
-//// _standalone_inverted_section_start_with_eof -> [WHITESPACE] INVERTED_SECTION_START EOF     => INVERTED_SECTION_START EOF ;
-//// _standalone_end                             -> [WHITESPACE] END NEWLINE                    => END ;
-//// _standalone_end_with_eof                    -> [WHITESPACE] END EOF                        => END EOF ;
-//// _standalone_partial                         -> [WHITESPACE] PARTIAL NEWLINE                => PADDING PARTIAL ;
-//// _standalone_partial_with_eof                -> [WHITESPACE] PARTIAL EOF                    => PADDING PARTIAL EOF ;
-//// _set_delimiters                             -> {any} SET_DELIMITERS {any}                  => {any} {any} ;
-//// _comment                                    -> {any} COMMENT {any}                         => {any} {any} ;
-//// _line                                       -> {any}                                       => INDENT {any} ;
-//// _end_of_input                               -> EOF                                         => EOF ;
+//// _line  -> ( [WHITESPACE] COMMENT NEWLINE                => empty
+////           | [WHITESPACE] COMMENT EOF                    => EOF
+////           | [WHITESPACE] SET_DELIMITERS NEWLINE         => empty
+////           | [WHITESPACE] SET_DELIMITERS EOF             => EOF
+////           | [WHITESPACE] SECTION_START NEWLINE          => SECTION_START
+////           | [WHITESPACE] SECTION_START EOF              => SECTION_START EOF
+////           | [WHITESPACE] INVERTED_SECTION_START NEWLINE => INVERTED_SECTION_START
+////           | [WHITESPACE] INVERTED_SECTION_START EOF     => INVERTED_SECTION_START EOF
+////           | [WHITESPACE] END NEWLINE                    => END
+////           | [WHITESPACE] END EOF                        => END EOF
+////           | [WHITESPACE] PARTIAL NEWLINE                => PADDING PARTIAL
+////           | [WHITESPACE] PARTIAL EOF                    => PADDING PARTIAL EOF
+////           | EOF                                         => EOF )
+////           / {_token}                                    => INDENT {_token} ;
+//// _token -> ( COMMENT                                     => empty
+////           | SET_DELIMITERS                              => empty
+////           | TEXT                                        => LITERAL
+////           | WHITESPACE                                  => LITERAL
+////           | NEWLINE                                     => LITERAL
+////           | SECTION_START                               => SECTION_START
+////           | INVERTED_SECTION_START                      => INVERTED_SECTION_START
+////           | END                                         => END
+////           | PARTIAL                                     => PARTIAL
+////           | RAW_VARIABLE                                => RAW_VARIABLE
+////           | VARIABLE                                    => VARIABLE
+////           | EOF                                         => EOF ) ;
+
 
 import gleam/list
 import gleam/string
@@ -45,7 +56,7 @@ pub type LayoutError {
 
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
   split_lines(tokens, [])
-  |> list.flat_map(fn(line) { line |> transform() })
+  |> list.flat_map(transform)
   |> list.fold([], glom)
   |> list.reverse()
 }
@@ -79,6 +90,8 @@ fn next_line(
 
 fn transform(line: List(scanner.Token)) -> List(Token) {
   case line {
+    // base case
+    [] -> []
     // standalone comments with newline
     [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)]
     | [scanner.Comment(_), scanner.Newline(_, _)] -> []
@@ -173,12 +186,11 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
     // end of file
     [scanner.Eof(line)] -> [Eof(line)]
     // continue with in-line rules
-    [head, ..tail] -> [Indent(head.line), ..transform_other([head, ..tail], [])]
-    [] -> []
+    [head, ..tail] -> [Indent(head.line), ..inline([head, ..tail], [])]
   }
 }
 
-fn transform_other(
+fn inline(
   input: List(scanner.Token),
   output: List(Token),
 ) -> List(Token) {
@@ -186,27 +198,27 @@ fn transform_other(
     // base case
     [] -> list.reverse(output)
     // comments
-    [scanner.Comment(_), ..tail] -> transform_other(tail, output)
+    [scanner.Comment(_), ..tail] -> inline(tail, output)
     // set delimiters
-    [scanner.SetDelimiters(_, _, _), ..tail] -> transform_other(tail, output)
+    [scanner.SetDelimiters(_, _, _), ..tail] -> inline(tail, output)
     // other tokens
     [scanner.Text(line, lexeme), ..tail]
     | [scanner.Whitespace(line, lexeme), ..tail]
     | [scanner.Newline(line, lexeme), ..tail] ->
-      transform_other(tail, [Literal(line, lexeme), ..output])
+      inline(tail, [Literal(line, lexeme), ..output])
     [scanner.SectionStart(line, path), ..tail] ->
-      transform_other(tail, [SectionStart(line, path), ..output])
+      inline(tail, [SectionStart(line, path), ..output])
     [scanner.InvertedSectionStart(line, path), ..tail] ->
-      transform_other(tail, [InvertedSectionStart(line, path), ..output])
+      inline(tail, [InvertedSectionStart(line, path), ..output])
     [scanner.End(line, path), ..tail] ->
-      transform_other(tail, [End(line, path), ..output])
+      inline(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->
-      transform_other(tail, [Partial(line, path), ..output])
+      inline(tail, [Partial(line, path), ..output])
     [scanner.RawVariable(line, path), ..tail] ->
-      transform_other(tail, [RawVariable(line, path), ..output])
+      inline(tail, [RawVariable(line, path), ..output])
     [scanner.Variable(line, path), ..tail] ->
-      transform_other(tail, [Variable(line, path), ..output])
-    [scanner.Eof(line), ..tail] -> transform_other(tail, [Eof(line), ..output])
+      inline(tail, [Variable(line, path), ..output])
+    [scanner.Eof(line), ..tail] -> inline(tail, [Eof(line), ..output])
   }
 }
 
