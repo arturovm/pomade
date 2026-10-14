@@ -8,7 +8,6 @@
 //// _comment                             -> {any} COMMENT {any}          => {any} {any} ;
 
 import gleam/list
-import gleam/option.{type Option, None, Some}
 import gleam/string
 
 import pomade/internal/scanner
@@ -34,14 +33,9 @@ pub type LayoutError {
   UnexpectedToken(scanner.Token)
 }
 
-pub fn rewrite(
-  tokens: List(scanner.Token),
-  indentation: Option(String),
-) -> List(Token) {
+pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
   split_lines(tokens, [])
-  |> list.flat_map(fn(line) {
-    line |> transform() |> indent(indentation) |> insert_line_start()
-  })
+  |> list.flat_map(fn(line) { line |> transform() |> insert_line_start() })
   |> list.fold([], glom)
   |> list.reverse()
 }
@@ -188,32 +182,6 @@ fn transform_other(
     [scanner.Variable(line, path), ..tail] ->
       transform_other(tail, [Variable(line, path), ..output])
     [scanner.Eof(line), ..tail] -> transform_other(tail, [Eof(line), ..output])
-  }
-}
-
-fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
-  case indentation {
-    None -> line
-    Some(indentation_value) ->
-      case line {
-        []
-        | [Eof(_)]
-        | [SectionStart(_, _)]
-        | [SectionStart(_, _), Eof(_)]
-        | [InvertedSectionStart(_, _)]
-        | [InvertedSectionStart(_, _), Eof(_)]
-        | [End(_, _)]
-        | [End(_, _), Eof(_)] -> line
-        [Indentation(line, ws), ..tail] -> [
-          Indentation(line, indentation_value <> ws),
-          ..tail
-        ]
-        [Partial(line_number, _)] | [Partial(line_number, _), Eof(_)] -> [
-          Indentation(line_number, indentation_value),
-          ..line
-        ]
-        [head, ..tail] -> [Literal(head.line, indentation_value), head, ..tail]
-      }
   }
 }
 

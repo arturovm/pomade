@@ -1,7 +1,6 @@
 //// `pomade` is a [Mustache](https://mustache.github.io) library written in Gleam.
 
 import gleam/dict.{type Dict}
-import gleam/option.{None}
 import gleam/result
 import gleam/string_tree.{type StringTree}
 
@@ -86,7 +85,7 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use tokens <- result.try(
     scanner.scan(template) |> result.map_error(error_from_lexical_error),
   )
-  let rewritten = rewriter.rewrite(tokens, None)
+  let rewritten = rewriter.rewrite(tokens)
   use ast <- result.map(
     parser.parse(rewritten) |> result.map_error(error_from_syntax_error),
   )

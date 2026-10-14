@@ -27,7 +27,7 @@ pub opaque type PartialError {
 }
 
 type PartialCache =
-  Dict(#(String, Option(String)), List(parser.Expression))
+  Dict(String, List(parser.Expression))
 
 pub fn interpret(
   template: List(parser.Expression),
@@ -38,7 +38,7 @@ pub fn interpret(
     evaluate_exprs(
       template,
       dict.new(),
-      environment.Environment(environment, partials, None),
+      environment.Environment(environment, partials, None, None),
       string_tree.new(),
     )
   {
@@ -55,9 +55,13 @@ fn evaluate_exprs(
 ) -> Result(#(StringTree, PartialCache), RuntimeError) {
   case exprs {
     [] -> Ok(#(acc, cache))
-    [parser.Indent, ..tail] -> evaluate_exprs(tail, cache, env, acc)
     [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
       evaluate_exprs(tail, cache, env, string_tree.append(acc, value))
+    [parser.Indent, ..tail] ->
+      evaluate_exprs(tail, cache, env, case env.indentation {
+        None -> acc
+        Some(indentation) -> string_tree.append(acc, indentation)
+      })
     [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
       evaluate_exprs(
         tail,
@@ -161,8 +165,14 @@ fn evaluate_partial(
   acc: StringTree,
 ) -> Result(#(StringTree, PartialCache), RuntimeError) {
   let name = resolve_partial_name(name, env)
-  case get_partial(name, indentation, env, cache) {
-    Ok(#(ast, cache)) -> evaluate_exprs(ast, cache, env, acc)
+  case get_partial(name, env, cache) {
+    Ok(#(ast, cache)) ->
+      evaluate_exprs(
+        ast,
+        cache,
+        environment.Environment(..env, indentation: indentation),
+        acc,
+      )
     Error(error) -> Error(PartialError(name, error))
   }
 }
@@ -179,17 +189,16 @@ fn resolve_partial_name(
 
 fn get_partial(
   name: String,
-  indentation: Option(String),
   env: environment.Environment,
   cache: PartialCache,
 ) -> Result(#(List(parser.Expression), PartialCache), PartialError) {
-  case dict.get(cache, #(name, indentation)) {
+  case dict.get(cache, name) {
     Ok(ast) -> Ok(#(ast, cache))
     Error(_) ->
       case environment.get_partial(env, name) {
         Ok(source) ->
-          case compile_partial(source, indentation) {
-            Ok(ast) -> Ok(#(ast, dict.insert(cache, #(name, indentation), ast)))
+          case compile_partial(source) {
+            Ok(ast) -> Ok(#(ast, dict.insert(cache, name, ast)))
             Error(error) -> Error(error)
           }
         Error(_) -> Ok(#([], cache))
@@ -199,13 +208,12 @@ fn get_partial(
 
 fn compile_partial(
   source: String,
-  indentation: Option(String),
 ) -> Result(List(parser.Expression), PartialError) {
   use tokens <- result.try(
     scanner.scan(source)
     |> result.map_error(fn(e) { LexicalError(e) }),
   )
-  let rewritten = rewriter.rewrite(tokens, indentation)
+  let rewritten = rewriter.rewrite(tokens)
   use ast <- result.map(
     parser.parse(rewritten)
     |> result.map_error(fn(e) { SyntaxError(e) }),

@@ -13,6 +13,7 @@ pub type Environment {
     value: Value,
     partials: Dict(String, String),
     parent: Option(Environment),
+    indentation: Option(String),
   )
 }
 
