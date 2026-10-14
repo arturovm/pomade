@@ -5,11 +5,15 @@ import pomade/internal/scanner
 
 pub fn empty_test() {
   assert [] == rewriter.rewrite([], None)
+  assert [rewriter.Eof(1)] == rewriter.rewrite([scanner.Eof(1)], None)
 }
 
 pub fn elide_set_delimiters_test() {
   assert [
-      rewriter.Literal(0, "random text\nfoo\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "random text\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite(
       [
@@ -27,7 +31,10 @@ pub fn elide_set_delimiters_test() {
 
 pub fn elide_comment_test() {
   assert [
-      rewriter.Literal(0, "random text\nfoo\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "random text\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite(
       [
@@ -45,7 +52,10 @@ pub fn elide_comment_test() {
 
 pub fn indented_standalone_test() {
   assert [
-      rewriter.Literal(0, "Begin.\nEnd.\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "Begin.\n"),
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "End.\n"),
       rewriter.Eof(0),
     ]
     == rewriter.rewrite(
@@ -64,7 +74,11 @@ pub fn indented_standalone_test() {
 }
 
 pub fn standalone_without_newline_test() {
-  assert [rewriter.Literal(0, "!\n"), rewriter.Eof(0)]
+  assert [
+      rewriter.LineStart(0),
+      rewriter.Literal(0, "!\n"),
+      rewriter.Eof(0),
+    ]
     == rewriter.rewrite(
       [
         scanner.Text(0, "!"),
@@ -89,6 +103,7 @@ pub fn indented_inline_test() {
 
   let ast = rewriter.rewrite(tokens, None)
   assert [
+      rewriter.LineStart(1),
       rewriter.Literal(1, "  12 \n"),
       rewriter.Eof(2),
     ]
@@ -97,6 +112,7 @@ pub fn indented_inline_test() {
 
 pub fn indented_partial_test() {
   assert [
+      rewriter.LineStart(0),
       rewriter.Indentation(0, "  \t"),
       rewriter.Partial(0, scanner.StaticName("hello")),
       rewriter.Eof(0),
@@ -113,7 +129,13 @@ pub fn indented_partial_test() {
 }
 
 pub fn indent_test() {
-  assert [rewriter.Literal(1, "  \tfoo\n  \tbar\n"), rewriter.Eof(3)]
+  assert [
+      rewriter.LineStart(1),
+      rewriter.Literal(1, "  \tfoo\n"),
+      rewriter.LineStart(2),
+      rewriter.Literal(2, "  \tbar\n"),
+      rewriter.Eof(3),
+    ]
     == rewriter.rewrite(
       [
         scanner.Text(1, "foo"),
@@ -124,4 +146,9 @@ pub fn indent_test() {
       ],
       Some("  \t"),
     )
+}
+
+pub fn line_start_test() {
+  assert [rewriter.LineStart(1), rewriter.Literal(1, "\n"), rewriter.Eof(2)]
+    == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)], None)
 }

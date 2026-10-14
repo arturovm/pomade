@@ -63,6 +63,7 @@ fn parse_expressions(
   case tokens {
     [rewriter.Eof(_)] | [rewriter.End(_, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
+    [rewriter.LineStart(_), ..tail] -> parse_expressions(tail, acc)
     non_empty ->
       case parse_expression(non_empty) {
         Ok(#(Some(some), tail)) -> parse_expressions(tail, [some, ..acc])

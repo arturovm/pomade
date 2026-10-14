@@ -27,6 +27,7 @@ pub type Token {
   Eof(line: Int)
   // synthetic tokens
   Indentation(line: Int, lexeme: String)
+  LineStart(line: Int)
 }
 
 pub type LayoutError {
@@ -38,8 +39,11 @@ pub fn rewrite(
   indentation: Option(String),
 ) -> List(Token) {
   split_lines(tokens, [])
-  |> list.flat_map(fn(line) { line |> transform() |> indent(indentation) })
+  |> list.flat_map(fn(line) {
+    line |> transform() |> indent(indentation) |> insert_line_start()
+  })
   |> list.fold([], glom)
+  |> list.reverse()
 }
 
 fn split_lines(
@@ -213,6 +217,13 @@ fn indent(line: List(Token), indentation: Option(String)) -> List(Token) {
   }
 }
 
+fn insert_line_start(line: List(Token)) -> List(Token) {
+  case line {
+    [] | [Eof(_)] -> line
+    [head, ..tail] -> [LineStart(head.line), head, ..tail]
+  }
+}
+
 fn glom(acc: List(Token), next: Token) -> List(Token) {
   case next {
     Literal(line, literal) -> {
@@ -224,7 +235,6 @@ fn glom(acc: List(Token), next: Token) -> List(Token) {
         acc -> [Literal(line, literal), ..acc]
       }
     }
-    Eof(_) as eof -> [eof, ..acc] |> list.reverse()
     any -> [any, ..acc]
   }
 }
@@ -246,6 +256,7 @@ pub fn token_to_string(token: Token) -> String {
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
     Indentation(_, _) -> "INDENTATION"
+    LineStart(_) -> "LINE_START"
     Eof(_) -> "EOF"
   }
 }
