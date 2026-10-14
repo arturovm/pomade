@@ -1,22 +1,21 @@
 //// Rewrite rules for Mustache:
 ////
-//// _standalone_comment                          -> [WHITESPACE] COMMENT NEWLINE                => empty ;
-//// _standalone_comment_with_eof                 -> [WHITESPACE] COMMENT EOF                    => EOF ;
-//// _standalone_set_delimiters                   -> [WHITESPACE] SET_DELIMITERS NEWLINE         => empty ;
-//// _standalone_set_delimiters_with_eof          -> [WHITESPACE] SET_DELIMITERS EOF             => EOF ;
-//// _standalone_section_start                    -> [WHITESPACE] SECTION_START NEWLINE          => SECTION_START ;
-//// _standalone_section_start_with_eof           -> [WHITESPACE] SECTION_START EOF              => SECTION_START EOF ;
-//// _standalone_inverted_section_start           -> [WHITESPACE] INVERTED_SECTION_START NEWLINE => INVERTED_SECTION_START ;
-//// _standalone_inverted_section_start_with_eof  -> [WHITESPACE] INVERTED_SECTION_START EOF     => INVERTED_SECTION_START EOF ;
-//// _standalone_end                              -> [WHITESPACE] END NEWLINE                    => END ;
-//// _standalone_end_with_eof                     -> [WHITESPACE] END EOF                        => END EOF ;
-//// _standalone_partial                          -> PARTIAL NEWLINE                             => PARTIAL ;
-//// _standalone_partial_with_indentation         -> WHITESPACE PARTIAL NEWLINE                  => INDENTATION PARTIAL ;
-//// _standalone_partial_with_indentation_and_eof -> WHITESPACE PARTIAL EOF                      => INDENTATION PARTIAL EOF ;
-//// _set_delimiters                              -> {any} SET_DELIMITERS {any}                  => {any} {any} ;
-//// _comment                                     -> {any} COMMENT {any}                         => {any} {any} ;
-//// _line                                        -> {any}                                       => INDENT {any} ;
-//// _end_of_input                                -> EOF                                         => EOF ;
+//// _standalone_comment                         -> [WHITESPACE] COMMENT NEWLINE                => empty ;
+//// _standalone_comment_with_eof                -> [WHITESPACE] COMMENT EOF                    => EOF ;
+//// _standalone_set_delimiters                  -> [WHITESPACE] SET_DELIMITERS NEWLINE         => empty ;
+//// _standalone_set_delimiters_with_eof         -> [WHITESPACE] SET_DELIMITERS EOF             => EOF ;
+//// _standalone_section_start                   -> [WHITESPACE] SECTION_START NEWLINE          => SECTION_START ;
+//// _standalone_section_start_with_eof          -> [WHITESPACE] SECTION_START EOF              => SECTION_START EOF ;
+//// _standalone_inverted_section_start          -> [WHITESPACE] INVERTED_SECTION_START NEWLINE => INVERTED_SECTION_START ;
+//// _standalone_inverted_section_start_with_eof -> [WHITESPACE] INVERTED_SECTION_START EOF     => INVERTED_SECTION_START EOF ;
+//// _standalone_end                             -> [WHITESPACE] END NEWLINE                    => END ;
+//// _standalone_end_with_eof                    -> [WHITESPACE] END EOF                        => END EOF ;
+//// _standalone_partial                         -> [WHITESPACE] PARTIAL NEWLINE                => PADDING PARTIAL ;
+//// _standalone_partial_with_eof                -> [WHITESPACE] PARTIAL EOF                    => PADDING PARTIAL EOF ;
+//// _set_delimiters                             -> {any} SET_DELIMITERS {any}                  => {any} {any} ;
+//// _comment                                    -> {any} COMMENT {any}                         => {any} {any} ;
+//// _line                                       -> {any}                                       => INDENT {any} ;
+//// _end_of_input                               -> EOF                                         => EOF ;
 
 import gleam/list
 import gleam/string
@@ -36,7 +35,7 @@ pub type Token {
   // eof
   Eof(line: Int)
   // synthetic tokens
-  Indentation(line: Int, lexeme: String)
+  Padding(line: Int, lexeme: String)
   Indent(line: Int)
 }
 
@@ -46,7 +45,7 @@ pub type LayoutError {
 
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
   split_lines(tokens, [])
-  |> list.flat_map(fn(line) { line |> transform() |> insert_line_start() })
+  |> list.flat_map(fn(line) { line |> transform() })
   |> list.fold([], glom)
   |> list.reverse()
 }
@@ -151,23 +150,31 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
       Eof(line),
     ]
     // standalone partial with newline
-    [scanner.Partial(line, name), scanner.Newline(_, _)] -> [
-      Partial(line, name),
-    ]
-    // standalone partial with indentation
     [
-      scanner.Whitespace(_, _) as ws,
+      scanner.Whitespace(_, ws),
       scanner.Partial(line, name),
       scanner.Newline(_, _),
-    ] -> [Indentation(ws.line, ws.lexeme), Partial(line, name)]
+    ] -> [Padding(line, ws), Partial(line, name)]
+    [scanner.Partial(line, name), scanner.Newline(_, _)] -> [
+      Padding(line, ""),
+      Partial(line, name),
+    ]
     // standalone partial with eof
     [scanner.Whitespace(_, ws), scanner.Partial(line, name), scanner.Eof(_)] -> [
-      Indentation(line, ws),
+      Padding(line, ws),
       Partial(line, name),
       Eof(line),
     ]
+    [scanner.Partial(line, name), scanner.Eof(_)] -> [
+      Padding(line, ""),
+      Partial(line, name),
+      Eof(line),
+    ]
+    // end of file
+    [scanner.Eof(line)] -> [Eof(line)]
     // continue with in-line rules
-    any -> transform_other(any, [])
+    [head, ..tail] -> [Indent(head.line), ..transform_other([head, ..tail], [])]
+    [] -> []
   }
 }
 
@@ -203,13 +210,6 @@ fn transform_other(
   }
 }
 
-fn insert_line_start(line: List(Token)) -> List(Token) {
-  case line {
-    [] | [Eof(_)] -> line
-    [head, ..tail] -> [Indent(head.line), head, ..tail]
-  }
-}
-
 fn glom(acc: List(Token), next: Token) -> List(Token) {
   case next {
     Literal(line, literal) -> {
@@ -241,7 +241,7 @@ pub fn token_to_string(token: Token) -> String {
       })
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
-    Indentation(_, _) -> "INDENTATION"
+    Padding(_, _) -> "PADDING"
     Indent(_) -> "LINE_START"
     Eof(_) -> "EOF"
   }

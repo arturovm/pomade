@@ -96,7 +96,7 @@ pub fn partial_test() {
     parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), Some("  \t")),
   ]) =
     parser.parse([
-      rewriter.Indentation(0, "  \t"),
+      rewriter.Padding(0, "  \t"),
       rewriter.Partial(0, scanner.StaticName("box")),
       rewriter.Eof(0),
     ])

@@ -139,8 +139,7 @@ fn evaluate_partial(
 
 fn merge_indentation(outer: Option(String), inner: Option(String)) {
   case outer, inner {
-    None, None -> None
-    Some(ws), None -> Some(ws)
+    _, None -> None
     None, Some(ws) -> Some(ws)
     Some(outer), Some(inner) -> Some(outer <> inner)
   }

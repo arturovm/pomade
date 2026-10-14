@@ -200,7 +200,6 @@ pub fn nested_partial_test() {
           parser.Literal(rewriter.Literal(0, "foo\n")),
           parser.Indent,
           parser.Literal(rewriter.Literal(1, "bar\n")),
-          parser.Indent,
           parser.Partial(
             rewriter.Partial(0, scanner.StaticName("two")),
             Some(" \t"),

@@ -7,7 +7,7 @@
 //// Block           -> BLOCK_START {expression} END | InvertedSection ;
 //// InvertedSection -> INVERTED_SECTION_START {expression} END | Section;
 //// Section         -> SECTION_START {expression} END | Partial ;
-//// Partial         -> [INDENTATION] PARTIAL | RawVariable ;
+//// Partial         -> [PADDING] PARTIAL | RawVariable ;
 //// RawVariable     -> (TRIPLE_MUSTACHE | RAW_VARIABLE) | Variable ;
 //// Variable        -> VARIABLE | Literal ;
 //// Literal         -> TEXT | WHITESPACE | NEWLINE ;
@@ -144,7 +144,7 @@ fn parse_partial(
 ) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
   case tokens {
     [
-      rewriter.Indentation(_, indentation),
+      rewriter.Padding(_, indentation),
       rewriter.Partial(_, _) as token,
       ..tail
     ] -> Ok(#(Some(Partial(token, Some(indentation))), tail))
