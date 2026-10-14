@@ -2,7 +2,7 @@
 ////
 //// template        -> {expression} EOF ;
 //// expression      -> Indent ;
-//// Indent          -> LINE_START | Parent ;
+//// Indent          -> INDENT | Parent ;
 //// Parent          -> PARENT_START {expression} END | Block ;
 //// Block           -> BLOCK_START {expression} END | InvertedSection ;
 //// InvertedSection -> INVERTED_SECTION_START {expression} END | Section;
@@ -84,7 +84,7 @@ fn parse_indent(
   tokens: List(rewriter.Token),
 ) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
   case tokens {
-    [rewriter.LineStart(_), ..tail] -> Ok(#(Some(Indent), tail))
+    [rewriter.Indent(_), ..tail] -> Ok(#(Some(Indent), tail))
     _ -> parse_inverted_section(tokens)
   }
 }

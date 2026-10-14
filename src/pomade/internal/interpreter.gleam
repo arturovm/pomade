@@ -123,11 +123,27 @@ fn evaluate_partial(
   acc: StringTree,
 ) -> StringTree {
   let name = resolve_partial_name(name, env)
-  get_partial(name, env)
-  |> evaluate_exprs(
-    environment.Environment(..env, indentation: indentation),
-    acc,
-  )
+  case dict.get(env.partials, name) {
+    Ok(ast) ->
+      evaluate_exprs(
+        ast,
+        environment.Environment(
+          ..env,
+          indentation: merge_indentation(env.indentation, indentation),
+        ),
+        acc,
+      )
+    Error(_) -> acc
+  }
+}
+
+fn merge_indentation(outer: Option(String), inner: Option(String)) {
+  case outer, inner {
+    None, None -> None
+    Some(ws), None -> Some(ws)
+    None, Some(ws) -> Some(ws)
+    Some(outer), Some(inner) -> Some(outer <> inner)
+  }
 }
 
 fn resolve_partial_name(
@@ -137,15 +153,5 @@ fn resolve_partial_name(
   case name {
     scanner.StaticName(name) -> name
     scanner.DynamicName(path) -> environment.get_and_format(env, path)
-  }
-}
-
-fn get_partial(
-  name: String,
-  env: environment.Environment,
-) -> List(parser.Expression) {
-  case dict.get(env.partials, name) {
-    Ok(ast) -> ast
-    Error(_) -> []
   }
 }

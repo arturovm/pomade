@@ -10,7 +10,7 @@ pub fn empty_parser_test() {
 
 pub fn indent_test() {
   assert Ok([parser.Indent])
-    == parser.parse([rewriter.LineStart(0), rewriter.Eof(0)])
+    == parser.parse([rewriter.Indent(0), rewriter.Eof(0)])
 }
 
 pub fn text_test() {

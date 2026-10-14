@@ -8,9 +8,9 @@ pub fn empty_test() {
 
 pub fn elide_set_delimiters_test() {
   assert [
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "random text\n"),
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite([
@@ -26,9 +26,9 @@ pub fn elide_set_delimiters_test() {
 
 pub fn elide_comment_test() {
   assert [
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "random text\n"),
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite([
@@ -44,9 +44,9 @@ pub fn elide_comment_test() {
 
 pub fn indented_standalone_test() {
   assert [
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "Begin.\n"),
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "End.\n"),
       rewriter.Eof(0),
     ]
@@ -64,7 +64,7 @@ pub fn indented_standalone_test() {
 
 pub fn standalone_without_newline_test() {
   assert [
-      rewriter.LineStart(0),
+      rewriter.Indent(0),
       rewriter.Literal(0, "!\n"),
       rewriter.Eof(0),
     ]
@@ -89,7 +89,7 @@ pub fn indented_inline_test() {
 
   let ast = rewriter.rewrite(tokens)
   assert [
-      rewriter.LineStart(1),
+      rewriter.Indent(1),
       rewriter.Literal(1, "  12 \n"),
       rewriter.Eof(2),
     ]
@@ -97,6 +97,6 @@ pub fn indented_inline_test() {
 }
 
 pub fn line_start_test() {
-  assert [rewriter.LineStart(1), rewriter.Literal(1, "\n"), rewriter.Eof(2)]
+  assert [rewriter.Indent(1), rewriter.Literal(1, "\n"), rewriter.Eof(2)]
     == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)])
 }

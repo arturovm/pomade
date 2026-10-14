@@ -1,11 +1,22 @@
 //// Rewrite rules for Mustache:
 ////
-//// _standalone_comment                  -> [WHITESPACE] COMMENT NEWLINE => empty ;
-//// _standalone_comment_with_eof         -> [WHITESPACE] COMMENT EOF     => EOF ;
-//// _standaline_partial                  -> PARTIAL NEWLINE              => PARTIAL ;
-//// _standaline_partial_with_indendation -> WHITESPACE PARTIAL NEWLINE   => INDENTATION PARTIAL ;
-//// _set_delimiters                      -> {any} SET_DELIMITERS {any}   => {any} {any} ;
-//// _comment                             -> {any} COMMENT {any}          => {any} {any} ;
+//// _standalone_comment                          -> [WHITESPACE] COMMENT NEWLINE                => empty ;
+//// _standalone_comment_with_eof                 -> [WHITESPACE] COMMENT EOF                    => EOF ;
+//// _standalone_set_delimiters                   -> [WHITESPACE] SET_DELIMITERS NEWLINE         => empty ;
+//// _standalone_set_delimiters_with_eof          -> [WHITESPACE] SET_DELIMITERS EOF             => EOF ;
+//// _standalone_section_start                    -> [WHITESPACE] SECTION_START NEWLINE          => SECTION_START ;
+//// _standalone_section_start_with_eof           -> [WHITESPACE] SECTION_START EOF              => SECTION_START EOF ;
+//// _standalone_inverted_section_start           -> [WHITESPACE] INVERTED_SECTION_START NEWLINE => INVERTED_SECTION_START ;
+//// _standalone_inverted_section_start_with_eof  -> [WHITESPACE] INVERTED_SECTION_START EOF     => INVERTED_SECTION_START EOF ;
+//// _standalone_end                              -> [WHITESPACE] END NEWLINE                    => END ;
+//// _standalone_end_with_eof                     -> [WHITESPACE] END EOF                        => END EOF ;
+//// _standalone_partial                          -> PARTIAL NEWLINE                             => PARTIAL ;
+//// _standalone_partial_with_indentation         -> WHITESPACE PARTIAL NEWLINE                  => INDENTATION PARTIAL ;
+//// _standalone_partial_with_indentation_and_eof -> WHITESPACE PARTIAL EOF                      => INDENTATION PARTIAL EOF ;
+//// _set_delimiters                              -> {any} SET_DELIMITERS {any}                  => {any} {any} ;
+//// _comment                                     -> {any} COMMENT {any}                         => {any} {any} ;
+//// _line                                        -> {any}                                       => INDENT {any} ;
+//// _end_of_input                                -> EOF                                         => EOF ;
 
 import gleam/list
 import gleam/string
@@ -26,7 +37,7 @@ pub type Token {
   Eof(line: Int)
   // synthetic tokens
   Indentation(line: Int, lexeme: String)
-  LineStart(line: Int)
+  Indent(line: Int)
 }
 
 pub type LayoutError {
@@ -70,24 +81,42 @@ fn next_line(
 fn transform(line: List(scanner.Token)) -> List(Token) {
   case line {
     // standalone comments with newline
-    [scanner.Comment(_), scanner.Newline(_, _)]
-    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)] -> []
+    [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Newline(_, _)]
+    | [scanner.Comment(_), scanner.Newline(_, _)] -> []
     // standalone comments with eof
-    [scanner.Comment(_), scanner.Eof(line)]
-    | [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(line)] -> [
+    [scanner.Whitespace(_, _), scanner.Comment(_), scanner.Eof(line)]
+    | [scanner.Comment(_), scanner.Eof(line)] -> [
+      Eof(line),
+    ]
+    // standalone set delimiters with newline
+    [
+      scanner.Whitespace(_, _),
+      scanner.SetDelimiters(_, _, _),
+      scanner.Newline(_, _),
+    ]
+    | [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _)] -> []
+
+    // standalone set delimiters with eof
+    [
+      scanner.Whitespace(_, _),
+      scanner.SetDelimiters(_, _, _),
+      scanner.Eof(line),
+    ]
+    | [scanner.SetDelimiters(_, _, _), scanner.Eof(line)] -> [
       Eof(line),
     ]
     // standalone section start with newline
-    [scanner.SectionStart(line, path), scanner.Newline(_, _)]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.SectionStart(line, path),
-        scanner.Newline(_, _),
-      ] -> [
+    [
+      scanner.Whitespace(_, _),
+      scanner.SectionStart(line, path),
+      scanner.Newline(_, _),
+    ]
+    | [scanner.SectionStart(line, path), scanner.Newline(_, _)] -> [
       SectionStart(line, path),
     ]
     // standalone section start with eof
-    [scanner.Whitespace(_, _), scanner.SectionStart(line, path), scanner.Eof(_)] -> [
+    [scanner.Whitespace(_, _), scanner.SectionStart(line, path), scanner.Eof(_)]
+    | [scanner.SectionStart(line, path), scanner.Eof(_)] -> [
       SectionStart(line, path),
       Eof(line),
     ]
@@ -105,31 +134,20 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
       scanner.Whitespace(_, _),
       scanner.InvertedSectionStart(line, path),
       scanner.Eof(_),
-    ] -> [InvertedSectionStart(line, path), Eof(line)]
+    ]
+    | [scanner.InvertedSectionStart(line, path), scanner.Eof(_)] -> [
+      InvertedSectionStart(line, path),
+      Eof(line),
+    ]
     // standalone end tag with newline
-    [scanner.End(line, path), scanner.Newline(_, _)]
-    | [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Newline(_, _)] -> [
+    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Newline(_, _)]
+    | [scanner.End(line, path), scanner.Newline(_, _)] -> [
       End(line, path),
     ]
     // standalone end tag with eof
-    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Eof(_)] -> [
+    [scanner.Whitespace(_, _), scanner.End(line, path), scanner.Eof(_)]
+    | [scanner.End(line, path), scanner.Eof(_)] -> [
       End(line, path),
-      Eof(line),
-    ]
-    // standalone set delimiters with newline
-    [scanner.SetDelimiters(_, _, _), scanner.Newline(_, _)]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.SetDelimiters(_, _, _),
-        scanner.Newline(_, _),
-      ] -> []
-    // standalone set delimiters with eof
-    [scanner.SetDelimiters(_, _, _), scanner.Eof(line)]
-    | [
-        scanner.Whitespace(_, _),
-        scanner.SetDelimiters(_, _, _),
-        scanner.Eof(line),
-      ] -> [
       Eof(line),
     ]
     // standalone partial with newline
@@ -188,7 +206,7 @@ fn transform_other(
 fn insert_line_start(line: List(Token)) -> List(Token) {
   case line {
     [] | [Eof(_)] -> line
-    [head, ..tail] -> [LineStart(head.line), head, ..tail]
+    [head, ..tail] -> [Indent(head.line), head, ..tail]
   }
 }
 
@@ -224,7 +242,7 @@ pub fn token_to_string(token: Token) -> String {
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
     Indentation(_, _) -> "INDENTATION"
-    LineStart(_) -> "LINE_START"
+    Indent(_) -> "LINE_START"
     Eof(_) -> "EOF"
   }
 }

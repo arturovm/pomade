@@ -133,7 +133,7 @@ fn compile_partials(
   sources: Dict(String, String),
 ) -> Result(Dict(String, List(parser.Expression)), Error) {
   dict.to_list(sources)
-  |> list.map(fn(pair) {
+  |> list.try_map(fn(pair) {
     use tokens <- result.try(
       scanner.scan(pair.1) |> result.map_error(error_from_lexical_error),
     )
@@ -143,7 +143,6 @@ fn compile_partials(
     )
     #(pair.0, ast)
   })
-  |> result.all()
   |> result.map(dict.from_list)
 }
 

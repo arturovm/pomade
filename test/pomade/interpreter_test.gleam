@@ -183,6 +183,40 @@ pub fn partial_test() {
     |> string_tree.to_string()
 }
 
+pub fn nested_partial_test() {
+  assert "  foo\n  bar\n   \tbaz\n   \tqux\nquux"
+    == interpreter.interpret(
+      [
+        parser.Partial(
+          rewriter.Partial(0, scanner.StaticName("one")),
+          Some("  "),
+        ),
+        parser.Literal(rewriter.Literal(0, "quux")),
+      ],
+      value.Dict(dict.new()),
+      dict.from_list([
+        #("one", [
+          parser.Indent,
+          parser.Literal(rewriter.Literal(0, "foo\n")),
+          parser.Indent,
+          parser.Literal(rewriter.Literal(1, "bar\n")),
+          parser.Indent,
+          parser.Partial(
+            rewriter.Partial(0, scanner.StaticName("two")),
+            Some(" \t"),
+          ),
+        ]),
+        #("two", [
+          parser.Indent,
+          parser.Literal(rewriter.Literal(0, "baz\n")),
+          parser.Indent,
+          parser.Literal(rewriter.Literal(0, "qux\n")),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+}
+
 pub fn partial_with_dynamic_name_test() {
   assert "Hello, world!"
     == interpreter.interpret(
