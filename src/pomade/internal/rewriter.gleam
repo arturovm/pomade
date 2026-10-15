@@ -36,12 +36,13 @@ pub type Token {
   // general text
   Literal(line: Int, lexeme: String)
   // tags
-  SectionStart(line: Int, path: List(String))
-  InvertedSectionStart(line: Int, path: List(String))
-  End(line: Int, path: List(String))
+  SectionStart(line: Int, name: List(String))
+  InvertedSectionStart(line: Int, name: List(String))
+  BlockStart(line: Int, name: String)
+  End(line: Int, name: List(String))
   Partial(line: Int, name: scanner.PartialName)
-  RawVariable(line: Int, path: List(String))
-  Variable(line: Int, path: List(String))
+  RawVariable(line: Int, name: List(String))
+  Variable(line: Int, name: List(String))
   // eof
   Eof(line: Int)
   // synthetic tokens
@@ -206,7 +207,8 @@ fn inline(input: List(scanner.Token), output: List(Token)) -> List(Token) {
       inline(tail, [SectionStart(line, path), ..output])
     [scanner.InvertedSectionStart(line, path), ..tail] ->
       inline(tail, [InvertedSectionStart(line, path), ..output])
-    [scanner.BlockStart(_, _), ..tail] -> inline(tail, output)
+    [scanner.BlockStart(line, path), ..tail] ->
+      inline(tail, [BlockStart(line, path), ..output])
     [scanner.End(line, path), ..tail] ->
       inline(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->
@@ -242,6 +244,7 @@ pub fn token_to_string(token: Token) -> String {
     SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
+    BlockStart(_, name) -> token_name_with_path("BLOCK_START", [name])
     End(_, path) -> token_name_with_path("END_TAG", path)
     Partial(_, name) ->
       token_name_with_path("PARTIAL", case name {

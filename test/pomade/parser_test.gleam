@@ -83,6 +83,20 @@ pub fn inverted_section_test() {
     ])
 }
 
+pub fn block_test() {
+  assert Ok([
+      parser.Block(rewriter.BlockStart(0, "title"), [
+        parser.Literal(rewriter.Literal(0, "hello :)")),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(0, "title"),
+      rewriter.Literal(0, "hello :)"),
+      rewriter.End(0, ["title"]),
+      rewriter.Eof(0),
+    ])
+}
+
 pub fn partial_test() {
   let assert Ok([
     parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), None),

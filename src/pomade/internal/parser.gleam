@@ -3,8 +3,8 @@
 //// template        -> {expression} EOF ;
 //// expression      -> Indent ;
 //// Indent          -> INDENT | Parent ;
-//// Parent          -> PARENT_START {expression} END | Block ;
 //// Block           -> BLOCK_START {expression} END | InvertedSection ;
+//// Parent          -> PARENT_START {expression} END | Block ;
 //// InvertedSection -> INVERTED_SECTION_START {expression} END | Section;
 //// Section         -> SECTION_START {expression} END | Partial ;
 //// Partial         -> [PADDING] PARTIAL | RawVariable ;
@@ -27,6 +27,7 @@ pub type Expression {
   Section(token: rewriter.Token, content: List(Expression))
   InvertedSection(token: rewriter.Token, content: List(Expression))
   Partial(name: rewriter.Token, indentation: Option(String))
+  Block(token: rewriter.Token, content: List(Expression))
 }
 
 /// `SyntaxError` represents an error encountered during parsing.
@@ -85,6 +86,24 @@ fn parse_indent(
 ) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
   case tokens {
     [rewriter.Indent(_), ..tail] -> Ok(#(Some(Indent), tail))
+    _ -> parse_block(tokens)
+  }
+}
+
+fn parse_block(
+  tokens: List(rewriter.Token),
+) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
+  case tokens {
+    [rewriter.BlockStart(_, _) as start, ..tail] -> {
+      use #(expressions, tail) <- result.try(parse_expressions(tail, []))
+      use #(end, tail) <- result.try(parse_closing_tag(tail))
+      use start_path <- result.try(tag_path(start))
+      use end_path <- result.try(tag_path(end))
+      case start_path == end_path {
+        False -> Error(NoMatchingEndTagError(start))
+        True -> Ok(#(Some(Block(start, expressions)), tail))
+      }
+    }
     _ -> parse_inverted_section(tokens)
   }
 }
@@ -209,6 +228,7 @@ fn tag_path(tag: rewriter.Token) -> Result(List(String), SyntaxError) {
     rewriter.SectionStart(_, path) -> Ok(path)
     rewriter.InvertedSectionStart(_, path) -> Ok(path)
     rewriter.End(_, path) -> Ok(path)
+    rewriter.BlockStart(_, name) -> Ok([name])
     any -> Error(UnexpectedTokenError(any))
   }
 }
