@@ -60,6 +60,8 @@ fn evaluate_exprs(
       )
     [parser.Partial(rewriter.Partial(_, name), indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
+    [parser.Block(rewriter.BlockStart(_, name), content), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_block(name, content, env, acc))
     _ -> acc
   }
 }
@@ -153,4 +155,13 @@ fn resolve_partial_name(
     scanner.StaticName(name) -> name
     scanner.DynamicName(path) -> environment.get_and_format(env, path)
   }
+}
+
+fn evaluate_block(
+  _name: String,
+  content: List(parser.Expression),
+  env: environment.Environment,
+  acc: StringTree,
+) -> StringTree {
+  evaluate_exprs(content, env, acc)
 }

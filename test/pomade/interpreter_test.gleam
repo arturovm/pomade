@@ -249,3 +249,17 @@ pub fn partial_with_dynamic_name_test() {
     )
     |> string_tree.to_string()
 }
+
+pub fn block_test() {
+  assert "foo, bar, baz"
+    == interpreter.interpret(
+      [
+        parser.Block(rewriter.BlockStart(0, "block"), [
+          parser.Literal(rewriter.Literal(0, "foo, bar, baz")),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.new(),
+    )
+    |> string_tree.to_string()
+}
