@@ -209,6 +209,7 @@ fn inline(input: List(scanner.Token), output: List(Token)) -> List(Token) {
       inline(tail, [InvertedSectionStart(line, path), ..output])
     [scanner.BlockStart(line, path), ..tail] ->
       inline(tail, [BlockStart(line, path), ..output])
+    [scanner.ParentStart(_, _), ..tail] -> inline(tail, output)
     [scanner.End(line, path), ..tail] ->
       inline(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->

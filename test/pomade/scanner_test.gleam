@@ -150,12 +150,18 @@ pub fn scan_multiline_comment_test() {
     == scanner.scan("12345{{!\n  This is a\n  multi-line comment...\n}}67890\n")
 }
 
-pub fn scan_block_test() {
+pub fn scan_block_start_test() {
   assert Ok([
       scanner.BlockStart(1, "title"),
-      scanner.Text(1, "The News of Today"),
-      scanner.End(1, ["title"]),
       scanner.Eof(1),
     ])
-    == scanner.scan("{{$title}}The News of Today{{/title}}")
+    == scanner.scan("{{$title}}")
+}
+
+pub fn scan_parent_start_test() {
+  assert Ok([
+      scanner.ParentStart(1, "article"),
+      scanner.Eof(1),
+    ])
+    == scanner.scan("{{<article}}")
 }

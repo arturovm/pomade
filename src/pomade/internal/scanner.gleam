@@ -61,6 +61,7 @@ pub type Token {
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
   BlockStart(line: Int, name: String)
+  ParentStart(line: Int, name: String)
   End(line: Int, name: List(String))
   Partial(line: Int, name: PartialName)
   RawVariable(line: Int, name: List(String))
@@ -247,6 +248,7 @@ fn scan_tag_content(
     "#" <> tail -> scan_special(lexer, tail, stream, SectionStart)
     "^" <> tail -> scan_special(lexer, tail, stream, InvertedSectionStart)
     "$" <> tail -> scan_block_start(lexer, tail, stream)
+    "<" <> tail -> scan_parent_start(lexer, tail, stream)
     "/" <> tail -> scan_special(lexer, tail, stream, End)
     ">" <> tail -> scan_partial(lexer, tail, stream)
     "&" <> tail -> scan_special(lexer, tail, stream, RawVariable)
@@ -331,6 +333,17 @@ fn scan_block_start(
   use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
   let tail = discard_optional(lexer, tail, read_whitespace)
   #(lexer, [BlockStart(lexer.line, identifier), ..stream], tail)
+}
+
+fn scan_parent_start(
+  lexer: Lexer,
+  source: String,
+  stream: List(Token),
+) -> Result(#(Lexer, List(Token), String), LexicalError) {
+  let tail = discard_optional(lexer, source, read_whitespace)
+  use #(identifier, tail) <- result.map(read_identifier(lexer, tail))
+  let tail = discard_optional(lexer, tail, read_whitespace)
+  #(lexer, [ParentStart(lexer.line, identifier), ..stream], tail)
 }
 
 fn scan_partial(
