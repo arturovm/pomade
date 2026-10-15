@@ -14,7 +14,8 @@ and learn Gleam in the process.
 
 ### Compatibility
 
-Version 1.0 fully supports the required portions of the Mustache specification:
+Version 1.1.x fully supports the required portions of the Mustache
+specification:
 
 - Variables
 - Raw variables
@@ -23,12 +24,15 @@ Version 1.0 fully supports the required portions of the Mustache specification:
 - Inverted sections
 - Partials
 
+It additionally supports the following optional features:
+
+- Dynamic names for partials
+
 `pomade` passes the full [suite of tests](https://github.com/mustache/spec) for
-these mandatory features.
+these features.
 
 The optional, as-of-yet unsupported aspects are:
 
-- Dynamic names for partials
 - Inheritance (blocks and parents)
 - Lambdas and functions
 
@@ -56,27 +60,26 @@ heterogeneous hashmaps and values, which Mustache requires as input.
 
 #### Rendering templates
 
-The most basic use case is rendering a template with a single call:
+To render a template, compile its source first:
 
 ```gleam
-pub fn render_template() -> Result(StringTree, pomade.Error) {
-  let template = "Hello, {{target}}!"
-  let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
-  pomade.compile_and_render(template, data, dict.new())
-  // -> Ok(StringTree)
-  // -> "Hello, world!"
+pub fn precompile() -> Result(StringTree, pomade.Error) {
+  let template_source = "Hello, {{target}}!"
+  let assert Ok(template) = pomade.compile(template_source)
+  render_compiled(template)
 }
 ```
 
-By default, the API returns `StringTree`s, but there's a version that returns
-`String`s:
+You can then expand the pre-compiled template:
 
 ```gleam
-pub fn render_string() -> Result(String, pomade.Error) {
-  let template = "Goodbye, {{target}}"
-  let data = pomade.dict(dict.from_list([#("target", pomade.string("horses"))]))
-  pomade.compile_and_render_string(template, data, dict.new())
-  // -> Ok("Goodbye, horses") 
+pub fn render_compiled(
+  template: pomade.Template,
+) -> Result(StringTree, pomade.Error) {
+  let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
+  pomade.render(template, data, dict.new())
+  // -> Ok(StringTree)
+  // -> "Hello, world!"
 }
 ```
 
@@ -86,13 +89,15 @@ You can also render templates with partials, by passing a `Dict(String, String)`
 in the partials argument, mapping a partial name to the source of that partial:
 
 ```gleam
-pub fn render_with_partials() -> Result(String, pomade.Error) {
-  let template = "Fly, you {{>other_template}}!"
+pub fn render_with_partials() -> Result(StringTree, pomade.Error) {
+  let template_source = "Fly, you {{>other_template}}!"
+  let assert Ok(template) = pomade.compile(template_source)
   let data =
     pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
   let partials = dict.from_list([#("other_template", "{{adjective}}")])
-  pomade.compile_and_render_string(template, data, partials)
-  // -> Ok("Fly, you fools!")
+  pomade.render(template, data, partials)
+  // -> Ok(StringTree)
+  // -> "Fly, you fools!"
 }
 ```
 
@@ -105,8 +110,9 @@ will resolve the name of the partial from whatever value is contained at that
 path, in the input data:
 
 ```gleam
-pub fn render_partials_with_dynamic_names() -> Result(String, pomade.Error) {
-  let template = "1.21 {{>*dig.down}}!"
+pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) {
+  let template_source = "1.21 {{>*dig.down}}!"
+  let assert Ok(template) = pomade.compile(template_source)
   let data =
     pomade.dict(
       dict.from_list([
@@ -120,39 +126,45 @@ pub fn render_partials_with_dynamic_names() -> Result(String, pomade.Error) {
       ]),
     )
   let partials = dict.from_list([#("partial_name", "{{unit}}")])
-  pomade.compile_and_render_string(template, data, partials)
-  // -> Ok("1.21 gigawatts!")
+  pomade.render(template, data, partials)
+  // -> Ok(StringTree)
+  // -> "1.21 gigawatts!"
 }
 ```
 
-#### Pre-compilation
+#### Returning rendered `String`s
 
-If you anticipate that you'll be rendering a template often during the lifespan
-of your program (as in, for example, a web application), you can pre-compile
-templates to save some time:
+By default, the API returns `StringTree`s, but there's a version that returns
+`String`s:
 
 ```gleam
-pub fn precompile() -> Result(String, pomade.Error) {
-  let template_source = "No. I am your {{relative}}."
+pub fn render_to_string() -> Result(String, pomade.Error) {
+  let template_source = "Goodbye, {{target}}"
   let assert Ok(template) = pomade.compile(template_source)
-  render_compiled(template)
+  let data = pomade.dict(dict.from_list([#("target", pomade.string("horses"))]))
+  pomade.render_string(template, data, dict.new())
+  // -> Ok("Goodbye, horses") 
 }
 ```
 
-You can then, of course, simply expand the pre-compiled template:
+#### Using the convenience functions
+
+If you anticipate that you won't be rendering a template often during the
+lifespan of your program (as in, for example, a one-off batch program), you can
+compile and render templates in a single call:
 
 ```gleam
-pub fn render_compiled(
-  template: pomade.Template,
-) -> Result(String, pomade.Error) {
+pub fn convenience_at_your_fingertips() -> Result(StringTree, pomade.Error) {
+  let template_source = "No. I am your {{relative}}."
   let data =
     pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-  pomade.render_string(template, data, dict.new())
-  // -> Ok("No. I am your father.")
+  pomade.compile_and_render(template_source, data, dict.new())
+  // -> Ok(StringTree)
+  // -> "No. I am your father."
   //
   // Or:
-  // pomade.render(template, data, dict.new())
-  // -> Ok(StringTree)
+  // pomade.compile_and_render_string(template_source, data, dict.new())
+  // -> Ok("No. I am your father.")
 }
 ```
 

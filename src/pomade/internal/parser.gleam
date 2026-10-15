@@ -143,11 +143,8 @@ fn parse_partial(
   tokens: List(rewriter.Token),
 ) -> Result(#(Option(Expression), List(rewriter.Token)), SyntaxError) {
   case tokens {
-    [
-      rewriter.Padding(_, indentation),
-      rewriter.Partial(_, _) as token,
-      ..tail
-    ] -> Ok(#(Some(Partial(token, Some(indentation))), tail))
+    [rewriter.Padding(_, indentation), rewriter.Partial(_, _) as token, ..tail] ->
+      Ok(#(Some(Partial(token, Some(indentation))), tail))
     [rewriter.Partial(_, _) as name, ..tail] -> {
       Ok(#(Some(Partial(name, None)), tail))
     }
