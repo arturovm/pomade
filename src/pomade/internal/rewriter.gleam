@@ -27,7 +27,6 @@
 ////           | VARIABLE                                    => VARIABLE
 ////           | EOF                                         => EOF ) ;
 
-
 import gleam/list
 import gleam/string
 
@@ -190,10 +189,7 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
   }
 }
 
-fn inline(
-  input: List(scanner.Token),
-  output: List(Token),
-) -> List(Token) {
+fn inline(input: List(scanner.Token), output: List(Token)) -> List(Token) {
   case input {
     // base case
     [] -> list.reverse(output)
@@ -210,6 +206,7 @@ fn inline(
       inline(tail, [SectionStart(line, path), ..output])
     [scanner.InvertedSectionStart(line, path), ..tail] ->
       inline(tail, [InvertedSectionStart(line, path), ..output])
+    [scanner.BlockStart(_, _), ..tail] -> inline(tail, output)
     [scanner.End(line, path), ..tail] ->
       inline(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->

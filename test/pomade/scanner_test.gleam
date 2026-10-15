@@ -116,33 +116,46 @@ pub fn scan_dotted_names_test() {
 }
 
 pub fn scan_newline_test() {
-  let assert Ok([
-    scanner.Text(1, "Begin"),
-    scanner.Newline(1, "\n"),
-    scanner.Whitespace(2, "\t"),
-    scanner.Comment(2),
-    scanner.Newline(2, "\n"),
-    scanner.Text(3, "End"),
-    scanner.Eof(3),
-  ]) = scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
+  assert Ok([
+      scanner.Text(1, "Begin"),
+      scanner.Newline(1, "\n"),
+      scanner.Whitespace(2, "\t"),
+      scanner.Comment(2),
+      scanner.Newline(2, "\n"),
+      scanner.Text(3, "End"),
+      scanner.Eof(3),
+    ])
+    == scanner.scan("Begin\n\t{{!ignore me}}\nEnd")
 
-  let assert Ok([
-    scanner.Text(1, "Foo"),
-    scanner.Newline(1, "\r\n"),
-    scanner.Whitespace(2, "\t"),
-    scanner.Comment(2),
-    scanner.Newline(2, "\n"),
-    scanner.Text(3, "Bar"),
-    scanner.Eof(3),
-  ]) = scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
+  assert Ok([
+      scanner.Text(1, "Foo"),
+      scanner.Newline(1, "\r\n"),
+      scanner.Whitespace(2, "\t"),
+      scanner.Comment(2),
+      scanner.Newline(2, "\n"),
+      scanner.Text(3, "Bar"),
+      scanner.Eof(3),
+    ])
+    == scanner.scan("Foo\r\n\t{{!ignore me}}\nBar")
 }
 
 pub fn scan_multiline_comment_test() {
-  let assert Ok([
-    scanner.Text(1, "12345"),
-    scanner.Comment(1),
-    scanner.Text(1, "67890"),
-    scanner.Newline(1, "\n"),
-    scanner.Eof(2),
-  ]) = scanner.scan("12345{{!\n  This is a\n  multi-line comment...\n}}67890\n")
+  assert Ok([
+      scanner.Text(1, "12345"),
+      scanner.Comment(1),
+      scanner.Text(1, "67890"),
+      scanner.Newline(1, "\n"),
+      scanner.Eof(2),
+    ])
+    == scanner.scan("12345{{!\n  This is a\n  multi-line comment...\n}}67890\n")
+}
+
+pub fn scan_block_test() {
+  assert Ok([
+      scanner.BlockStart(1, "title"),
+      scanner.Text(1, "The News of Today"),
+      scanner.End(1, ["title"]),
+      scanner.Eof(1),
+    ])
+    == scanner.scan("{{$title}}The News of Today{{/title}}")
 }
