@@ -6,6 +6,22 @@ pub fn empty_test() {
   assert [rewriter.Eof(1)] == rewriter.rewrite([scanner.Eof(1)])
 }
 
+pub fn standalone_interpolation_test() {
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "  "),
+      rewriter.Variable(1, ["string"]),
+      rewriter.Literal(1, "\n"),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, "  "),
+      scanner.Variable(1, ["string"]),
+      scanner.Newline(1, "\n"),
+      scanner.Eof(2),
+    ])
+}
+
 pub fn elide_set_delimiters_test() {
   assert [
       rewriter.Indent(0),
