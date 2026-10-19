@@ -12,6 +12,7 @@
 ////           | [WHITESPACE] END EOF                        => END EOF
 ////           | [WHITESPACE] PARTIAL NEWLINE                => PADDING PARTIAL
 ////           | [WHITESPACE] PARTIAL EOF                    => PADDING PARTIAL EOF
+////           | PARENT_START END NEWLINE                    => PARENT_START END
 ////           | EOF                                         => EOF )
 ////           / {_token}                                    => INDENT {_token} ;
 //// _token -> ( COMMENT                                     => empty
@@ -28,6 +29,7 @@
 ////           | EOF                                         => EOF ) ;
 
 import gleam/list
+import gleam/option.{type Option, None, Some}
 import gleam/string
 
 import pomade/internal/scanner
@@ -39,6 +41,7 @@ pub type Token {
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
   BlockStart(line: Int, name: String)
+  ParentStart(line: Int, name: String)
   End(line: Int, name: List(String))
   Partial(line: Int, name: scanner.PartialName)
   RawVariable(line: Int, name: List(String))
@@ -55,8 +58,9 @@ pub type LayoutError {
 }
 
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
-  split_lines(tokens, [])
-  |> list.flat_map(transform)
+  tokens
+  |> transduce()
+  |> list.reverse()
   |> list.fold([], glom)
   |> list.reverse()
 }
@@ -85,6 +89,138 @@ fn next_line(
       tail,
     )
     [any, ..tail] -> next_line(tail, [any, ..line])
+  }
+}
+
+fn transduce(tokens: List(scanner.Token)) -> List(Token) {
+  transduce_loop(tokens, True, False, None, [])
+}
+
+fn transduce_loop(
+  tokens: List(scanner.Token),
+  start: Bool,
+  standalone: Bool,
+  padding: Option(scanner.Token),
+  acc: List(Token),
+) -> List(Token) {
+  case tokens {
+    [] -> acc
+    [scanner.Comment(_), ..tail] ->
+      transduce_loop(
+        tail,
+        False,
+        start || standalone,
+        None,
+        insert_whitespace(acc, padding),
+      )
+    [scanner.SetDelimiters(_, _, _), ..tail] ->
+      transduce_loop(
+        tail,
+        False,
+        start || standalone,
+        None,
+        insert_whitespace(acc, padding),
+      )
+    [scanner.Variable(line, name), ..tail] ->
+      transduce_loop(tail, False, False, None, [
+        Variable(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.RawVariable(line, name), ..tail] ->
+      transduce_loop(tail, False, False, None, [
+        RawVariable(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.Text(line, lexeme), ..tail] ->
+      transduce_loop(tail, False, False, None, [
+        Literal(line, lexeme),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.SectionStart(line, name), ..tail] ->
+      transduce_loop(tail, False, start || standalone, None, [
+        SectionStart(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.InvertedSectionStart(line, name), ..tail] ->
+      transduce_loop(tail, False, start || standalone, None, [
+        InvertedSectionStart(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.BlockStart(line, name), ..tail] ->
+      transduce_loop(tail, False, start || standalone, None, [
+        BlockStart(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.End(line, name), ..tail] ->
+      transduce_loop(tail, False, start || standalone, None, [
+        End(line, name),
+        ..insert_whitespace(acc, padding)
+      ])
+    [scanner.Whitespace(_, _) as ws, ..tail] ->
+      case start {
+        True -> transduce_loop(tail, start, standalone, Some(ws), acc)
+        False ->
+          transduce_loop(tail, start, standalone, None, [
+            Literal(ws.line, ws.lexeme),
+            ..acc
+          ])
+      }
+    [scanner.Partial(_, _) as p, ..tail] ->
+      case start, padding {
+        True, Some(scanner.Whitespace(line, lexeme)) ->
+          transduce_loop(tail, False, True, None, [
+            Partial(p.line, p.name),
+            Padding(line, lexeme),
+            ..acc
+          ])
+        _, _ ->
+          transduce_loop(tail, start, standalone, padding, [
+            Partial(p.line, p.name),
+            ..acc
+          ])
+      }
+    [scanner.ParentStart(line, name), ..tail] ->
+      case start, padding {
+        True, Some(scanner.Whitespace(line, lexeme)) ->
+          transduce_loop(tail, False, True, None, [
+            ParentStart(line, name),
+            Padding(line, lexeme),
+            ..acc
+          ])
+        _, _ ->
+          transduce_loop(tail, start, standalone, padding, [
+            ParentStart(line, name),
+            ..acc
+          ])
+      }
+    [scanner.Newline(line, lexeme), ..tail] ->
+      case standalone {
+        True ->
+          transduce_loop(
+            tail,
+            True,
+            False,
+            None,
+            insert_whitespace(acc, padding),
+          )
+        False ->
+          transduce_loop(tail, True, False, None, [
+            Literal(line, lexeme),
+            ..insert_whitespace(acc, padding)
+          ])
+      }
+    [scanner.Eof(line), ..tail] ->
+      transduce_loop(tail, False, False, None, [Eof(line), ..acc])
+  }
+}
+
+fn insert_whitespace(
+  acc: List(Token),
+  token: Option(scanner.Token),
+) -> List(Token) {
+  case token {
+    Some(scanner.Whitespace(lexeme, line)) -> [Literal(lexeme, line), ..acc]
+    _ -> acc
   }
 }
 
@@ -179,10 +315,22 @@ fn transform(line: List(scanner.Token)) -> List(Token) {
       Eof(line),
     ]
     [scanner.Partial(line, name), scanner.Eof(_)] -> [
-      Padding(line, ""),
+      //  Padding(line, ""),
       Partial(line, name),
       Eof(line),
     ]
+    //standalone block start and end with newline
+    [
+      scanner.BlockStart(line, name),
+      scanner.End(_, path),
+      scanner.Newline(_, _),
+    ] -> [BlockStart(line, name), End(line, path)]
+    //standalone parent start and end with newline
+    [
+      scanner.ParentStart(line, name),
+      scanner.End(_, path),
+      scanner.Newline(_, _),
+    ] -> [ParentStart(line, name), End(line, path)]
     // end of file
     [scanner.Eof(line)] -> [Eof(line)]
     // continue with in-line rules
@@ -209,7 +357,8 @@ fn inline(input: List(scanner.Token), output: List(Token)) -> List(Token) {
       inline(tail, [InvertedSectionStart(line, path), ..output])
     [scanner.BlockStart(line, path), ..tail] ->
       inline(tail, [BlockStart(line, path), ..output])
-    [scanner.ParentStart(_, _), ..tail] -> inline(tail, output)
+    [scanner.ParentStart(line, path), ..tail] ->
+      inline(tail, [ParentStart(line, path), ..output])
     [scanner.End(line, path), ..tail] ->
       inline(tail, [End(line, path), ..output])
     [scanner.Partial(line, path), ..tail] ->
@@ -246,6 +395,7 @@ pub fn token_to_string(token: Token) -> String {
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
     BlockStart(_, name) -> token_name_with_path("BLOCK_START", [name])
+    ParentStart(_, name) -> token_name_with_path("PARENT_START", [name])
     End(_, path) -> token_name_with_path("END_TAG", path)
     Partial(_, name) ->
       token_name_with_path("PARTIAL", case name {
