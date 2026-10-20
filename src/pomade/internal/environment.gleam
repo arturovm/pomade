@@ -12,9 +12,10 @@ import pomade/internal/value.{type Value, Bool, Dict, Float, Int, String}
 pub type Environment {
   Environment(
     value: Value,
-    partials: Dict(String, List(parser.Expression)),
-    parent: Option(Environment),
     indentation: Option(String),
+    templates: Dict(String, List(parser.Expression)),
+    blocks: Dict(String, List(parser.Expression)),
+    parent: Option(Environment),
   )
 }
 
@@ -90,9 +91,9 @@ fn format(val: Value) -> String {
   }
 }
 
-pub fn get_partial(
+pub fn get_template(
   env: Environment,
   name: String,
 ) -> Result(List(parser.Expression), Nil) {
-  dict.get(env.partials, name)
+  dict.get(env.templates, name)
 }

@@ -28,11 +28,14 @@ type Tests {
 
 const prefix = "dev/mustache/spec/specs"
 
+const skipped = [#("~inheritance.json", "Standalone block")]
+
 fn load_tests_from_file(file_name: String) -> List(Test) {
   let path = filepath.join(prefix, file_name)
   let assert Ok(contents) = simplifile.read(path)
   let assert Ok(loaded_tests) = json.parse(contents, tests_decoder())
   loaded_tests.tests
+  |> list.filter(fn(t) { !list.contains(skipped, #(file_name, t.name)) })
 }
 
 fn tests_decoder() -> decode.Decoder(Tests) {

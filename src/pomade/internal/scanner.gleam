@@ -1,6 +1,6 @@
 //// Mustache lexical grammar:
 ////
-//// template               -> {TRIPLE_MUSTACHE | tag | literal} {NEWLINE {TRIPLE_MUSTACHE | tag | literal}} ;
+//// template               -> [WHITESPACE] {TRIPLE_MUSTACHE | tag | literal} {NEWLINE [WHITESPACE] {TRIPLE_MUSTACHE | tag | literal}} ;
 //// TRIPLE_MUSTACHE        -> "{{{" [WHITESPACE] name [WHITESPACE] "}}}" ;
 //// literal                -> WHITESPACE | TEXT ;
 //// tag                    -> COMMENT | SET_DELIMITERS | SECTION | INVERTED_SECTION | BLOCK | CLOSING_TAG | PARTIAL | PARENT | RAW_VARIABLE | VARIABLE ;
@@ -113,7 +113,9 @@ fn scan_template(
   lexer: Lexer,
   source: String,
 ) -> Result(List(Token), LexicalError) {
-  case scan_top_level(lexer, source, []) {
+  let #(lexer, stream, source) =
+    scan_optional(lexer, source, [], scan_whitespace)
+  case scan_top_level(lexer, source, stream) {
     Ok(#(lexer, stream, tail)) ->
       case scan_newline_top_level(lexer, tail, stream) {
         Ok(#(lexer, stream, _)) ->
@@ -278,7 +280,7 @@ fn scan_set_delimiters(
     lexer,
     tail,
   ))
-  use #(_, _, tail) <- result.try(consume_whitespace(lexer, tail))
+  use #(_, tail) <- result.try(read_whitespace(lexer, tail))
   use #(right_delimiter, tail) <- result.try(read_custom_right_delimiter_value(
     lexer,
     tail,
@@ -415,12 +417,13 @@ fn scan_literal(
   }
 }
 
-fn consume_whitespace(
+fn scan_whitespace(
   lexer: Lexer,
   source: String,
-) -> Result(#(Lexer, Token, String), LexicalError) {
+  stream: List(Token),
+) -> Result(#(Lexer, List(Token), String), LexicalError) {
   use #(ws, tail) <- result.map(read_whitespace(lexer, source))
-  #(lexer, Whitespace(lexer.line, ws), tail)
+  #(lexer, [Whitespace(lexer.line, ws), ..stream], tail)
 }
 
 fn read_whitespace(
@@ -451,7 +454,9 @@ fn scan_newline_top_level(
     "\r\n" as nl <> tail | "\n" as nl <> tail -> {
       let newline = Newline(lexer.line, nl)
       let lexer = Lexer(..lexer, line: lexer.line + 1)
-      case scan_top_level(lexer, tail, [newline, ..stream]) {
+      let #(lexer, stream, tail) =
+        scan_optional(lexer, tail, [newline, ..stream], scan_whitespace)
+      case scan_top_level(lexer, tail, stream) {
         Ok(#(lexer, stream, tail)) ->
           scan_newline_top_level(lexer, tail, stream)
         error -> error
@@ -496,6 +501,19 @@ fn discard_optional(
   case reader(lexer, source) {
     Ok(#(_, tail)) -> tail
     Error(_) -> source
+  }
+}
+
+fn scan_optional(
+  lexer: Lexer,
+  source: String,
+  stream: List(Token),
+  scanner: fn(Lexer, String, List(Token)) ->
+    Result(#(Lexer, List(Token), String), LexicalError),
+) -> #(Lexer, List(Token), String) {
+  case scanner(lexer, source, stream) {
+    Ok(res) -> res
+    Error(_) -> #(lexer, stream, source)
   }
 }
 

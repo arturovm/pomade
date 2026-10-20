@@ -50,6 +50,7 @@ pub type Token {
   Eof(line: Int)
   // synthetic tokens
   Padding(line: Int, lexeme: String)
+  Leading(line: Int, lexeme: String)
   Indent(line: Int)
 }
 
@@ -64,14 +65,15 @@ pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
 }
 
 fn transduce(tokens: List(scanner.Token)) -> List(Token) {
-  transduce_loop(tokens, True, False, None, None, [], [])
+  transduce_loop(tokens, True, False, False, None, None, [], [])
 }
 
 fn transduce_loop(
   tokens: List(scanner.Token),
   start: Bool,
   standalone: Bool,
-  padding: Option(scanner.Token),
+  pad: Bool,
+  leading: Option(scanner.Token),
   literal: Option(Token),
   current_line: List(Token),
   acc: List(Token),
@@ -83,7 +85,8 @@ fn transduce_loop(
         tail,
         False,
         start || standalone,
-        padding,
+        pad,
+        leading,
         literal,
         current_line,
         acc,
@@ -93,7 +96,8 @@ fn transduce_loop(
         tail,
         False,
         start || standalone,
-        padding,
+        pad,
+        leading,
         literal,
         current_line,
         acc,
@@ -103,7 +107,8 @@ fn transduce_loop(
         tail,
         False,
         False,
-        padding,
+        pad,
+        leading,
         None,
         [Variable(line, name), ..insert_literal(current_line, literal)],
         acc,
@@ -113,7 +118,8 @@ fn transduce_loop(
         tail,
         False,
         False,
-        padding,
+        pad,
+        leading,
         None,
         [RawVariable(line, name), ..insert_literal(current_line, literal)],
         acc,
@@ -123,7 +129,8 @@ fn transduce_loop(
         tail,
         False,
         False,
-        padding,
+        pad,
+        leading,
         glom_literal(literal, text),
         current_line,
         acc,
@@ -133,7 +140,8 @@ fn transduce_loop(
         tail,
         False,
         start || standalone,
-        padding,
+        pad,
+        leading,
         None,
         [SectionStart(line, name), ..insert_literal(current_line, literal)],
         acc,
@@ -143,7 +151,8 @@ fn transduce_loop(
         tail,
         False,
         start || standalone,
-        padding,
+        pad,
+        leading,
         None,
         [
           InvertedSectionStart(line, name),
@@ -151,22 +160,13 @@ fn transduce_loop(
         ],
         acc,
       )
-    [scanner.BlockStart(line, name), ..tail] ->
-      transduce_loop(
-        tail,
-        False,
-        start || standalone,
-        padding,
-        None,
-        [BlockStart(line, name), ..insert_literal(current_line, literal)],
-        acc,
-      )
     [scanner.End(line, name), ..tail] ->
       transduce_loop(
         tail,
         False,
         start || standalone,
-        padding,
+        pad,
+        leading,
         None,
         [End(line, name), ..insert_literal(current_line, literal)],
         acc,
@@ -174,64 +174,61 @@ fn transduce_loop(
     [scanner.Whitespace(_, _) as ws, ..tail] ->
       case start {
         True ->
-          transduce_loop(tail, True, False, Some(ws), None, current_line, acc)
+          transduce_loop(
+            tail,
+            True,
+            False,
+            False,
+            Some(ws),
+            None,
+            current_line,
+            acc,
+          )
         False ->
           transduce_loop(
             tail,
             False,
             False,
-            padding,
+            False,
+            leading,
             glom_literal(literal, ws),
             current_line,
             acc,
           )
       }
     [scanner.Partial(line, name), ..tail] ->
-      case start, padding {
-        True, Some(scanner.Whitespace(_, lexeme)) ->
-          transduce_loop(
-            tail,
-            False,
-            start || standalone,
-            None,
-            None,
-            [Partial(line, name), Padding(line, lexeme), ..current_line],
-            acc,
-          )
-        _, _ ->
-          transduce_loop(
-            tail,
-            False,
-            start || standalone,
-            padding,
-            None,
-            [Partial(line, name), ..insert_literal(current_line, literal)],
-            acc,
-          )
-      }
+      transduce_loop(
+        tail,
+        False,
+        start || standalone,
+        True,
+        leading,
+        None,
+        [Partial(line, name), ..insert_literal(current_line, literal)],
+        acc,
+      )
+    [scanner.BlockStart(line, name), ..tail] ->
+      transduce_loop(
+        tail,
+        False,
+        start || standalone,
+        True,
+        leading,
+        None,
+        [BlockStart(line, name), ..insert_literal(current_line, literal)],
+        acc,
+      )
     [scanner.ParentStart(line, name), ..tail] ->
-      case start, padding {
-        True, Some(scanner.Whitespace(line, lexeme)) ->
-          transduce_loop(
-            tail,
-            False,
-            start || standalone,
-            None,
-            None,
-            [ParentStart(line, name), Padding(line, lexeme), ..current_line],
-            acc,
-          )
-        _, _ ->
-          transduce_loop(
-            tail,
-            False,
-            start || standalone,
-            padding,
-            None,
-            [ParentStart(line, name), ..insert_literal(current_line, literal)],
-            acc,
-          )
-      }
+      transduce_loop(
+        tail,
+        False,
+        start || standalone,
+        True,
+        leading,
+        None,
+        [ParentStart(line, name), ..insert_literal(current_line, literal)],
+        acc,
+      )
     [scanner.Newline(line, _) as nl, ..tail] -> {
       case standalone {
         True ->
@@ -239,34 +236,44 @@ fn transduce_loop(
             tail,
             True,
             False,
+            False,
             None,
             None,
             [],
-            list.append(current_line, acc),
+            list.append(current_line, case pad {
+              True -> insert_padding(acc, leading)
+              False -> acc
+            }),
           )
         False ->
           transduce_loop(
             tail,
             True,
             False,
+            False,
             None,
             None,
             [],
             list.append(
               insert_literal(current_line, glom_literal(literal, nl)),
-              insert_whitespace([Indent(line), ..acc], padding),
+              insert_leading([Indent(line), ..acc], leading),
             ),
           )
       }
     }
     [scanner.Eof(line), ..tail] -> {
       let acc = case start, standalone {
-        False, False -> insert_whitespace([Indent(line), ..acc], padding)
-        True, False -> insert_whitespace(acc, padding)
-        _, True -> acc
+        False, False -> insert_leading([Indent(line), ..acc], leading)
+        True, False -> insert_whitespace(acc, leading)
+        _, True ->
+          case pad {
+            True -> insert_padding(acc, leading)
+            False -> acc
+          }
       }
       transduce_loop(
         tail,
+        False,
         False,
         False,
         None,
@@ -299,12 +306,32 @@ fn insert_literal(acc: List(Token), literal: Option(Token)) -> List(Token) {
   }
 }
 
+fn insert_leading(
+  acc: List(Token),
+  token: Option(scanner.Token),
+) -> List(Token) {
+  case token {
+    Some(scanner.Whitespace(lexeme, line)) -> [Leading(lexeme, line), ..acc]
+    _ -> acc
+  }
+}
+
 fn insert_whitespace(
   acc: List(Token),
   token: Option(scanner.Token),
 ) -> List(Token) {
   case token {
     Some(scanner.Whitespace(lexeme, line)) -> [Literal(lexeme, line), ..acc]
+    _ -> acc
+  }
+}
+
+fn insert_padding(
+  acc: List(Token),
+  token: Option(scanner.Token),
+) -> List(Token) {
+  case token {
+    Some(scanner.Whitespace(lexeme, line)) -> [Padding(lexeme, line), ..acc]
     _ -> acc
   }
 }
@@ -328,7 +355,8 @@ pub fn token_to_string(token: Token) -> String {
     RawVariable(_, path) -> token_name_with_path("RAW_VARIABLE", path)
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
     Padding(_, _) -> "PADDING"
-    Indent(_) -> "LINE_START"
+    Indent(_) -> "INDENT"
+    Leading(_, _) -> "LEADING"
     Eof(_) -> "EOF"
   }
 }

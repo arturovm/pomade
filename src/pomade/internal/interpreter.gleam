@@ -12,11 +12,11 @@ import pomade/internal/value
 pub fn interpret(
   template: List(parser.Expression),
   environment: value.Value,
-  partials: Dict(String, List(parser.Expression)),
+  templates: Dict(String, List(parser.Expression)),
 ) -> StringTree {
   evaluate_exprs(
     template,
-    environment.Environment(environment, partials, None, None),
+    environment.Environment(environment, None, templates, dict.new(), None),
     string_tree.new(),
   )
 }
@@ -35,6 +35,8 @@ fn evaluate_exprs(
         None -> acc
         Some(indentation) -> string_tree.append(acc, indentation)
       })
+    [parser.Leading(value), ..tail] ->
+      evaluate_exprs(tail, env, string_tree.append(acc, value))
     [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
       evaluate_exprs(
         tail,
@@ -60,8 +62,18 @@ fn evaluate_exprs(
       )
     [parser.Partial(rewriter.Partial(_, name), indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
-    [parser.Block(rewriter.BlockStart(_, name), content), ..tail] ->
-      evaluate_exprs(tail, env, evaluate_block(name, content, env, acc))
+    [parser.Block(rewriter.BlockStart(_, name), indentation, content), ..tail] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_block(name, indentation, content, env, acc),
+      )
+    [parser.Parent(rewriter.ParentStart(_, name), indentation, content), ..tail] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_parent(name, indentation, content, env, acc),
+      )
     _ -> acc
   }
 }
@@ -125,7 +137,7 @@ fn evaluate_partial(
   acc: StringTree,
 ) -> StringTree {
   let name = resolve_partial_name(name, env)
-  case dict.get(env.partials, name) {
+  case dict.get(env.templates, name) {
     Ok(ast) ->
       evaluate_exprs(
         ast,
@@ -158,10 +170,66 @@ fn resolve_partial_name(
 }
 
 fn evaluate_block(
-  _name: String,
+  name: String,
+  indentation: String,
   content: List(parser.Expression),
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  evaluate_exprs(content, env, acc)
+  let content = case dict.get(env.blocks, name) {
+    Error(_) -> content
+    Ok(override) -> override
+  }
+  evaluate_exprs(
+    content,
+    environment.Environment(
+      ..env,
+      indentation: merge_indentation(env.indentation, Some(indentation)),
+    ),
+    acc,
+  )
+}
+
+fn evaluate_parent(
+  name: String,
+  indentation: Option(String),
+  content: List(parser.Expression),
+  env: environment.Environment,
+  acc: StringTree,
+) -> StringTree {
+  case dict.get(env.templates, name) {
+    Ok(ast) ->
+      evaluate_exprs(
+        ast,
+        environment.Environment(
+          ..env,
+          indentation: merge_indentation(env.indentation, indentation),
+          blocks: find_blocks_in_parent(content, env.blocks),
+        ),
+        acc,
+      )
+    Error(_) -> acc
+  }
+}
+
+fn find_blocks_in_parent(
+  content: List(parser.Expression),
+  acc: Dict(String, List(parser.Expression)),
+) -> Dict(String, List(parser.Expression)) {
+  case content {
+    [] -> acc
+    [head, ..tail] -> {
+      let acc = case head {
+        parser.Block(rewriter.BlockStart(_, name), _, content) ->
+          dict.upsert(acc, name, fn(val) {
+            case val {
+              None -> content
+              Some(previous) -> previous
+            }
+          })
+        _ -> acc
+      }
+      find_blocks_in_parent(tail, acc)
+    }
+  }
 }

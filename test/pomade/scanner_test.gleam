@@ -7,7 +7,8 @@ pub fn empty_scanner_test() {
 pub fn scan_whitespace_test() {
   assert Ok([scanner.Whitespace(1, "  "), scanner.Eof(1)]) == scanner.scan("  ")
   assert Ok([
-      scanner.Text(1, "\t    indented"),
+      scanner.Whitespace(1, "\t    "),
+      scanner.Text(1, "indented"),
       scanner.Eof(1),
     ])
     == scanner.scan("\t    indented")

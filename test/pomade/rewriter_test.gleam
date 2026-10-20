@@ -9,7 +9,7 @@ pub fn empty_test() {
 pub fn standalone_interpolation_test() {
   assert [
       rewriter.Indent(1),
-      rewriter.Literal(1, "  "),
+      rewriter.Leading(1, "  "),
       rewriter.Variable(1, ["string"]),
       rewriter.Literal(1, "\n"),
       rewriter.Eof(2),
@@ -96,7 +96,8 @@ pub fn standalone_without_newline_test() {
 pub fn indented_inline_test() {
   let assert Ok(tokens) = scanner.scan("  12 {{! 34 }}\n")
   assert [
-      scanner.Text(1, "  12 "),
+      scanner.Whitespace(1, "  "),
+      scanner.Text(1, "12 "),
       scanner.Comment(1),
       scanner.Newline(1, "\n"),
       scanner.Eof(2),
@@ -106,7 +107,8 @@ pub fn indented_inline_test() {
   let ast = rewriter.rewrite(tokens)
   assert [
       rewriter.Indent(1),
-      rewriter.Literal(1, "  12 \n"),
+      rewriter.Leading(1, "  "),
+      rewriter.Literal(1, "12 \n"),
       rewriter.Eof(2),
     ]
     == ast
