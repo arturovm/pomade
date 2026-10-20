@@ -61,11 +61,21 @@ pub type LayoutError {
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Token) {
   tokens
   |> transduce()
-  |> list.reverse()
 }
 
 fn transduce(tokens: List(scanner.Token)) -> List(Token) {
-  transduce_loop(tokens, True, False, False, None, None, [], [])
+  transduce_loop(
+    tokens,
+    True,
+    False,
+    False,
+    None,
+    None,
+    None,
+    None,
+    Empty,
+    Empty,
+  )
 }
 
 fn transduce_loop(
@@ -74,12 +84,14 @@ fn transduce_loop(
   standalone: Bool,
   pad: Bool,
   leading: Option(scanner.Token),
+  tag: Option(scanner.Token),
+  trailing: Option(scanner.Token),
   literal: Option(Token),
-  current_line: List(Token),
-  acc: List(Token),
+  current_line: Tree,
+  acc: Tree,
 ) -> List(Token) {
   case tokens {
-    [] -> acc
+    [] -> tree_to_list(acc)
     [scanner.Comment(_), ..tail] ->
       transduce_loop(
         tail,
@@ -87,6 +99,8 @@ fn transduce_loop(
         start || standalone,
         pad,
         leading,
+        tag,
+        trailing,
         literal,
         current_line,
         acc,
@@ -98,6 +112,8 @@ fn transduce_loop(
         start || standalone,
         pad,
         leading,
+        tag,
+        trailing,
         literal,
         current_line,
         acc,
@@ -109,8 +125,11 @@ fn transduce_loop(
         False,
         pad,
         leading,
+        tag,
+        trailing,
         None,
-        [Variable(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(Variable(line, name)),
         acc,
       )
     [scanner.RawVariable(line, name), ..tail] ->
@@ -120,8 +139,11 @@ fn transduce_loop(
         False,
         pad,
         leading,
+        tag,
+        trailing,
         None,
-        [RawVariable(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(RawVariable(line, name)),
         acc,
       )
     [scanner.Text(_, _) as text, ..tail] ->
@@ -131,6 +153,8 @@ fn transduce_loop(
         False,
         pad,
         leading,
+        tag,
+        trailing,
         glom_literal(literal, text),
         current_line,
         acc,
@@ -142,8 +166,11 @@ fn transduce_loop(
         start || standalone,
         pad,
         leading,
+        tag,
+        trailing,
         None,
-        [SectionStart(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(SectionStart(line, name)),
         acc,
       )
     [scanner.InvertedSectionStart(line, name), ..tail] ->
@@ -153,11 +180,11 @@ fn transduce_loop(
         start || standalone,
         pad,
         leading,
+        tag,
+        trailing,
         None,
-        [
-          InvertedSectionStart(line, name),
-          ..insert_literal(current_line, literal)
-        ],
+        append_literal(current_line, literal)
+          |> append(InvertedSectionStart(line, name)),
         acc,
       )
     [scanner.End(line, name), ..tail] ->
@@ -167,8 +194,10 @@ fn transduce_loop(
         start || standalone,
         pad,
         leading,
+        tag,
+        trailing,
         None,
-        [End(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal) |> append(End(line, name)),
         acc,
       )
     [scanner.Whitespace(_, _) as ws, ..tail] ->
@@ -180,6 +209,8 @@ fn transduce_loop(
             False,
             False,
             Some(ws),
+            tag,
+            trailing,
             None,
             current_line,
             acc,
@@ -191,6 +222,8 @@ fn transduce_loop(
             False,
             False,
             leading,
+            tag,
+            trailing,
             glom_literal(literal, ws),
             current_line,
             acc,
@@ -203,8 +236,11 @@ fn transduce_loop(
         start || standalone,
         True,
         leading,
+        tag,
+        trailing,
         None,
-        [Partial(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(Partial(line, name)),
         acc,
       )
     [scanner.BlockStart(line, name), ..tail] ->
@@ -214,8 +250,11 @@ fn transduce_loop(
         start || standalone,
         True,
         leading,
+        tag,
+        trailing,
         None,
-        [BlockStart(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(BlockStart(line, name)),
         acc,
       )
     [scanner.ParentStart(line, name), ..tail] ->
@@ -225,8 +264,11 @@ fn transduce_loop(
         start || standalone,
         True,
         leading,
+        tag,
+        trailing,
         None,
-        [ParentStart(line, name), ..insert_literal(current_line, literal)],
+        append_literal(current_line, literal)
+          |> append(ParentStart(line, name)),
         acc,
       )
     [scanner.Newline(line, _) as nl, ..tail] -> {
@@ -238,12 +280,14 @@ fn transduce_loop(
             False,
             False,
             None,
+            tag,
+            trailing,
             None,
-            [],
-            list.append(current_line, case pad {
-              True -> insert_padding(acc, leading)
-              False -> acc
-            }),
+            Empty,
+            case pad {
+              True -> append_padding(acc, leading) |> append_tree(current_line)
+              False -> append_tree(acc, current_line)
+            },
           )
         False ->
           transduce_loop(
@@ -252,22 +296,25 @@ fn transduce_loop(
             False,
             False,
             None,
+            tag,
+            trailing,
             None,
-            [],
-            list.append(
-              insert_literal(current_line, glom_literal(literal, nl)),
-              insert_leading([Indent(line), ..acc], leading),
-            ),
+            Empty,
+            acc
+              |> append(Indent(line))
+              |> append_leading(leading)
+              |> append_tree(current_line)
+              |> append_literal(glom_literal(literal, nl)),
           )
       }
     }
     [scanner.Eof(line), ..tail] -> {
       let acc = case start, standalone {
-        False, False -> insert_leading([Indent(line), ..acc], leading)
-        True, False -> insert_whitespace(acc, leading)
+        False, False -> append(acc, Indent(line)) |> append_leading(leading)
+        True, False -> append_whitespace(acc, leading)
         _, True ->
           case pad {
-            True -> insert_padding(acc, leading)
+            True -> append_padding(acc, leading)
             False -> acc
           }
       }
@@ -277,9 +324,14 @@ fn transduce_loop(
         False,
         False,
         None,
+        tag,
+        trailing,
         None,
-        [],
-        list.append([Eof(line), ..insert_literal(current_line, literal)], acc),
+        Empty,
+        acc
+          |> append_tree(current_line)
+          |> append_literal(literal)
+          |> append(Eof(line)),
       )
     }
   }
@@ -299,40 +351,75 @@ fn glom_literal(literal: Option(Token), token: scanner.Token) -> Option(Token) {
   }
 }
 
-fn insert_literal(acc: List(Token), literal: Option(Token)) -> List(Token) {
+fn append_literal(acc: Tree, literal: Option(Token)) -> Tree {
   case literal {
-    Some(Literal(_, _) as l) -> [l, ..acc]
+    Some(Literal(_, _) as l) -> append(acc, l)
     _ -> acc
   }
 }
 
-fn insert_leading(
-  acc: List(Token),
-  token: Option(scanner.Token),
-) -> List(Token) {
+fn append_leading(acc: Tree, token: Option(scanner.Token)) -> Tree {
   case token {
-    Some(scanner.Whitespace(lexeme, line)) -> [Leading(lexeme, line), ..acc]
+    Some(scanner.Whitespace(lexeme, line)) -> append(acc, Leading(lexeme, line))
     _ -> acc
   }
 }
 
-fn insert_whitespace(
-  acc: List(Token),
-  token: Option(scanner.Token),
-) -> List(Token) {
+fn append_whitespace(acc: Tree, token: Option(scanner.Token)) -> Tree {
   case token {
-    Some(scanner.Whitespace(lexeme, line)) -> [Literal(lexeme, line), ..acc]
+    Some(scanner.Whitespace(lexeme, line)) -> append(acc, Literal(lexeme, line))
     _ -> acc
   }
 }
 
-fn insert_padding(
-  acc: List(Token),
-  token: Option(scanner.Token),
-) -> List(Token) {
+fn append_padding(acc: Tree, token: Option(scanner.Token)) -> Tree {
   case token {
-    Some(scanner.Whitespace(lexeme, line)) -> [Padding(lexeme, line), ..acc]
+    Some(scanner.Whitespace(lexeme, line)) -> append(acc, Padding(lexeme, line))
     _ -> acc
+  }
+}
+
+// tree
+
+type Tree {
+  Empty
+  Leaf(Token)
+  Tree(List(Tree))
+}
+
+fn prepend(tree: Tree, prefix: Token) -> Tree {
+  append_tree(Leaf(prefix), tree)
+}
+
+fn prepend_tree(tree: Tree, prefix: Tree) -> Tree {
+  append_tree(prefix, tree)
+}
+
+fn append(tree: Tree, suffix: Token) -> Tree {
+  append_tree(tree, Leaf(suffix))
+}
+
+fn append_tree(tree: Tree, suffix: Tree) -> Tree {
+  // We build this in reverse order, because the walk to flatten has to happen
+  // in reverse order
+  case tree {
+    Empty -> suffix
+    Tree(tree) -> Tree([suffix, ..tree])
+    Leaf(_) -> Tree([suffix, tree])
+  }
+}
+
+fn tree_to_list(tree: Tree) -> List(Token) {
+  flatten([[tree]], [])
+}
+
+fn flatten(stack: List(List(Tree)), acc: List(Token)) -> List(Token) {
+  case stack {
+    [] -> acc
+    [[], ..rest] -> flatten(rest, acc)
+    [[Empty, ..trees], ..rest] -> flatten([trees, ..rest], acc)
+    [[Leaf(token), ..trees], ..rest] -> flatten([trees, ..rest], [token, ..acc])
+    [[Tree(inner), ..trees], ..rest] -> flatten([inner, trees, ..rest], acc)
   }
 }
 
