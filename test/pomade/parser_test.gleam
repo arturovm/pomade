@@ -85,12 +85,16 @@ pub fn inverted_section_test() {
 
 pub fn block_test() {
   assert Ok([
-      parser.Block(rewriter.BlockStart(0, "title", None), "", [
-        parser.Literal(rewriter.Literal(0, "hello :)")),
-      ]),
+      parser.Block(
+        rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+        "",
+        [
+          parser.Literal(rewriter.Literal(0, "hello :)")),
+        ],
+      ),
     ])
     == parser.parse([
-      rewriter.BlockStart(0, "title", None),
+      rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
       rewriter.Literal(0, "hello :)"),
       rewriter.End(0, ["title"], None),
       rewriter.Eof(0),
@@ -99,17 +103,25 @@ pub fn block_test() {
 
 pub fn parent_test() {
   assert Ok([
-      parser.Parent(rewriter.ParentStart(0, "article", None), None, [
-        parser.Literal(rewriter.Literal(0, "hello :)")),
-        parser.Block(rewriter.BlockStart(0, "title", None), "", [
-          parser.Literal(rewriter.Literal(0, "goodbye :(")),
-        ]),
-      ]),
+      parser.Parent(
+        rewriter.ParentStart(0, "article", rewriter.ClearsNone, None, None),
+        None,
+        [
+          parser.Literal(rewriter.Literal(0, "hello :)")),
+          parser.Block(
+            rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+            "",
+            [
+              parser.Literal(rewriter.Literal(0, "goodbye :(")),
+            ],
+          ),
+        ],
+      ),
     ])
     == parser.parse([
-      rewriter.ParentStart(0, "article", None),
+      rewriter.ParentStart(0, "article", rewriter.ClearsNone, None, None),
       rewriter.Literal(0, "hello :)"),
-      rewriter.BlockStart(0, "title", None),
+      rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
       rewriter.Literal(0, "goodbye :("),
       rewriter.End(0, ["title"], None),
       rewriter.End(0, ["article"], None),

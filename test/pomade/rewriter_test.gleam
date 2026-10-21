@@ -1,4 +1,4 @@
-import gleam/option.{Some}
+import gleam/option.{None, Some}
 
 import pomade/internal/rewriter
 import pomade/internal/scanner
@@ -121,7 +121,8 @@ pub fn line_start_test() {
     == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)])
 }
 
-pub fn inline_partial_test() {
+pub fn standalone_partial_test() {
+  // leading whitespace
   assert [
       rewriter.Partial(1, scanner.StaticName("hello"), Some(" \t")),
       rewriter.Eof(2),
@@ -141,5 +142,358 @@ pub fn inline_partial_test() {
       scanner.Whitespace(1, " \t"),
       scanner.Partial(1, scanner.StaticName("hello")),
       scanner.Eof(1),
+    ])
+  // trailing whitespace
+  assert [
+      rewriter.Partial(1, scanner.StaticName("hello"), Some(" \t")),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.Partial(1, scanner.StaticName("hello")),
+      scanner.Whitespace(1, "  "),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.Partial(1, scanner.StaticName("hello"), Some(" \t")),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.Partial(1, scanner.StaticName("hello")),
+      scanner.Whitespace(1, "  "),
+      scanner.Eof(1),
+    ])
+}
+
+pub fn standalone_block_test() {
+  // leading whitespace
+  assert [
+      rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, Some(" \t"), None),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.BlockStart(1, "hello"),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, Some(" \t"), None),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.BlockStart(1, "hello"),
+      scanner.Eof(1),
+    ])
+  // trailing whitespace
+  assert [
+      rewriter.BlockStart(
+        1,
+        "hello",
+        rewriter.ClearsBoth,
+        Some(" \t"),
+        Some("  "),
+      ),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.BlockStart(1, "hello"),
+      scanner.Whitespace(1, "  "),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.BlockStart(
+        1,
+        "hello",
+        rewriter.ClearsBoth,
+        Some(" \t"),
+        Some("  "),
+      ),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.BlockStart(1, "hello"),
+      scanner.Whitespace(1, "  "),
+      scanner.Eof(1),
+    ])
+}
+
+pub fn standalone_parent_test() {
+  // leading whitespace
+  assert [
+      rewriter.ParentStart(1, "hello", rewriter.ClearsBoth, Some(" \t"), None),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.ParentStart(1, "hello"),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.ParentStart(1, "hello", rewriter.ClearsBoth, Some(" \t"), None),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.ParentStart(1, "hello"),
+      scanner.Eof(1),
+    ])
+  // trailing whitespace
+  assert [
+      rewriter.ParentStart(
+        1,
+        "hello",
+        rewriter.ClearsBoth,
+        Some(" \t"),
+        Some("  "),
+      ),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.ParentStart(1, "hello"),
+      scanner.Whitespace(1, "  "),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.ParentStart(
+        1,
+        "hello",
+        rewriter.ClearsBoth,
+        Some(" \t"),
+        Some("  "),
+      ),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.ParentStart(1, "hello"),
+      scanner.Whitespace(1, "  "),
+      scanner.Eof(1),
+    ])
+}
+
+pub fn block_clerance_test() {
+  // clears both
+  assert [rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, None, None)]
+    == rewriter.rewrite([
+      scanner.BlockStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+    ])
+  assert [
+      rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, None, None),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.BlockStart(1, "hello"),
+      scanner.Eof(1),
+    ])
+  // clears start
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a\n"),
+      rewriter.Indent(2),
+      rewriter.BlockStart(2, "hello", rewriter.ClearsStart, None, None),
+      rewriter.Literal(2, " b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a"),
+      scanner.Newline(1, "\n"),
+      scanner.BlockStart(2, "hello"),
+      scanner.Text(2, " b"),
+      scanner.Newline(2, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a\n"),
+      rewriter.Indent(2),
+      rewriter.BlockStart(2, "hello", rewriter.ClearsStart, None, None),
+      rewriter.Literal(2, " b\n"),
+      rewriter.Eof(3),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a"),
+      scanner.Newline(1, "\n"),
+      scanner.BlockStart(2, "hello"),
+      scanner.Text(2, " b"),
+      scanner.Newline(2, "\n"),
+      scanner.Eof(3),
+    ])
+  // clears end
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.BlockStart(1, "hello", rewriter.ClearsEnd, None, Some("\n")),
+      rewriter.Indent(2),
+      rewriter.Literal(2, "b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.BlockStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+      scanner.Text(2, "b"),
+      scanner.Newline(2, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.BlockStart(1, "hello", rewriter.ClearsEnd, None, Some("\n")),
+      rewriter.Indent(2),
+      rewriter.Literal(2, "b\n"),
+      rewriter.Eof(3),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.BlockStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+      scanner.Text(2, "b"),
+      scanner.Newline(2, "\n"),
+      scanner.Eof(3),
+    ])
+  // clears none
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.BlockStart(1, "hello", rewriter.ClearsNone, None, None),
+      rewriter.Literal(1, " b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.BlockStart(1, "hello"),
+      scanner.Text(1, " b"),
+      scanner.Newline(1, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.BlockStart(1, "hello", rewriter.ClearsNone, None, None),
+      rewriter.Literal(1, " b\n"),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.BlockStart(1, "hello"),
+      scanner.Text(1, " b"),
+      scanner.Newline(1, "\n"),
+      scanner.Eof(2),
+    ])
+}
+
+pub fn parent_clerance_test() {
+  // clears both
+  assert [rewriter.ParentStart(1, "hello", rewriter.ClearsBoth, None, None)]
+    == rewriter.rewrite([
+      scanner.ParentStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+    ])
+  assert [
+      rewriter.ParentStart(1, "hello", rewriter.ClearsBoth, None, None),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.ParentStart(1, "hello"),
+      scanner.Eof(1),
+    ])
+  // clears start
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a\n"),
+      rewriter.Indent(2),
+      rewriter.ParentStart(2, "hello", rewriter.ClearsStart, None, None),
+      rewriter.Literal(2, " b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a"),
+      scanner.Newline(1, "\n"),
+      scanner.ParentStart(2, "hello"),
+      scanner.Text(2, " b"),
+      scanner.Newline(2, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a\n"),
+      rewriter.Indent(2),
+      rewriter.ParentStart(2, "hello", rewriter.ClearsStart, None, None),
+      rewriter.Literal(2, " b\n"),
+      rewriter.Eof(3),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a"),
+      scanner.Newline(1, "\n"),
+      scanner.ParentStart(2, "hello"),
+      scanner.Text(2, " b"),
+      scanner.Newline(2, "\n"),
+      scanner.Eof(3),
+    ])
+  // clears end
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.ParentStart(1, "hello", rewriter.ClearsEnd, None, Some("\n")),
+      rewriter.Indent(2),
+      rewriter.Literal(2, "b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.ParentStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+      scanner.Text(2, "b"),
+      scanner.Newline(2, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.ParentStart(1, "hello", rewriter.ClearsEnd, None, Some("\n")),
+      rewriter.Indent(2),
+      rewriter.Literal(2, "b\n"),
+      rewriter.Eof(3),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.ParentStart(1, "hello"),
+      scanner.Newline(1, "\n"),
+      scanner.Text(2, "b"),
+      scanner.Newline(2, "\n"),
+      scanner.Eof(3),
+    ])
+  // clears none
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.ParentStart(1, "hello", rewriter.ClearsNone, None, None),
+      rewriter.Literal(1, " b\n"),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.ParentStart(1, "hello"),
+      scanner.Text(1, " b"),
+      scanner.Newline(1, "\n"),
+    ])
+  assert [
+      rewriter.Indent(1),
+      rewriter.Literal(1, "a "),
+      rewriter.ParentStart(1, "hello", rewriter.ClearsNone, None, None),
+      rewriter.Literal(1, " b\n"),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Text(1, "a "),
+      scanner.ParentStart(1, "hello"),
+      scanner.Text(1, " b"),
+      scanner.Newline(1, "\n"),
+      scanner.Eof(2),
     ])
 }

@@ -127,10 +127,10 @@ fn parse_block(
   case tokens {
     [
       rewriter.Padding(_, indentation),
-      rewriter.BlockStart(_, _, _) as start,
+      rewriter.BlockStart(_, _, _, _, _) as start,
       ..tail
     ] -> parse_block_content(tail, start, Some(indentation), dedent)
-    [rewriter.BlockStart(_, _, _) as start, ..tail] ->
+    [rewriter.BlockStart(_, _, _, _, _) as start, ..tail] ->
       parse_block_content(tail, start, None, dedent)
     _ -> parse_parent(tokens, dedent)
   }
@@ -190,10 +190,10 @@ fn parse_parent(
   case tokens {
     [
       rewriter.Padding(_, indentation),
-      rewriter.ParentStart(_, _, _) as start,
+      rewriter.ParentStart(_, _, _, _, _) as start,
       ..tail
     ] -> parse_parent_content(tail, start, Some(indentation), dedent)
-    [rewriter.ParentStart(_, _, _) as start, ..tail] ->
+    [rewriter.ParentStart(_, _, _, _, _) as start, ..tail] ->
       parse_parent_content(tail, start, None, dedent)
     _ -> parse_inverted_section(tokens, dedent)
   }
@@ -344,8 +344,8 @@ fn tag_path(tag: rewriter.Element) -> Result(List(String), SyntaxError) {
     rewriter.SectionStart(_, path) -> Ok(path)
     rewriter.InvertedSectionStart(_, path) -> Ok(path)
     rewriter.End(_, path, _) -> Ok(path)
-    rewriter.BlockStart(_, name, _) -> Ok([name])
-    rewriter.ParentStart(_, name, _) -> Ok([name])
+    rewriter.BlockStart(_, name, _, _, _) -> Ok([name])
+    rewriter.ParentStart(_, name, _, _, _) -> Ok([name])
     any -> Error(UnexpectedTokenError(any))
   }
 }

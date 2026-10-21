@@ -39,8 +39,20 @@ pub type Element {
   // tags
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
-  BlockStart(line: Int, name: String, leading: Option(String))
-  ParentStart(line: Int, name: String, leading: Option(String))
+  BlockStart(
+    line: Int,
+    name: String,
+    clearance: Clearance,
+    leading: Option(String),
+    trailing: Option(String),
+  )
+  ParentStart(
+    line: Int,
+    name: String,
+    clearance: Clearance,
+    leading: Option(String),
+    trailing: Option(String),
+  )
   End(line: Int, name: List(String), trailing: Option(String))
   Partial(line: Int, name: scanner.PartialName, leading: Option(String))
   RawVariable(line: Int, name: List(String))
@@ -53,19 +65,23 @@ pub type Element {
   Indent(line: Int)
 }
 
-pub type LayoutError {
-  UnexpectedToken(scanner.Token)
+pub type Clearance {
+  ClearsBoth
+  ClearsStart
+  ClearsEnd
+  ClearsNone
 }
 
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
-  transduce_loop(tokens, True, None, None, None, None, Empty, Empty)
+  transduce_loop(tokens, True, None, None, None, None, None, Empty, Empty)
 }
 
 fn transduce_loop(
   tokens: List(scanner.Token),
   start: Bool,
   leading: Option(String),
-  tag: Option(scanner.Token),
+  first: Option(scanner.Token),
+  latest: Option(scanner.Token),
   trailing: Option(String),
   literal: Option(String),
   current_line: Tree,
@@ -80,8 +96,9 @@ fn transduce_loop(
         leading,
         case start {
           True -> Some(comment)
-          False -> tag
+          False -> first
         },
+        latest,
         trailing,
         literal,
         current_line,
@@ -94,8 +111,9 @@ fn transduce_loop(
         leading,
         case start {
           True -> Some(sd)
-          False -> tag
+          False -> first
         },
+        latest,
         trailing,
         literal,
         current_line,
@@ -109,8 +127,10 @@ fn transduce_loop(
         None,
         None,
         None,
+        None,
         commit_leading(current_line, line, leading)
-          |> commit_tag(tag)
+          |> commit_first(first)
+          |> commit_latest(latest)
           |> commit_trailing(line, trailing)
           |> append_literal(line, literal)
           |> append(Variable(line, name)),
@@ -124,8 +144,10 @@ fn transduce_loop(
         None,
         None,
         None,
+        None,
         commit_leading(current_line, line, leading)
-          |> commit_tag(tag)
+          |> commit_first(first)
+          |> commit_latest(latest)
           |> commit_trailing(line, trailing)
           |> append_literal(line, literal)
           |> append(RawVariable(line, name)),
@@ -138,10 +160,12 @@ fn transduce_loop(
         None,
         None,
         None,
+        None,
         glom_literal(literal, lexeme),
         current_line
           |> commit_leading(line, leading)
-          |> commit_tag(tag)
+          |> commit_first(first)
+          |> commit_latest(latest)
           |> commit_trailing(line, trailing),
         acc,
       )
@@ -152,13 +176,24 @@ fn transduce_loop(
           None,
           None,
           commit_leading(current_line, line, leading)
-            |> commit_tag(tag)
+            |> commit_first(first)
+            |> commit_latest(latest)
             |> commit_trailing(line, trailing)
             |> append_literal(line, literal)
             |> append(SectionStart(line, name)),
         )
       }
-      transduce_loop(tail, False, leading, tag, None, None, current_line, acc)
+      transduce_loop(
+        tail,
+        False,
+        leading,
+        tag,
+        None,
+        None,
+        None,
+        current_line,
+        acc,
+      )
     }
     [scanner.InvertedSectionStart(line, name) as iss, ..tail] -> {
       let #(leading, tag, current_line) = case start {
@@ -167,13 +202,24 @@ fn transduce_loop(
           None,
           None,
           commit_leading(current_line, line, leading)
-            |> commit_tag(tag)
+            |> commit_first(first)
+            |> commit_latest(latest)
             |> commit_trailing(line, trailing)
             |> append_literal(line, literal)
             |> append(InvertedSectionStart(line, name)),
         )
       }
-      transduce_loop(tail, False, leading, tag, None, None, current_line, acc)
+      transduce_loop(
+        tail,
+        False,
+        leading,
+        tag,
+        None,
+        None,
+        None,
+        current_line,
+        acc,
+      )
     }
     [scanner.End(line, name) as end, ..tail] ->
       case start {
@@ -183,6 +229,7 @@ fn transduce_loop(
             False,
             leading,
             Some(end),
+            None,
             None,
             None,
             current_line,
@@ -196,8 +243,10 @@ fn transduce_loop(
             None,
             None,
             None,
+            None,
             commit_leading(current_line, line, leading)
-              |> commit_tag(tag)
+              |> commit_first(first)
+              |> commit_latest(latest)
               |> commit_trailing(line, trailing)
               |> append_literal(line, literal)
               |> append(End(line, name, None)),
@@ -205,20 +254,24 @@ fn transduce_loop(
           )
       }
     [scanner.Whitespace(_, lexeme), ..tail] -> {
-      let #(leading, trailing, literal) = case start, tag {
+      let #(leading, trailing, literal) = case start, first, latest {
         // if we are at line start, then whitespace is considered leading
-        True, _ -> #(Some(lexeme), None, None)
-        // if there's a previous tag in the tag variable, whitespace is treated
-        // as a possible trailing value
-        _, Some(_) -> #(None, Some(lexeme), None)
+        True, _, _ -> #(Some(lexeme), None, None)
+        // if we are no longer at line start and there's a previous tag in the
+        // tag variable, whitespace is treated as a possible trailing value,
+        // plus we keep the leading variable as is, in case this is a "normal"
+        // standalone tag (i.e. not a block or a parent, which have a newer
+        // whitespace model)
+        _, Some(_), _ | _, _, Some(_) -> #(leading, Some(lexeme), None)
         // otherwise, it's treated as a literal
-        _, None -> #(None, None, glom_literal(literal, lexeme))
+        _, None, _ -> #(None, None, glom_literal(literal, lexeme))
       }
       transduce_loop(
         tail,
         start,
         leading,
-        tag,
+        first,
+        latest,
         trailing,
         literal,
         current_line,
@@ -235,6 +288,7 @@ fn transduce_loop(
             Some(partial),
             None,
             None,
+            None,
             current_line,
             acc,
           )
@@ -246,15 +300,17 @@ fn transduce_loop(
             None,
             None,
             None,
+            None,
             commit_leading(current_line, line, leading)
-              |> commit_tag(tag)
+              |> commit_first(first)
+              |> commit_latest(latest)
               |> commit_trailing(line, trailing)
               |> append_literal(line, literal)
               |> append(Partial(line, name, None)),
             acc,
           )
       }
-    [scanner.BlockStart(line, name) as bs, ..tail] ->
+    [scanner.BlockStart(line, _) as bs, ..tail] ->
       case start {
         True ->
           transduce_loop(
@@ -265,6 +321,7 @@ fn transduce_loop(
             // lol
             None,
             None,
+            None,
             current_line,
             acc,
           )
@@ -272,15 +329,16 @@ fn transduce_loop(
           transduce_loop(
             tail,
             False,
-            leading,
             None,
+            None,
+            Some(bs),
             None,
             None,
             commit_leading(current_line, line, leading)
-              |> commit_tag(tag)
+              |> commit_first(first)
+              |> commit_latest(latest)
               |> commit_trailing(line, trailing)
-              |> append_literal(line, literal)
-              |> append(BlockStart(line, name, None)),
+              |> append_literal(line, literal),
             acc,
           )
       }
@@ -294,6 +352,7 @@ fn transduce_loop(
             Some(ps),
             None,
             None,
+            None,
             current_line,
             acc,
           )
@@ -303,56 +362,111 @@ fn transduce_loop(
             False,
             leading,
             None,
+            Some(ps),
             None,
             None,
             commit_leading(current_line, line, leading)
-              |> commit_tag(tag)
+              |> commit_first(first)
+              |> commit_latest(latest)
               |> commit_trailing(line, trailing)
-              |> append_literal(line, literal)
-              |> append(ParentStart(line, name, None)),
+              |> append_literal(line, literal),
             acc,
           )
       }
     [scanner.Newline(line, lexeme), ..tail] -> {
-      let acc = case tag {
+      let acc = case first, latest {
         // standalone elided
-        Some(scanner.Comment(_)) | Some(scanner.SetDelimiters(_, _, _)) -> acc
+        Some(scanner.Comment(_)), _ | Some(scanner.SetDelimiters(_, _, _)), _ ->
+          acc
         // standalone tags
-        Some(scanner.SectionStart(_, _))
-        | Some(scanner.InvertedSectionStart(_, _))
-        | Some(scanner.End(_, _))
-        | Some(scanner.BlockStart(_, _))
-        | Some(scanner.ParentStart(_, _)) -> commit_tag(acc, tag)
+        Some(scanner.SectionStart(_, _)), _
+        | Some(scanner.InvertedSectionStart(_, _)), _
+        | Some(scanner.End(_, _)), _
+        -> commit_first(acc, first)
         // partials
-        Some(scanner.Partial(_, name)) ->
+        Some(scanner.Partial(_, name)), _ ->
           append(acc, Partial(line, name, leading))
+        // blocks
+        Some(scanner.BlockStart(_, name)), _ ->
+          // if the first tag was pending to be committed, then that means that
+          // the line is empty, aside from the block start, so the tag clears
+          // both, and there's no need to write the current line into the main
+          // accumulator
+          append(acc, BlockStart(line, name, ClearsBoth, leading, trailing))
+        _, Some(scanner.BlockStart(_, name)) ->
+          // if the latest tag was pending to be committed, then that means that
+          // the line is NOT empty, so the tag only clears the end, and we
+          // absorb the trailing whitespace into the element
+          append(acc, Indent(line))
+          |> append_tree(current_line)
+          |> append(BlockStart(
+            line,
+            name,
+            ClearsEnd,
+            leading,
+            glom_literal(trailing, lexeme),
+          ))
+        // parents
+        Some(scanner.ParentStart(_, name)), _ ->
+          // all of the same logic above applies to parents
+          append(acc, ParentStart(line, name, ClearsBoth, leading, trailing))
+        _, Some(scanner.ParentStart(_, name)) ->
+          // all of the same logic above applies to parents
+          append(acc, Indent(line))
+          |> append_tree(current_line)
+          |> append(ParentStart(
+            line,
+            name,
+            ClearsEnd,
+            leading,
+            glom_literal(trailing, lexeme),
+          ))
         // content lines
-        _ ->
+        _, _ ->
           acc
           |> append(Indent(line))
           |> append_tree(current_line)
-          |> commit_leading(line, leading)
-          |> commit_tag(tag)
-          |> commit_trailing(line, trailing)
           |> append_literal(line, glom_literal(literal, lexeme))
       }
-      transduce_loop(tail, True, None, None, None, None, Empty, acc)
+      transduce_loop(tail, True, None, None, None, None, None, Empty, acc)
     }
     [scanner.Eof(line), ..tail] -> {
-      let acc = case tag {
+      let acc = case first, latest {
         // standalone elided
-        Some(scanner.Comment(_)) | Some(scanner.SetDelimiters(_, _, _)) -> acc
+        Some(scanner.Comment(_)), _ | Some(scanner.SetDelimiters(_, _, _)), _ ->
+          acc
         // standalone tags
-        Some(scanner.SectionStart(_, _))
-        | Some(scanner.InvertedSectionStart(_, _))
-        | Some(scanner.End(_, _))
-        | Some(scanner.BlockStart(_, _))
-        | Some(scanner.ParentStart(_, _)) -> commit_tag(acc, tag)
+        Some(scanner.SectionStart(_, _)), _
+        | Some(scanner.InvertedSectionStart(_, _)), _
+        | Some(scanner.End(_, _)), _
+        -> commit_first(acc, first)
         // partials
-        Some(scanner.Partial(_, name)) ->
+        Some(scanner.Partial(_, name)), _ ->
           append(acc, Partial(line, name, leading))
-        // content llines
-        _ ->
+        // blocks
+        Some(scanner.BlockStart(_, name)), _ ->
+          // if the first tag was pending to be committed, then that means that
+          // the line is empty, aside from the block start, so the tag clears
+          // both, and there's no need to write the current line into the main
+          // accumulator
+          append(acc, BlockStart(line, name, ClearsBoth, leading, trailing))
+        // if the latest tag was pending to be committed, then that means that the
+        // line is NOT empty, so the tag only clears the end
+        _, Some(scanner.BlockStart(_, name)) ->
+          append(acc, Indent(line))
+          |> append_tree(current_line)
+          |> append(BlockStart(line, name, ClearsEnd, leading, trailing))
+        // parents
+        Some(scanner.ParentStart(_, name)), _ ->
+          // all of the same logic above applies to parents
+          append(acc, ParentStart(line, name, ClearsBoth, leading, trailing))
+        _, Some(scanner.ParentStart(_, name)) ->
+          // all of the same logic above applies to parents
+          append(acc, Indent(line))
+          |> append_tree(current_line)
+          |> append(ParentStart(line, name, ClearsEnd, leading, trailing))
+        // content lines
+        _, _ ->
           case start {
             // if the line is empty and there's leading whitespace, we append
             // it as a literal, and we don't insert the indentation marker
@@ -372,6 +486,7 @@ fn transduce_loop(
         None,
         None,
         None,
+        None,
         Empty,
         acc
           |> append(Eof(line)),
@@ -387,8 +502,8 @@ fn commit_leading(acc: Tree, line: Int, leading: Option(String)) -> Tree {
   }
 }
 
-// commit tag inline
-fn commit_tag(acc: Tree, tag: Option(scanner.Token)) -> Tree {
+// commit the first tag inline
+fn commit_first(acc: Tree, tag: Option(scanner.Token)) -> Tree {
   case tag {
     // elided tags
     Some(scanner.Comment(_)) | Some(scanner.SetDelimiters(_, _, _)) -> acc
@@ -404,10 +519,32 @@ fn commit_tag(acc: Tree, tag: Option(scanner.Token)) -> Tree {
     Some(scanner.Partial(line, name)) -> append(acc, Partial(line, name, None))
     // block start
     Some(scanner.BlockStart(line, name)) ->
-      append(acc, BlockStart(line, name, None))
+      // we know that the block start tag clears the start, because if it is
+      // being committed, that means it was the first tag seen on the line, and
+      // now it isn't
+      append(acc, BlockStart(line, name, ClearsStart, None, None))
     // parent start
     Some(scanner.ParentStart(line, name)) ->
-      append(acc, ParentStart(line, name, None))
+      // all of the same logic above applies to parents
+      append(acc, ParentStart(line, name, ClearsStart, None, None))
+    // all other cases
+    _ -> acc
+  }
+}
+
+// commit the latest tag inline
+fn commit_latest(acc: Tree, tag: Option(scanner.Token)) -> Tree {
+  case tag {
+    // block start
+    Some(scanner.BlockStart(line, name)) ->
+      // we know that the block start tag clears none, because if it is being
+      // committed, that means it was the latest tag seen on the line, and now
+      // it isn't
+      append(acc, BlockStart(line, name, ClearsNone, None, None))
+    // parent start
+    Some(scanner.ParentStart(line, name)) ->
+      // all of the same logic above applies to parents
+      append(acc, ParentStart(line, name, ClearsNone, None, None))
     // all other cases
     _ -> acc
   }
@@ -507,8 +644,9 @@ pub fn token_to_string(token: Element) -> String {
     SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
-    BlockStart(_, name, _) -> token_name_with_path("BLOCK_START", [name])
-    ParentStart(_, name, _) -> token_name_with_path("PARENT_START", [name])
+    BlockStart(_, name, _, _, _) -> token_name_with_path("BLOCK_START", [name])
+    ParentStart(_, name, _, _, _) ->
+      token_name_with_path("PARENT_START", [name])
     End(_, path, _) -> token_name_with_path("END_TAG", path)
     Partial(_, name, _) ->
       token_name_with_path("PARTIAL", case name {

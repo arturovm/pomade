@@ -63,7 +63,7 @@ fn evaluate_exprs(
     [parser.Partial(rewriter.Partial(_, name, _), indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
     [
-      parser.Block(rewriter.BlockStart(_, name, None), indentation, content),
+      parser.Block(rewriter.BlockStart(_, name, _, _, _), indentation, content),
       ..tail
     ] ->
       evaluate_exprs(
@@ -72,7 +72,11 @@ fn evaluate_exprs(
         evaluate_block(name, indentation, content, env, acc),
       )
     [
-      parser.Parent(rewriter.ParentStart(_, name, None), indentation, content),
+      parser.Parent(
+        rewriter.ParentStart(_, name, _, _, _),
+        indentation,
+        content,
+      ),
       ..tail
     ] ->
       evaluate_exprs(
@@ -226,7 +230,7 @@ fn find_blocks_in_parent(
     [] -> acc
     [head, ..tail] -> {
       let acc = case head {
-        parser.Block(rewriter.BlockStart(_, name, None), _, content) ->
+        parser.Block(rewriter.BlockStart(_, name, _, _, _), _, content) ->
           dict.upsert(acc, name, fn(val) {
             case val {
               None -> content

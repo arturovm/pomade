@@ -258,9 +258,13 @@ pub fn block_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Block(rewriter.BlockStart(0, "block", None), "", [
-          parser.Literal(rewriter.Literal(0, "foo, bar, baz")),
-        ]),
+        parser.Block(
+          rewriter.BlockStart(0, "block", rewriter.ClearsNone, None, None),
+          "",
+          [
+            parser.Literal(rewriter.Literal(0, "foo, bar, baz")),
+          ],
+        ),
       ],
       value.Dict(dict.new()),
       dict.new(),
