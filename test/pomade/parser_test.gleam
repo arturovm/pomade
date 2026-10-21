@@ -63,7 +63,7 @@ pub fn section_test() {
     parser.parse([
       rewriter.SectionStart(0, ["person"]),
       rewriter.Variable(0, ["name"]),
-      rewriter.End(0, ["person"]),
+      rewriter.End(0, ["person"], None),
       rewriter.Eof(0),
     ])
 }
@@ -78,60 +78,62 @@ pub fn inverted_section_test() {
     parser.parse([
       rewriter.InvertedSectionStart(0, ["person"]),
       rewriter.Literal(0, "no repos :("),
-      rewriter.End(0, ["person"]),
+      rewriter.End(0, ["person"], None),
       rewriter.Eof(0),
     ])
 }
 
 pub fn block_test() {
   assert Ok([
-      parser.Block(rewriter.BlockStart(0, "title"), "", [
+      parser.Block(rewriter.BlockStart(0, "title", None), "", [
         parser.Literal(rewriter.Literal(0, "hello :)")),
       ]),
     ])
     == parser.parse([
-      rewriter.BlockStart(0, "title"),
+      rewriter.BlockStart(0, "title", None),
       rewriter.Literal(0, "hello :)"),
-      rewriter.End(0, ["title"]),
+      rewriter.End(0, ["title"], None),
       rewriter.Eof(0),
     ])
 }
 
 pub fn parent_test() {
   assert Ok([
-      parser.Parent(rewriter.ParentStart(0, "article"), None, [
+      parser.Parent(rewriter.ParentStart(0, "article", None), None, [
         parser.Literal(rewriter.Literal(0, "hello :)")),
-        parser.Block(rewriter.BlockStart(0, "title"), "", [
+        parser.Block(rewriter.BlockStart(0, "title", None), "", [
           parser.Literal(rewriter.Literal(0, "goodbye :(")),
         ]),
       ]),
     ])
     == parser.parse([
-      rewriter.ParentStart(0, "article"),
+      rewriter.ParentStart(0, "article", None),
       rewriter.Literal(0, "hello :)"),
-      rewriter.BlockStart(0, "title"),
+      rewriter.BlockStart(0, "title", None),
       rewriter.Literal(0, "goodbye :("),
-      rewriter.End(0, ["title"]),
-      rewriter.End(0, ["article"]),
+      rewriter.End(0, ["title"], None),
+      rewriter.End(0, ["article"], None),
       rewriter.Eof(0),
     ])
 }
 
 pub fn partial_test() {
   let assert Ok([
-    parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), None),
+    parser.Partial(rewriter.Partial(_, scanner.StaticName("box"), None), None),
   ]) =
     parser.parse([
-      rewriter.Partial(0, scanner.StaticName("box")),
+      rewriter.Partial(0, scanner.StaticName("box"), None),
       rewriter.Eof(0),
     ])
 
   let assert Ok([
-    parser.Partial(rewriter.Partial(_, scanner.StaticName("box")), Some("  \t")),
+    parser.Partial(
+      rewriter.Partial(_, scanner.StaticName("box"), Some("  \t")),
+      Some("  \t"),
+    ),
   ]) =
     parser.parse([
-      rewriter.Padding(0, "  \t"),
-      rewriter.Partial(0, scanner.StaticName("box")),
+      rewriter.Partial(0, scanner.StaticName("box"), Some("  \t")),
       rewriter.Eof(0),
     ])
 }
@@ -156,8 +158,8 @@ pub fn recursion_test() {
       rewriter.Variable(0, ["some_variable"]),
       rewriter.InvertedSectionStart(0, ["inner_section"]),
       rewriter.Literal(0, "inner text"),
-      rewriter.End(0, ["inner_section"]),
-      rewriter.End(0, ["a_section"]),
+      rewriter.End(0, ["inner_section"], None),
+      rewriter.End(0, ["a_section"], None),
       rewriter.Eof(0),
     ])
 }

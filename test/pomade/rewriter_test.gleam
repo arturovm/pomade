@@ -1,3 +1,5 @@
+import gleam/option.{Some}
+
 import pomade/internal/rewriter
 import pomade/internal/scanner
 
@@ -117,4 +119,27 @@ pub fn indented_inline_test() {
 pub fn line_start_test() {
   assert [rewriter.Indent(1), rewriter.Literal(1, "\n"), rewriter.Eof(2)]
     == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)])
+}
+
+pub fn inline_partial_test() {
+  assert [
+      rewriter.Partial(1, scanner.StaticName("hello"), Some(" \t")),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.Partial(1, scanner.StaticName("hello")),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+
+  assert [
+      rewriter.Partial(1, scanner.StaticName("hello"), Some(" \t")),
+      rewriter.Eof(1),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.Partial(1, scanner.StaticName("hello")),
+      scanner.Eof(1),
+    ])
 }

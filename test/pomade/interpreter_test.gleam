@@ -130,7 +130,7 @@ pub fn partial_test() {
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("other_template")),
+          rewriter.Partial(0, scanner.StaticName("other_template"), None),
           None,
         ),
       ],
@@ -148,7 +148,7 @@ pub fn partial_test() {
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("other_template")),
+          rewriter.Partial(0, scanner.StaticName("other_template"), None),
           None,
         ),
       ],
@@ -165,7 +165,7 @@ pub fn partial_test() {
     == interpreter.interpret(
       [
         parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("partial")),
+          rewriter.Partial(0, scanner.StaticName("partial"), None),
           Some("  "),
         ),
         parser.Literal(rewriter.Literal(0, ">")),
@@ -188,7 +188,7 @@ pub fn nested_partial_test() {
     == interpreter.interpret(
       [
         parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("one")),
+          rewriter.Partial(0, scanner.StaticName("one"), None),
           Some("  "),
         ),
         parser.Literal(rewriter.Literal(0, "quux")),
@@ -201,7 +201,7 @@ pub fn nested_partial_test() {
           parser.Indent,
           parser.Literal(rewriter.Literal(1, "bar\n")),
           parser.Partial(
-            rewriter.Partial(0, scanner.StaticName("two")),
+            rewriter.Partial(0, scanner.StaticName("two"), None),
             Some(" \t"),
           ),
         ]),
@@ -222,7 +222,11 @@ pub fn partial_with_dynamic_name_test() {
       [
         parser.Literal(rewriter.Literal(0, "Hello, ")),
         parser.Partial(
-          rewriter.Partial(0, scanner.DynamicName(["one", "two", "three"])),
+          rewriter.Partial(
+            0,
+            scanner.DynamicName(["one", "two", "three"]),
+            None,
+          ),
           None,
         ),
       ],
@@ -254,7 +258,7 @@ pub fn block_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Block(rewriter.BlockStart(0, "block"), "", [
+        parser.Block(rewriter.BlockStart(0, "block", None), "", [
           parser.Literal(rewriter.Literal(0, "foo, bar, baz")),
         ]),
       ],

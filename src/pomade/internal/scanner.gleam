@@ -105,7 +105,7 @@ const left_triple_mustache: String = "{{{"
 const right_triple_mustache: String = "}}}"
 
 pub fn scan(source: String) -> Result(List(Token), LexicalError) {
-  let lexer = new_lexer(default_left_delimiter, default_right_delimiter)
+  let lexer = new_lexer(1, default_left_delimiter, default_right_delimiter)
   scan_template(lexer, source)
 }
 
@@ -288,7 +288,7 @@ fn scan_set_delimiters(
   let tail = discard_optional(lexer, tail, read_whitespace)
   use tail <- result.map(discard(lexer, tail, "="))
   #(
-    new_lexer(left_delimiter, right_delimiter),
+    new_lexer(lexer.line, left_delimiter, right_delimiter),
     [SetDelimiters(lexer.line, left_delimiter, right_delimiter), ..stream],
     tail,
   )
@@ -468,9 +468,13 @@ fn scan_newline_top_level(
 
 // helpers
 
-fn new_lexer(left_delimiter: String, right_delimiter: String) -> Lexer {
+fn new_lexer(
+  line: Int,
+  left_delimiter: String,
+  right_delimiter: String,
+) -> Lexer {
   Lexer(
-    line: 1,
+    line: line,
     left_delimiter: left_delimiter,
     right_delimiter: right_delimiter,
     literal_splitter: splitter.new(["\r\n", "\n", left_delimiter]),
