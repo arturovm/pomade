@@ -85,7 +85,7 @@ pub fn inverted_section_test() {
 
 pub fn block_test() {
   assert Ok([
-      parser.Block(
+      parser.Parameter(
         rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
         "",
         [
@@ -108,7 +108,7 @@ pub fn parent_test() {
         None,
         [
           parser.Literal(rewriter.Literal(0, "hello :)")),
-          parser.Block(
+          parser.Parameter(
             rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
             "",
             [

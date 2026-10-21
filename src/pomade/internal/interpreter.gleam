@@ -63,7 +63,11 @@ fn evaluate_exprs(
     [parser.Partial(rewriter.Partial(_, name, _), indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
     [
-      parser.Block(rewriter.BlockStart(_, name, _, _, _), indentation, content),
+      parser.Parameter(
+        rewriter.BlockStart(_, name, _, _, _),
+        indentation,
+        content,
+      ),
       ..tail
     ] ->
       evaluate_exprs(
@@ -186,7 +190,7 @@ fn evaluate_block(
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  let content = case dict.get(env.blocks, name) {
+  let content = case dict.get(env.arguments, name) {
     Error(_) -> content
     Ok(override) -> override
   }
@@ -214,7 +218,7 @@ fn evaluate_parent(
         environment.Environment(
           ..env,
           indentation: merge_indentation(env.indentation, indentation),
-          blocks: find_blocks_in_parent(content, env.blocks),
+          arguments: find_arguments_in_parent(content, env.arguments),
         ),
         acc,
       )
@@ -222,7 +226,7 @@ fn evaluate_parent(
   }
 }
 
-fn find_blocks_in_parent(
+fn find_arguments_in_parent(
   content: List(parser.Expression),
   acc: Dict(String, List(parser.Expression)),
 ) -> Dict(String, List(parser.Expression)) {
@@ -230,7 +234,7 @@ fn find_blocks_in_parent(
     [] -> acc
     [head, ..tail] -> {
       let acc = case head {
-        parser.Block(rewriter.BlockStart(_, name, _, _, _), _, content) ->
+        parser.Parameter(rewriter.BlockStart(_, name, _, _, _), _, content) ->
           dict.upsert(acc, name, fn(val) {
             case val {
               None -> content
@@ -239,7 +243,7 @@ fn find_blocks_in_parent(
           })
         _ -> acc
       }
-      find_blocks_in_parent(tail, acc)
+      find_arguments_in_parent(tail, acc)
     }
   }
 }

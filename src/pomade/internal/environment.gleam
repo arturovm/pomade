@@ -14,7 +14,7 @@ pub type Environment {
     value: Value,
     indentation: Option(String),
     templates: Dict(String, List(parser.Expression)),
-    blocks: Dict(String, List(parser.Expression)),
+    arguments: Dict(String, List(parser.Expression)),
     parent: Option(Environment),
   )
 }

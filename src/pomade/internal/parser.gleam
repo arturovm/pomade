@@ -35,7 +35,12 @@ pub type Expression {
   Section(token: rewriter.Element, content: List(Expression))
   InvertedSection(token: rewriter.Element, content: List(Expression))
   Partial(name: rewriter.Element, indentation: Option(String))
-  Block(token: rewriter.Element, indentation: String, content: List(Expression))
+  // block parameter
+  Parameter(
+    token: rewriter.Element,
+    indentation: String,
+    content: List(Expression),
+  )
   Parent(
     token: rewriter.Element,
     indentation: Option(String),
@@ -177,7 +182,7 @@ fn parse_block_content(
       // precedence above, minus the dedent which was possibly inherited from
       // another block.
       Ok(#(
-        Some(Block(start, remove_prefix(indentation, dedent), expressions)),
+        Some(Parameter(start, remove_prefix(indentation, dedent), expressions)),
         tail,
       ))
   }
