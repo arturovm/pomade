@@ -49,10 +49,30 @@ fn evaluate_exprs(
         env,
         string_tree.append(acc, evaluate_raw_variable(path, env)),
       )
-    [parser.Section(rewriter.SectionStart(_, path), content), ..tail] ->
-      evaluate_exprs(tail, env, evaluate_section(path, content, env, acc))
     [
-      parser.InvertedSection(rewriter.InvertedSectionStart(_, path), content),
+      parser.Section(
+        rewriter.SectionStart(_, path),
+        rewriter.End(_, _, clearance, _, trailing),
+        content,
+      ),
+      ..tail
+    ] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_section(
+          path,
+          content,
+          env,
+          case clearance {
+            rewriter.ClearsBoth -> None
+            _ -> trailing
+          },
+          acc,
+        ),
+      )
+    [
+      parser.InvertedSection(rewriter.InvertedSectionStart(_, path), _, content),
       ..tail
     ] ->
       evaluate_exprs(
@@ -110,9 +130,10 @@ fn evaluate_section(
   path: List(String),
   content: List(parser.Expression),
   env: environment.Environment,
+  trailing: Option(String),
   acc: StringTree,
 ) -> StringTree {
-  case environment.get(env, path) {
+  let acc = case environment.get(env, path) {
     Error(Nil) | Ok(value.Bool(False)) -> acc
     Ok(value.List(l)) ->
       list.fold(l, acc, fn(acc, c) {
@@ -128,6 +149,10 @@ fn evaluate_section(
         environment.Environment(..env, value: context, parent: Some(env)),
         acc,
       )
+  }
+  case trailing {
+    Some(trailing) -> string_tree.append(acc, trailing)
+    None -> acc
   }
 }
 

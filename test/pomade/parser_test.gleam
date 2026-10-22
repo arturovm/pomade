@@ -54,31 +54,33 @@ pub fn raw_variable_test() {
 }
 
 pub fn section_test() {
-  let assert Ok([
-    parser.Section(
-      rewriter.SectionStart(_, ["person"]),
-      [parser.Variable(rewriter.Variable(_, ["name"]))],
-    ),
-  ]) =
-    parser.parse([
+  assert Ok([
+      parser.Section(
+        rewriter.SectionStart(0, ["person"]),
+        rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+        [parser.Variable(rewriter.Variable(0, ["name"]))],
+      ),
+    ])
+    == parser.parse([
       rewriter.SectionStart(0, ["person"]),
       rewriter.Variable(0, ["name"]),
-      rewriter.End(0, ["person"], None),
+      rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
       rewriter.Eof(0),
     ])
 }
 
 pub fn inverted_section_test() {
-  let assert Ok([
-    parser.InvertedSection(
-      rewriter.InvertedSectionStart(_, ["person"]),
-      [parser.Literal(rewriter.Literal(_, "no repos :("))],
-    ),
-  ]) =
-    parser.parse([
+  assert Ok([
+      parser.InvertedSection(
+        rewriter.InvertedSectionStart(0, ["person"]),
+        rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+        [parser.Literal(rewriter.Literal(0, "no repos :("))],
+      ),
+    ])
+    == parser.parse([
       rewriter.InvertedSectionStart(0, ["person"]),
       rewriter.Literal(0, "no repos :("),
-      rewriter.End(0, ["person"], None),
+      rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
       rewriter.Eof(0),
     ])
 }
@@ -96,7 +98,7 @@ pub fn block_test() {
     == parser.parse([
       rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
       rewriter.Literal(0, "hello :)"),
-      rewriter.End(0, ["title"], None),
+      rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
       rewriter.Eof(0),
     ])
 }
@@ -123,8 +125,8 @@ pub fn parent_test() {
       rewriter.Literal(0, "hello :)"),
       rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
       rewriter.Literal(0, "goodbye :("),
-      rewriter.End(0, ["title"], None),
-      rewriter.End(0, ["article"], None),
+      rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
+      rewriter.End(0, ["article"], rewriter.ClearsNone, None, None),
       rewriter.Eof(0),
     ])
 }
@@ -151,27 +153,29 @@ pub fn partial_test() {
 }
 
 pub fn recursion_test() {
-  let assert Ok([
-    parser.Literal(rewriter.Literal(_, "some text")),
-    parser.Section(
-      rewriter.SectionStart(_, ["a_section"]),
-      [
-        parser.Variable(rewriter.Variable(_, ["some_variable"])),
-        parser.InvertedSection(
-          rewriter.InvertedSectionStart(_, ["inner_section"]),
-          [parser.Literal(rewriter.Literal(_, "inner text"))],
-        ),
-      ],
-    ),
-  ]) =
-    parser.parse([
+  assert Ok([
+      parser.Literal(rewriter.Literal(0, "some text")),
+      parser.Section(
+        rewriter.SectionStart(0, ["a_section"]),
+        rewriter.End(0, ["a_section"], rewriter.ClearsNone, None, None),
+        [
+          parser.Variable(rewriter.Variable(0, ["some_variable"])),
+          parser.InvertedSection(
+            rewriter.InvertedSectionStart(0, ["inner_section"]),
+            rewriter.End(0, ["inner_section"], rewriter.ClearsNone, None, None),
+            [parser.Literal(rewriter.Literal(0, "inner text"))],
+          ),
+        ],
+      ),
+    ])
+    == parser.parse([
       rewriter.Literal(0, "some text"),
       rewriter.SectionStart(0, ["a_section"]),
       rewriter.Variable(0, ["some_variable"]),
       rewriter.InvertedSectionStart(0, ["inner_section"]),
       rewriter.Literal(0, "inner text"),
-      rewriter.End(0, ["inner_section"], None),
-      rewriter.End(0, ["a_section"], None),
+      rewriter.End(0, ["inner_section"], rewriter.ClearsNone, None, None),
+      rewriter.End(0, ["a_section"], rewriter.ClearsNone, None, None),
       rewriter.Eof(0),
     ])
 }

@@ -64,6 +64,22 @@ pub fn raw_variable_test() {
     |> string_tree.to_string()
 }
 
+pub fn section_with_standalone_end_test() {
+  assert "hello\n"
+    == interpreter.interpret(
+      [
+        parser.Section(
+          rewriter.SectionStart(1, ["section"]),
+          rewriter.End(2, ["section"], rewriter.ClearsEnd, None, Some("\n")),
+          [parser.Indent, parser.Literal(rewriter.Literal(1, "hello"))],
+        ),
+      ],
+      Dict(dict.from_list([#("section", String("foo"))])),
+      dict.new(),
+    )
+    |> string_tree.to_string()
+}
+
 pub fn section_with_parent_context_test() {
   let parent_env =
     value.Dict(
@@ -91,13 +107,17 @@ pub fn section_with_parent_context_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Section(rewriter.SectionStart(0, ["sec"]), [
-          parser.Variable(rewriter.Variable(0, ["a"])),
-          parser.Literal(rewriter.Literal(0, ", ")),
-          parser.Variable(rewriter.Variable(0, ["b"])),
-          parser.Literal(rewriter.Literal(0, ", ")),
-          parser.Variable(rewriter.Variable(0, ["c", "d"])),
-        ]),
+        parser.Section(
+          rewriter.SectionStart(0, ["sec"]),
+          rewriter.End(0, ["sec"], rewriter.ClearsNone, None, None),
+          [
+            parser.Variable(rewriter.Variable(0, ["a"])),
+            parser.Literal(rewriter.Literal(0, ", ")),
+            parser.Variable(rewriter.Variable(0, ["b"])),
+            parser.Literal(rewriter.Literal(0, ", ")),
+            parser.Variable(rewriter.Variable(0, ["c", "d"])),
+          ],
+        ),
       ],
       parent_env,
       dict.new(),
@@ -109,14 +129,22 @@ pub fn inverted_section_test() {
   assert "No repos :("
     == interpreter.interpret(
       [
-        parser.Section(rewriter.SectionStart(0, ["repo"]), [
-          parser.Literal(rewriter.Literal(0, "  <b>")),
-          parser.Variable(rewriter.Variable(0, ["name"])),
-          parser.Literal(rewriter.Literal(0, "</b>")),
-        ]),
-        parser.InvertedSection(rewriter.InvertedSectionStart(0, ["repo"]), [
-          parser.Literal(rewriter.Literal(0, "No repos :(")),
-        ]),
+        parser.Section(
+          rewriter.SectionStart(0, ["repo"]),
+          rewriter.End(0, ["repo"], rewriter.ClearsNone, None, None),
+          [
+            parser.Literal(rewriter.Literal(0, "  <b>")),
+            parser.Variable(rewriter.Variable(0, ["name"])),
+            parser.Literal(rewriter.Literal(0, "</b>")),
+          ],
+        ),
+        parser.InvertedSection(
+          rewriter.InvertedSectionStart(0, ["repo"]),
+          rewriter.End(0, ["repo"], rewriter.ClearsNone, None, None),
+          [
+            parser.Literal(rewriter.Literal(0, "No repos :(")),
+          ],
+        ),
       ],
       Dict(dict.from_list([#("repo", value.List([]))])),
       dict.new(),
