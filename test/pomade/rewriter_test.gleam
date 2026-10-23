@@ -171,7 +171,13 @@ pub fn standalone_partial_test() {
 pub fn standalone_block_test() {
   // leading whitespace
   assert [
-      rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, Some(" \t"), None),
+      rewriter.BlockStart(
+        1,
+        "hello",
+        rewriter.ClearsBoth,
+        Some(" \t"),
+        Some(" \n"),
+      ),
       rewriter.Eof(2),
     ]
     == rewriter.rewrite([
@@ -197,7 +203,7 @@ pub fn standalone_block_test() {
         "hello",
         rewriter.ClearsBoth,
         Some(" \t"),
-        Some("  "),
+        Some("   \n"),
       ),
       rewriter.Eof(2),
     ]
@@ -294,7 +300,9 @@ pub fn standalone_parent_test() {
 
 pub fn block_clerance_test() {
   // clears both
-  assert [rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, None, None)]
+  assert [
+      rewriter.BlockStart(1, "hello", rewriter.ClearsBoth, None, Some("\n")),
+    ]
     == rewriter.rewrite([
       scanner.BlockStart(1, "hello"),
       scanner.Newline(1, "\n"),
