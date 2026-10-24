@@ -42,8 +42,8 @@ pub type Element {
   // non-output tags
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
-  BlockStart(line: Int, name: String, clearance: Clearance)
-  ParentStart(line: Int, name: String, clearance: Clearance)
+  BlockStart(line: Int, data: StartTagData)
+  ParentStart(line: Int, data: StartTagData)
   End(line: Int, name: List(String), clearance: Clearance)
   Partial(line: Int, name: scanner.PartialName, leading: Option(String))
   // eof
@@ -51,6 +51,10 @@ pub type Element {
   // synthetic tokens
   Leading(line: Int, lexeme: String)
   Indent(line: Int)
+}
+
+pub type StartTagData {
+  StartTagData(name: String, clearance: Clearance)
 }
 
 pub type Clearance {
@@ -61,6 +65,8 @@ pub type SideClearance {
   Clears(Option(String))
   NotClears
 }
+
+// SDST types
 
 type State {
   LineStart(leading: Option(String))
@@ -333,10 +339,10 @@ fn commit_tag(acc: Tree, tag: NonOutputTag, clearance: Clearance) -> Tree {
       append(acc, InvertedSectionStart(line, name))
     // blocks
     BlockStartTag(line, name), _ ->
-      append(acc, BlockStart(line, name, clearance))
+      append(acc, BlockStart(line, StartTagData(name, clearance)))
     // parents
     ParentStartTag(line, name), _ ->
-      append(acc, ParentStart(line, name, clearance))
+      append(acc, ParentStart(line, StartTagData(name, clearance)))
     // end tags
     EndTag(line, name), _ -> append(acc, End(line, name, clearance))
   }
@@ -485,8 +491,10 @@ pub fn token_to_string(token: Element) -> String {
     SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
-    BlockStart(_, name, _) -> token_name_with_path("BLOCK_START", [name])
-    ParentStart(_, name, _) -> token_name_with_path("PARENT_START", [name])
+    BlockStart(_, StartTagData(name, _)) ->
+      token_name_with_path("BLOCK_START", [name])
+    ParentStart(_, StartTagData(name, _)) ->
+      token_name_with_path("PARENT_START", [name])
     End(_, path, _) -> token_name_with_path("END_TAG", path)
     Partial(_, name, _) ->
       token_name_with_path("PARTIAL", case name {

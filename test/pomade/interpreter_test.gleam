@@ -70,11 +70,7 @@ pub fn section_with_standalone_end_test() {
       [
         parser.Section(
           ["section"],
-          rewriter.End(
-            2,
-            ["section"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-          ),
+          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
           [parser.Indent, parser.Literal("hello")],
         ),
       ],
@@ -113,11 +109,7 @@ pub fn section_with_parent_context_test() {
       [
         parser.Section(
           ["sec"],
-          rewriter.End(
-            0,
-            ["sec"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          ),
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
           [
             parser.Variable(["a"]),
             parser.Literal(", "),
@@ -139,11 +131,7 @@ pub fn inverted_section_test() {
       [
         parser.Section(
           ["repo"],
-          rewriter.End(
-            0,
-            ["repo"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          ),
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
           [
             parser.Literal("  <b>"),
             parser.Variable(["name"]),
@@ -152,11 +140,7 @@ pub fn inverted_section_test() {
         ),
         parser.InvertedSection(
           ["repo"],
-          rewriter.End(
-            0,
-            ["repo"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          ),
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
           [
             parser.Literal("No repos :("),
           ],
@@ -281,16 +265,9 @@ pub fn block_test() {
     == interpreter.interpret(
       [
         parser.Parameter(
-          rewriter.BlockStart(
-            0,
-            "block",
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          ),
-          rewriter.End(
-            0,
-            ["block"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          ),
+          "block",
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
           None,
           [
             parser.Literal("foo, bar, baz"),
