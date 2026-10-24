@@ -103,6 +103,26 @@ pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
   transduce_loop(tokens, LineStart(None), Empty)
 }
 
+// This is (my practical implementation of a) Streaming Data String Transducer,
+// (https://www.cis.upenn.edu/~alur/Popl11.pdf) which is a specialized form of
+// transducer that translates its input alphabet into the output alphabet in a
+// single pass, in O(n) and without "copying." Given the kinds of
+// transformations Mustache requires to implement the canonical whitespace
+// model, these are very desirable properties.
+//
+// It operates as a sort of tape head that can "remember" and store values in
+// "buffers" and use them as inputs to calculate the next state and values of
+// the transducer.
+//
+// The variables of an SDST are formally defined in the paper to be of the input
+// data type, of a tag type (a type variant), booleans, or sub-strings of data
+// values. The possible states of the transducer are calculated from the
+// boolean and tag variables that the transducer keeps track of. I initially
+// tried to implement it exactly as the paper describes but, after making a
+// freaking mess, I decided to take a lesson from Scott Wlaschin
+// (https://fsharpforfunandprofit.com) and reify the concepts in the paper as a
+// sort of hybrid representation of the possible states and the variables of
+// the transducer, for which I used the `State` type above.
 fn transduce_loop(
   tokens: List(scanner.Token),
   state: State,
@@ -204,7 +224,7 @@ fn transduce_loop(
         // if we are no longer at line start and there's a previous tag in
         // the first tag variable, whitespace is treated as a possible trailing
         // value, plus we keep the existing trailing variable as is, in case the
-        // SST has already passed a comment tag
+        // SST has presviously seen whitespace and then passed a comment tag
         TagPending(FirstTag(leading, tag, trailing)) ->
           TagPending(FirstTag(leading, tag, glom_literal(trailing, lexeme)))
         // as above
@@ -319,10 +339,13 @@ fn commit_tag(
       commit_leading(acc, line, leading)
       |> append(InvertedSectionStart(line, name))
       |> commit_trailing(line, trailing)
+    // blocks
     BlockStartTag(line, name), _ ->
       append(acc, BlockStart(line, name, clearance, leading, trailing))
+    // parents
     ParentStartTag(line, name), _ ->
       append(acc, ParentStart(line, name, clearance, leading, trailing))
+    // end tags
     EndTag(line, name), _ ->
       append(acc, End(line, name, clearance, leading, trailing))
   }
