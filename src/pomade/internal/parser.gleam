@@ -18,6 +18,7 @@ import gleam/list
 import gleam/option.{type Option, None, Some}
 import gleam/result
 import gleam/string
+import pomade/internal/scanner
 
 import pomade/internal/rewriter
 
@@ -29,20 +30,16 @@ pub type Expression {
   // the weird rules of the inheritance spec around indentation and
   // de-indentation
   Leading(String)
-  Literal(token: rewriter.Element)
-  Variable(token: rewriter.Element)
-  RawVariable(token: rewriter.Element)
-  Section(
-    start: rewriter.Element,
-    end: rewriter.Element,
-    content: List(Expression),
-  )
+  Literal(value: String)
+  Variable(path: List(String))
+  RawVariable(path: List(String))
+  Section(path: List(String), end: rewriter.Element, content: List(Expression))
   InvertedSection(
-    start: rewriter.Element,
+    path: List(String),
     end: rewriter.Element,
     content: List(Expression),
   )
-  Partial(name: rewriter.Element, indentation: Option(String))
+  Partial(name: scanner.PartialName, indentation: Option(String))
   // block parameter
   Parameter(
     start: rewriter.Element,
@@ -287,10 +284,10 @@ fn parse_partial(
   dedent: Option(String),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Partial(_, _, Some(leading)) as token, ..tail] ->
-      Ok(#(Some(Partial(token, Some(remove_prefix(leading, dedent)))), tail))
-    [rewriter.Partial(_, _, _) as token, ..tail] -> {
-      Ok(#(Some(Partial(token, None)), tail))
+    [rewriter.Partial(_, name, Some(leading)), ..tail] ->
+      Ok(#(Some(Partial(name, Some(remove_prefix(leading, dedent)))), tail))
+    [rewriter.Partial(_, name, _), ..tail] -> {
+      Ok(#(Some(Partial(name, None)), tail))
     }
     _ -> parse_raw_variable(tokens)
   }
@@ -300,7 +297,7 @@ fn parse_raw_variable(
   tokens: List(rewriter.Element),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.RawVariable(_, _) as path, ..tail] ->
+    [rewriter.RawVariable(_, path), ..tail] ->
       Ok(emit_expr(RawVariable, path, tail))
     _ -> parse_variable(tokens)
   }
@@ -310,8 +307,7 @@ fn parse_variable(
   tokens: List(rewriter.Element),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Variable(_, _) as path, ..tail] ->
-      Ok(emit_expr(Variable, path, tail))
+    [rewriter.Variable(_, path), ..tail] -> Ok(emit_expr(Variable, path, tail))
 
     _ -> parse_primary(tokens)
   }
@@ -321,8 +317,7 @@ fn parse_primary(
   tokens: List(rewriter.Element),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Literal(_, _) as value, ..tail] ->
-      Ok(#(Some(Literal(value)), tail))
+    [rewriter.Literal(_, value), ..tail] -> Ok(#(Some(Literal(value)), tail))
     [rewriter.Eof(_)] -> Ok(#(None, tokens))
     [any, ..] -> Error(UnexpectedTokenError(any))
     [] -> Error(UnexpectedEndOfInputError)
@@ -336,7 +331,7 @@ fn parse_enclosed(
   opening_rule: fn(List(rewriter.Element)) ->
     Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError),
   dedent: Option(String),
-  expr_constructor: fn(rewriter.Element, rewriter.Element, List(Expression)) ->
+  expr_constructor: fn(List(String), rewriter.Element, List(Expression)) ->
     Expression,
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   use #(start, tail) <- result.try(opening_rule(tokens))
@@ -346,7 +341,7 @@ fn parse_enclosed(
   use end_path <- result.try(tag_path(end))
   case start_path == end_path {
     False -> Error(NoMatchingEndTagError(start))
-    True -> Ok(#(Some(expr_constructor(start, end, expressions)), tail))
+    True -> Ok(#(Some(expr_constructor(start_path, end, expressions)), tail))
   }
 }
 

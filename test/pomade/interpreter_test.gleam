@@ -17,7 +17,7 @@ pub fn empty_test() {
 pub fn text_test() {
   assert "hello, world!"
     == interpreter.interpret(
-      [parser.Literal(rewriter.Literal(0, "hello, world!"))],
+      [parser.Literal("hello, world!")],
       Dict(dict.new()),
       dict.new(),
     )
@@ -28,7 +28,7 @@ pub fn newline_test() {
   assert "foo\nbar\r\nbaz"
     == interpreter.interpret(
       [
-        parser.Literal(rewriter.Literal(0, "foo\nbar\r\nbaz")),
+        parser.Literal("foo\nbar\r\nbaz"),
       ],
       Dict(dict.new()),
       dict.new(),
@@ -39,7 +39,7 @@ pub fn newline_test() {
 pub fn variable_test() {
   assert "foo &amp; bar"
     == interpreter.interpret(
-      [parser.Variable(rewriter.Variable(0, ["foo"]))],
+      [parser.Variable(["foo"])],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
@@ -47,7 +47,7 @@ pub fn variable_test() {
 
   assert "1.21"
     == interpreter.interpret(
-      [parser.Variable(rewriter.Variable(0, ["foo"]))],
+      [parser.Variable(["foo"])],
       Dict(dict.from_list([#("foo", Float(1.21))])),
       dict.new(),
     )
@@ -57,7 +57,7 @@ pub fn variable_test() {
 pub fn raw_variable_test() {
   assert "foo & bar"
     == interpreter.interpret(
-      [parser.RawVariable(rewriter.RawVariable(0, ["foo"]))],
+      [parser.RawVariable(["foo"])],
       Dict(dict.from_list([#("foo", String("foo & bar"))])),
       dict.new(),
     )
@@ -69,9 +69,9 @@ pub fn section_with_standalone_end_test() {
     == interpreter.interpret(
       [
         parser.Section(
-          rewriter.SectionStart(1, ["section"]),
+          ["section"],
           rewriter.End(2, ["section"], rewriter.ClearsEnd, None, Some("\n")),
-          [parser.Indent, parser.Literal(rewriter.Literal(1, "hello"))],
+          [parser.Indent, parser.Literal("hello")],
         ),
       ],
       Dict(dict.from_list([#("section", String("foo"))])),
@@ -108,14 +108,14 @@ pub fn section_with_parent_context_test() {
     == interpreter.interpret(
       [
         parser.Section(
-          rewriter.SectionStart(0, ["sec"]),
+          ["sec"],
           rewriter.End(0, ["sec"], rewriter.ClearsNone, None, None),
           [
-            parser.Variable(rewriter.Variable(0, ["a"])),
-            parser.Literal(rewriter.Literal(0, ", ")),
-            parser.Variable(rewriter.Variable(0, ["b"])),
-            parser.Literal(rewriter.Literal(0, ", ")),
-            parser.Variable(rewriter.Variable(0, ["c", "d"])),
+            parser.Variable(["a"]),
+            parser.Literal(", "),
+            parser.Variable(["b"]),
+            parser.Literal(", "),
+            parser.Variable(["c", "d"]),
           ],
         ),
       ],
@@ -130,19 +130,19 @@ pub fn inverted_section_test() {
     == interpreter.interpret(
       [
         parser.Section(
-          rewriter.SectionStart(0, ["repo"]),
+          ["repo"],
           rewriter.End(0, ["repo"], rewriter.ClearsNone, None, None),
           [
-            parser.Literal(rewriter.Literal(0, "  <b>")),
-            parser.Variable(rewriter.Variable(0, ["name"])),
-            parser.Literal(rewriter.Literal(0, "</b>")),
+            parser.Literal("  <b>"),
+            parser.Variable(["name"]),
+            parser.Literal("</b>"),
           ],
         ),
         parser.InvertedSection(
-          rewriter.InvertedSectionStart(0, ["repo"]),
+          ["repo"],
           rewriter.End(0, ["repo"], rewriter.ClearsNone, None, None),
           [
-            parser.Literal(rewriter.Literal(0, "No repos :(")),
+            parser.Literal("No repos :("),
           ],
         ),
       ],
@@ -156,16 +156,13 @@ pub fn partial_test() {
   assert "Hello, world!"
     == interpreter.interpret(
       [
-        parser.Literal(rewriter.Literal(0, "Hello, ")),
-        parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("other_template"), None),
-          None,
-        ),
+        parser.Literal("Hello, "),
+        parser.Partial(scanner.StaticName("other_template"), None),
       ],
       value.Dict(dict.new()),
       dict.from_list([
         #("other_template", [
-          parser.Literal(rewriter.Literal(0, "world!")),
+          parser.Literal("world!"),
         ]),
       ]),
     )
@@ -174,16 +171,13 @@ pub fn partial_test() {
   assert "Hello, foo!"
     == interpreter.interpret(
       [
-        parser.Literal(rewriter.Literal(0, "Hello, ")),
-        parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("other_template"), None),
-          None,
-        ),
+        parser.Literal("Hello, "),
+        parser.Partial(scanner.StaticName("other_template"), None),
       ],
       value.Dict(dict.from_list([#("greeting", value.String("foo!"))])),
       dict.from_list([
         #("other_template", [
-          parser.Variable(rewriter.Variable(0, ["greeting"])),
+          parser.Variable(["greeting"]),
         ]),
       ]),
     )
@@ -192,19 +186,16 @@ pub fn partial_test() {
   assert "  >\n  >>"
     == interpreter.interpret(
       [
-        parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("partial"), None),
-          Some("  "),
-        ),
-        parser.Literal(rewriter.Literal(0, ">")),
+        parser.Partial(scanner.StaticName("partial"), Some("  ")),
+        parser.Literal(">"),
       ],
       value.Dict(dict.new()),
       dict.from_list([
         #("partial", [
           parser.Indent,
-          parser.Literal(rewriter.Literal(0, ">\n")),
+          parser.Literal(">\n"),
           parser.Indent,
-          parser.Literal(rewriter.Literal(1, ">")),
+          parser.Literal(">"),
         ]),
       ]),
     )
@@ -215,29 +206,23 @@ pub fn nested_partial_test() {
   assert "  foo\n  bar\n   \tbaz\n   \tqux\nquux"
     == interpreter.interpret(
       [
-        parser.Partial(
-          rewriter.Partial(0, scanner.StaticName("one"), None),
-          Some("  "),
-        ),
-        parser.Literal(rewriter.Literal(0, "quux")),
+        parser.Partial(scanner.StaticName("one"), Some("  ")),
+        parser.Literal("quux"),
       ],
       value.Dict(dict.new()),
       dict.from_list([
         #("one", [
           parser.Indent,
-          parser.Literal(rewriter.Literal(0, "foo\n")),
+          parser.Literal("foo\n"),
           parser.Indent,
-          parser.Literal(rewriter.Literal(1, "bar\n")),
-          parser.Partial(
-            rewriter.Partial(0, scanner.StaticName("two"), None),
-            Some(" \t"),
-          ),
+          parser.Literal("bar\n"),
+          parser.Partial(scanner.StaticName("two"), Some(" \t")),
         ]),
         #("two", [
           parser.Indent,
-          parser.Literal(rewriter.Literal(0, "baz\n")),
+          parser.Literal("baz\n"),
           parser.Indent,
-          parser.Literal(rewriter.Literal(0, "qux\n")),
+          parser.Literal("qux\n"),
         ]),
       ]),
     )
@@ -248,15 +233,8 @@ pub fn partial_with_dynamic_name_test() {
   assert "Hello, world!"
     == interpreter.interpret(
       [
-        parser.Literal(rewriter.Literal(0, "Hello, ")),
-        parser.Partial(
-          rewriter.Partial(
-            0,
-            scanner.DynamicName(["one", "two", "three"]),
-            None,
-          ),
-          None,
-        ),
+        parser.Literal("Hello, "),
+        parser.Partial(scanner.DynamicName(["one", "two", "three"]), None),
       ],
       value.Dict(
         dict.from_list([
@@ -276,7 +254,7 @@ pub fn partial_with_dynamic_name_test() {
         ]),
       ),
       dict.from_list([
-        #("other_template", [parser.Literal(rewriter.Literal(0, "world!"))]),
+        #("other_template", [parser.Literal("world!")]),
       ]),
     )
     |> string_tree.to_string()
@@ -291,7 +269,7 @@ pub fn block_test() {
           rewriter.End(0, ["block"], rewriter.ClearsNone, None, None),
           "",
           [
-            parser.Literal(rewriter.Literal(0, "foo, bar, baz")),
+            parser.Literal("foo, bar, baz"),
           ],
         ),
       ],

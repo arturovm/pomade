@@ -28,7 +28,7 @@ fn evaluate_exprs(
 ) -> StringTree {
   case exprs {
     [] -> acc
-    [parser.Literal(rewriter.Literal(_, value)), ..tail] ->
+    [parser.Literal(value), ..tail] ->
       evaluate_exprs(tail, env, string_tree.append(acc, value))
     [parser.Indent, ..tail] ->
       evaluate_exprs(tail, env, case env.indentation {
@@ -37,38 +37,31 @@ fn evaluate_exprs(
       })
     [parser.Leading(value), ..tail] ->
       evaluate_exprs(tail, env, string_tree.append(acc, value))
-    [parser.Variable(rewriter.Variable(_, path)), ..tail] ->
+    [parser.Variable(path), ..tail] ->
       evaluate_exprs(
         tail,
         env,
         string_tree.append(acc, evaluate_variable(path, env)),
       )
-    [parser.RawVariable(rewriter.RawVariable(_, path)), ..tail] ->
+    [parser.RawVariable(path), ..tail] ->
       evaluate_exprs(
         tail,
         env,
         string_tree.append(acc, evaluate_raw_variable(path, env)),
       )
-    [parser.Section(rewriter.SectionStart(_, path), end_tag, content), ..tail] ->
+    [parser.Section(path, end_tag, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
         evaluate_section(path, content, end_tag, env, acc),
       )
-    [
-      parser.InvertedSection(
-        rewriter.InvertedSectionStart(_, path),
-        end_tag,
-        content,
-      ),
-      ..tail
-    ] ->
+    [parser.InvertedSection(path, end_tag, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
         evaluate_inverted_section(path, content, end_tag, env, acc),
       )
-    [parser.Partial(rewriter.Partial(_, name, _), indentation), ..tail] ->
+    [parser.Partial(name, indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
     [
       parser.Parameter(

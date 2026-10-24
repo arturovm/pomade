@@ -14,7 +14,7 @@ pub fn indent_test() {
 }
 
 pub fn text_test() {
-  let assert Ok([parser.Literal(rewriter.Literal(_, "hello, world!"))]) =
+  let assert Ok([parser.Literal("hello, world!")]) =
     parser.parse([
       rewriter.Literal(0, "hello, world!"),
       rewriter.Eof(0),
@@ -22,7 +22,7 @@ pub fn text_test() {
 }
 
 pub fn variable_test() {
-  let assert Ok([parser.Variable(rewriter.Variable(_, ["hello"]))]) =
+  let assert Ok([parser.Variable(["hello"])]) =
     parser.parse([
       rewriter.Variable(0, ["hello"]),
       rewriter.Eof(0),
@@ -30,7 +30,7 @@ pub fn variable_test() {
 }
 
 pub fn dotted_variable_test() {
-  let assert Ok([parser.Variable(rewriter.Variable(_, ["hello", "world"]))]) =
+  let assert Ok([parser.Variable(["hello", "world"])]) =
     parser.parse([
       rewriter.Variable(0, ["hello", "world"]),
       rewriter.Eof(0),
@@ -38,7 +38,7 @@ pub fn dotted_variable_test() {
 }
 
 pub fn variable_single_dot_test() {
-  let assert Ok([parser.Variable(rewriter.Variable(_, ["."]))]) =
+  let assert Ok([parser.Variable(["."])]) =
     parser.parse([
       rewriter.Variable(0, ["."]),
       rewriter.Eof(0),
@@ -46,7 +46,7 @@ pub fn variable_single_dot_test() {
 }
 
 pub fn raw_variable_test() {
-  let assert Ok([parser.RawVariable(rewriter.RawVariable(_, ["hello"]))]) =
+  let assert Ok([parser.RawVariable(["hello"])]) =
     parser.parse([
       rewriter.RawVariable(0, ["hello"]),
       rewriter.Eof(0),
@@ -56,9 +56,9 @@ pub fn raw_variable_test() {
 pub fn section_test() {
   assert Ok([
       parser.Section(
-        rewriter.SectionStart(0, ["person"]),
+        ["person"],
         rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
-        [parser.Variable(rewriter.Variable(0, ["name"]))],
+        [parser.Variable(["name"])],
       ),
     ])
     == parser.parse([
@@ -72,9 +72,9 @@ pub fn section_test() {
 pub fn inverted_section_test() {
   assert Ok([
       parser.InvertedSection(
-        rewriter.InvertedSectionStart(0, ["person"]),
+        ["person"],
         rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
-        [parser.Literal(rewriter.Literal(0, "no repos :("))],
+        [parser.Literal("no repos :(")],
       ),
     ])
     == parser.parse([
@@ -92,7 +92,7 @@ pub fn block_test() {
         rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
         "",
         [
-          parser.Literal(rewriter.Literal(0, "hello :)")),
+          parser.Literal("hello :)"),
         ],
       ),
     ])
@@ -111,13 +111,13 @@ pub fn parent_test() {
         rewriter.End(0, ["article"], rewriter.ClearsNone, None, None),
         None,
         [
-          parser.Literal(rewriter.Literal(0, "hello :)")),
+          parser.Literal("hello :)"),
           parser.Parameter(
             rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
             rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
             "",
             [
-              parser.Literal(rewriter.Literal(0, "goodbye :(")),
+              parser.Literal("goodbye :("),
             ],
           ),
         ],
@@ -135,20 +135,13 @@ pub fn parent_test() {
 }
 
 pub fn partial_test() {
-  let assert Ok([
-    parser.Partial(rewriter.Partial(_, scanner.StaticName("box"), None), None),
-  ]) =
+  let assert Ok([parser.Partial(scanner.StaticName("box"), None)]) =
     parser.parse([
       rewriter.Partial(0, scanner.StaticName("box"), None),
       rewriter.Eof(0),
     ])
 
-  let assert Ok([
-    parser.Partial(
-      rewriter.Partial(_, scanner.StaticName("box"), Some("  \t")),
-      Some("  \t"),
-    ),
-  ]) =
+  let assert Ok([parser.Partial(scanner.StaticName("box"), Some("  \t"))]) =
     parser.parse([
       rewriter.Partial(0, scanner.StaticName("box"), Some("  \t")),
       rewriter.Eof(0),
@@ -157,16 +150,16 @@ pub fn partial_test() {
 
 pub fn recursion_test() {
   assert Ok([
-      parser.Literal(rewriter.Literal(0, "some text")),
+      parser.Literal("some text"),
       parser.Section(
-        rewriter.SectionStart(0, ["a_section"]),
+        ["a_section"],
         rewriter.End(0, ["a_section"], rewriter.ClearsNone, None, None),
         [
-          parser.Variable(rewriter.Variable(0, ["some_variable"])),
+          parser.Variable(["some_variable"]),
           parser.InvertedSection(
-            rewriter.InvertedSectionStart(0, ["inner_section"]),
+            ["inner_section"],
             rewriter.End(0, ["inner_section"], rewriter.ClearsNone, None, None),
-            [parser.Literal(rewriter.Literal(0, "inner text"))],
+            [parser.Literal("inner text")],
           ),
         ],
       ),
