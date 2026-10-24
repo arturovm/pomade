@@ -89,6 +89,7 @@ pub fn block_test() {
   assert Ok([
       parser.Parameter(
         rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+        rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
         "",
         [
           parser.Literal(rewriter.Literal(0, "hello :)")),
@@ -107,11 +108,13 @@ pub fn parent_test() {
   assert Ok([
       parser.Parent(
         rewriter.ParentStart(0, "article", rewriter.ClearsNone, None, None),
+        rewriter.End(0, ["article"], rewriter.ClearsNone, None, None),
         None,
         [
           parser.Literal(rewriter.Literal(0, "hello :)")),
           parser.Parameter(
             rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+            rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
             "",
             [
               parser.Literal(rewriter.Literal(0, "goodbye :(")),

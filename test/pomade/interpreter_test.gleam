@@ -288,6 +288,7 @@ pub fn block_test() {
       [
         parser.Parameter(
           rewriter.BlockStart(0, "block", rewriter.ClearsNone, None, None),
+          rewriter.End(0, ["block"], rewriter.ClearsNone, None, None),
           "",
           [
             parser.Literal(rewriter.Literal(0, "foo, bar, baz")),

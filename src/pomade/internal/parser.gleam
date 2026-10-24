@@ -45,12 +45,14 @@ pub type Expression {
   Partial(name: rewriter.Element, indentation: Option(String))
   // block parameter
   Parameter(
-    token: rewriter.Element,
+    start: rewriter.Element,
+    end: rewriter.Element,
     indentation: String,
     content: List(Expression),
   )
   Parent(
-    token: rewriter.Element,
+    start: rewriter.Element,
+    end: rewriter.Element,
     indentation: Option(String),
     content: List(Expression),
   )
@@ -185,7 +187,12 @@ fn parse_block_content(
       // precedence above, minus the dedent which was possibly inherited from
       // another block.
       Ok(#(
-        Some(Parameter(start, remove_prefix(indentation, dedent), expressions)),
+        Some(Parameter(
+          start,
+          end,
+          remove_prefix(indentation, dedent),
+          expressions,
+        )),
         tail,
       ))
   }
@@ -214,7 +221,7 @@ fn parse_parent_content(
   use end_path <- result.try(tag_path(end))
   case start_path == end_path {
     False -> Error(NoMatchingEndTagError(start))
-    True -> Ok(#(Some(Parent(start, indentation, expressions)), tail))
+    True -> Ok(#(Some(Parent(start, end, indentation, expressions)), tail))
   }
 }
 

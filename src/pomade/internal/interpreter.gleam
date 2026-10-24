@@ -49,10 +49,16 @@ fn evaluate_exprs(
         env,
         string_tree.append(acc, evaluate_raw_variable(path, env)),
       )
+    [parser.Section(rewriter.SectionStart(_, path), end_tag, content), ..tail] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_section(path, content, end_tag, env, acc),
+      )
     [
-      parser.Section(
-        rewriter.SectionStart(_, path),
-        rewriter.End(_, _, clearance, _, trailing),
+      parser.InvertedSection(
+        rewriter.InvertedSectionStart(_, path),
+        end_tag,
         content,
       ),
       ..tail
@@ -60,31 +66,14 @@ fn evaluate_exprs(
       evaluate_exprs(
         tail,
         env,
-        evaluate_section(
-          path,
-          content,
-          env,
-          case clearance {
-            rewriter.ClearsBoth -> None
-            _ -> trailing
-          },
-          acc,
-        ),
-      )
-    [
-      parser.InvertedSection(rewriter.InvertedSectionStart(_, path), _, content),
-      ..tail
-    ] ->
-      evaluate_exprs(
-        tail,
-        env,
-        evaluate_inverted_section(path, content, env, acc),
+        evaluate_inverted_section(path, content, end_tag, env, acc),
       )
     [parser.Partial(rewriter.Partial(_, name, _), indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
     [
       parser.Parameter(
-        rewriter.BlockStart(_, name, _, _, _),
+        rewriter.BlockStart(_, name, _, _, _) as opening_tag,
+        end_tag,
         indentation,
         content,
       ),
@@ -93,11 +82,20 @@ fn evaluate_exprs(
       evaluate_exprs(
         tail,
         env,
-        evaluate_block(name, indentation, content, env, acc),
+        evaluate_parameter(
+          name,
+          indentation,
+          opening_tag,
+          content,
+          end_tag,
+          env,
+          acc,
+        ),
       )
     [
       parser.Parent(
-        rewriter.ParentStart(_, name, _, _, _),
+        rewriter.ParentStart(_, name, _, _, _) as opening_tag,
+        end_tag,
         indentation,
         content,
       ),
@@ -106,7 +104,15 @@ fn evaluate_exprs(
       evaluate_exprs(
         tail,
         env,
-        evaluate_parent(name, indentation, content, env, acc),
+        evaluate_parent(
+          name,
+          indentation,
+          opening_tag,
+          content,
+          end_tag,
+          env,
+          acc,
+        ),
       )
     _ -> acc
   }
@@ -129,8 +135,8 @@ fn evaluate_raw_variable(
 fn evaluate_section(
   path: List(String),
   content: List(parser.Expression),
+  end_tag: rewriter.Element,
   env: environment.Environment,
-  trailing: Option(String),
   acc: StringTree,
 ) -> StringTree {
   let acc = case environment.get(env, path) {
@@ -150,21 +156,28 @@ fn evaluate_section(
         acc,
       )
   }
-  case trailing {
-    Some(trailing) -> string_tree.append(acc, trailing)
-    None -> acc
+  case end_tag {
+    rewriter.End(_, _, clearance, leading, trailing) ->
+      render_end_tag(acc, clearance, leading, trailing)
+    _ -> acc
   }
 }
 
 fn evaluate_inverted_section(
   path: List(String),
   content: List(parser.Expression),
+  end_tag: rewriter.Element,
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  case environment.get(env, path) {
+  let acc = case environment.get(env, path) {
     Error(Nil) | Ok(value.Bool(False)) | Ok(value.List([])) ->
       evaluate_exprs(content, env, acc)
+    _ -> acc
+  }
+  case end_tag {
+    rewriter.End(_, _, clearance, leading, trailing) ->
+      render_end_tag(acc, clearance, leading, trailing)
     _ -> acc
   }
 }
@@ -208,10 +221,12 @@ fn resolve_partial_name(
   }
 }
 
-fn evaluate_block(
+fn evaluate_parameter(
   name: String,
   indentation: String,
+  start_tag: rewriter.Element,
   content: List(parser.Expression),
+  end_tag: rewriter.Element,
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
@@ -232,7 +247,9 @@ fn evaluate_block(
 fn evaluate_parent(
   name: String,
   indentation: Option(String),
+  start_tag: rewriter.Element,
   content: List(parser.Expression),
+  end_tag: rewriter.Element,
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
@@ -251,6 +268,29 @@ fn evaluate_parent(
   }
 }
 
+// helpers
+
+fn render_end_tag(
+  acc: StringTree,
+  clearance: rewriter.Clearance,
+  leading: Option(String),
+  trailing: Option(String),
+) -> StringTree {
+  case clearance {
+    rewriter.ClearsBoth -> acc
+    _ -> {
+      let acc = case leading {
+        Some(leading) -> string_tree.append(acc, leading)
+        None -> acc
+      }
+      case trailing {
+        Some(trailing) -> string_tree.append(acc, trailing)
+        None -> acc
+      }
+    }
+  }
+}
+
 fn find_arguments_in_parent(
   content: List(parser.Expression),
   acc: Dict(String, List(parser.Expression)),
@@ -259,7 +299,7 @@ fn find_arguments_in_parent(
     [] -> acc
     [head, ..tail] -> {
       let acc = case head {
-        parser.Parameter(rewriter.BlockStart(_, name, _, _, _), _, content) ->
+        parser.Parameter(rewriter.BlockStart(_, name, _, _, _), _, _, content) ->
           dict.upsert(acc, name, fn(val) {
             case val {
               None -> content
