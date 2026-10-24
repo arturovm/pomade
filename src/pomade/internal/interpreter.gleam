@@ -214,7 +214,7 @@ fn resolve_partial_name(
 
 fn evaluate_parameter(
   name: String,
-  indentation: String,
+  indentation: Option(String),
   start_tag: rewriter.Element,
   content: List(parser.Expression),
   end_tag: rewriter.Element,
@@ -229,7 +229,7 @@ fn evaluate_parameter(
     content,
     environment.Environment(
       ..env,
-      indentation: merge_indentation(env.indentation, Some(indentation)),
+      indentation: merge_indentation(env.indentation, indentation),
     ),
     acc,
   )

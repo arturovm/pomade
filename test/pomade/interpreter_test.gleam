@@ -291,7 +291,7 @@ pub fn block_test() {
             ["block"],
             rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
           ),
-          "",
+          None,
           [
             parser.Literal("foo, bar, baz"),
           ],

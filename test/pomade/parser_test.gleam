@@ -114,7 +114,7 @@ pub fn block_test() {
           ["title"],
           rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
         ),
-        "",
+        None,
         [
           parser.Literal("hello :)"),
         ],
@@ -151,8 +151,7 @@ pub fn parent_test() {
         ),
         None,
         [
-          parser.Literal("hello :)"),
-          parser.Parameter(
+          parser.Argument(
             rewriter.BlockStart(
               0,
               "title",
@@ -163,7 +162,7 @@ pub fn parent_test() {
               ["title"],
               rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
             ),
-            "",
+            None,
             [
               parser.Literal("goodbye :("),
             ],
