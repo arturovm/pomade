@@ -90,7 +90,7 @@ fn parse_expressions(
   dedent: Option(String),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Eof(_)] | [rewriter.End(_, _, _, _, _), ..] ->
+    [rewriter.Eof(_)] | [rewriter.End(_, _, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
     non_empty ->
       case parse_expression(non_empty, dedent) {
@@ -137,8 +137,8 @@ fn parse_block(
   dedent: Option(String),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.BlockStart(_, _, _, indentation, _) as start, ..tail] ->
-      parse_block_content(tail, start, indentation, dedent)
+    [rewriter.BlockStart(_, _, _) as start, ..tail] ->
+      parse_block_content(tail, start, None, dedent)
     _ -> parse_parent(tokens, dedent)
   }
 }
@@ -200,8 +200,8 @@ fn parse_parent(
   dedent: Option(String),
 ) -> Result(#(Option(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.ParentStart(_, _, _, indentation, _) as start, ..tail] ->
-      parse_parent_content(tail, start, indentation, dedent)
+    [rewriter.ParentStart(_, _, _) as start, ..tail] ->
+      parse_parent_content(tail, start, None, dedent)
     _ -> parse_inverted_section(tokens, dedent)
   }
 }
@@ -273,7 +273,7 @@ fn parse_closing_tag(
   tokens: List(rewriter.Element),
 ) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.End(_, _, _, _, _) as end, ..tail] -> Ok(#(end, tail))
+    [rewriter.End(_, _, _) as end, ..tail] -> Ok(#(end, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -349,9 +349,9 @@ fn tag_path(tag: rewriter.Element) -> Result(List(String), SyntaxError) {
   case tag {
     rewriter.SectionStart(_, path) -> Ok(path)
     rewriter.InvertedSectionStart(_, path) -> Ok(path)
-    rewriter.End(_, path, _, _, _) -> Ok(path)
-    rewriter.BlockStart(_, name, _, _, _) -> Ok([name])
-    rewriter.ParentStart(_, name, _, _, _) -> Ok([name])
+    rewriter.End(_, path, _) -> Ok(path)
+    rewriter.BlockStart(_, name, _) -> Ok([name])
+    rewriter.ParentStart(_, name, _) -> Ok([name])
     any -> Error(UnexpectedTokenError(any))
   }
 }

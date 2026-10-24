@@ -57,14 +57,22 @@ pub fn section_test() {
   assert Ok([
       parser.Section(
         ["person"],
-        rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+        rewriter.End(
+          0,
+          ["person"],
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
         [parser.Variable(["name"])],
       ),
     ])
     == parser.parse([
       rewriter.SectionStart(0, ["person"]),
       rewriter.Variable(0, ["name"]),
-      rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+      rewriter.End(
+        0,
+        ["person"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Eof(0),
     ])
 }
@@ -73,14 +81,22 @@ pub fn inverted_section_test() {
   assert Ok([
       parser.InvertedSection(
         ["person"],
-        rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+        rewriter.End(
+          0,
+          ["person"],
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
         [parser.Literal("no repos :(")],
       ),
     ])
     == parser.parse([
       rewriter.InvertedSectionStart(0, ["person"]),
       rewriter.Literal(0, "no repos :("),
-      rewriter.End(0, ["person"], rewriter.ClearsNone, None, None),
+      rewriter.End(
+        0,
+        ["person"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Eof(0),
     ])
 }
@@ -88,8 +104,16 @@ pub fn inverted_section_test() {
 pub fn block_test() {
   assert Ok([
       parser.Parameter(
-        rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
-        rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
+        rewriter.BlockStart(
+          0,
+          "title",
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
+        rewriter.End(
+          0,
+          ["title"],
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
         "",
         [
           parser.Literal("hello :)"),
@@ -97,9 +121,17 @@ pub fn block_test() {
       ),
     ])
     == parser.parse([
-      rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+      rewriter.BlockStart(
+        0,
+        "title",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Literal(0, "hello :)"),
-      rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
+      rewriter.End(
+        0,
+        ["title"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Eof(0),
     ])
 }
@@ -107,14 +139,30 @@ pub fn block_test() {
 pub fn parent_test() {
   assert Ok([
       parser.Parent(
-        rewriter.ParentStart(0, "article", rewriter.ClearsNone, None, None),
-        rewriter.End(0, ["article"], rewriter.ClearsNone, None, None),
+        rewriter.ParentStart(
+          0,
+          "article",
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
+        rewriter.End(
+          0,
+          ["article"],
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
         None,
         [
           parser.Literal("hello :)"),
           parser.Parameter(
-            rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
-            rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
+            rewriter.BlockStart(
+              0,
+              "title",
+              rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+            ),
+            rewriter.End(
+              0,
+              ["title"],
+              rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+            ),
             "",
             [
               parser.Literal("goodbye :("),
@@ -124,12 +172,28 @@ pub fn parent_test() {
       ),
     ])
     == parser.parse([
-      rewriter.ParentStart(0, "article", rewriter.ClearsNone, None, None),
+      rewriter.ParentStart(
+        0,
+        "article",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Literal(0, "hello :)"),
-      rewriter.BlockStart(0, "title", rewriter.ClearsNone, None, None),
+      rewriter.BlockStart(
+        0,
+        "title",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Literal(0, "goodbye :("),
-      rewriter.End(0, ["title"], rewriter.ClearsNone, None, None),
-      rewriter.End(0, ["article"], rewriter.ClearsNone, None, None),
+      rewriter.End(
+        0,
+        ["title"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
+      rewriter.End(
+        0,
+        ["article"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Eof(0),
     ])
 }
@@ -153,12 +217,20 @@ pub fn recursion_test() {
       parser.Literal("some text"),
       parser.Section(
         ["a_section"],
-        rewriter.End(0, ["a_section"], rewriter.ClearsNone, None, None),
+        rewriter.End(
+          0,
+          ["a_section"],
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
         [
           parser.Variable(["some_variable"]),
           parser.InvertedSection(
             ["inner_section"],
-            rewriter.End(0, ["inner_section"], rewriter.ClearsNone, None, None),
+            rewriter.End(
+              0,
+              ["inner_section"],
+              rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+            ),
             [parser.Literal("inner text")],
           ),
         ],
@@ -170,8 +242,16 @@ pub fn recursion_test() {
       rewriter.Variable(0, ["some_variable"]),
       rewriter.InvertedSectionStart(0, ["inner_section"]),
       rewriter.Literal(0, "inner text"),
-      rewriter.End(0, ["inner_section"], rewriter.ClearsNone, None, None),
-      rewriter.End(0, ["a_section"], rewriter.ClearsNone, None, None),
+      rewriter.End(
+        0,
+        ["inner_section"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
+      rewriter.End(
+        0,
+        ["a_section"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
       rewriter.Eof(0),
     ])
 }

@@ -65,7 +65,7 @@ fn evaluate_exprs(
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
     [
       parser.Parameter(
-        rewriter.BlockStart(_, name, _, _, _) as opening_tag,
+        rewriter.BlockStart(_, name, _) as opening_tag,
         end_tag,
         indentation,
         content,
@@ -87,7 +87,7 @@ fn evaluate_exprs(
       )
     [
       parser.Parent(
-        rewriter.ParentStart(_, name, _, _, _) as opening_tag,
+        rewriter.ParentStart(_, name, _) as opening_tag,
         end_tag,
         indentation,
         content,
@@ -150,8 +150,7 @@ fn evaluate_section(
       )
   }
   case end_tag {
-    rewriter.End(_, _, clearance, leading, trailing) ->
-      render_end_tag(acc, clearance, leading, trailing)
+    rewriter.End(_, _, clearance) -> render_end_tag(acc, clearance)
     _ -> acc
   }
 }
@@ -169,8 +168,7 @@ fn evaluate_inverted_section(
     _ -> acc
   }
   case end_tag {
-    rewriter.End(_, _, clearance, leading, trailing) ->
-      render_end_tag(acc, clearance, leading, trailing)
+    rewriter.End(_, _, clearance) -> render_end_tag(acc, clearance)
     _ -> acc
   }
 }
@@ -266,19 +264,17 @@ fn evaluate_parent(
 fn render_end_tag(
   acc: StringTree,
   clearance: rewriter.Clearance,
-  leading: Option(String),
-  trailing: Option(String),
 ) -> StringTree {
   case clearance {
-    rewriter.ClearsBoth -> acc
-    _ -> {
-      let acc = case leading {
-        Some(leading) -> string_tree.append(acc, leading)
-        None -> acc
+    rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> acc
+    rewriter.Clearance(start, end) -> {
+      let acc = case start {
+        rewriter.Clears(Some(leading)) -> string_tree.append(acc, leading)
+        _ -> acc
       }
-      case trailing {
-        Some(trailing) -> string_tree.append(acc, trailing)
-        None -> acc
+      case end {
+        rewriter.Clears(Some(trailing)) -> string_tree.append(acc, trailing)
+        _ -> acc
       }
     }
   }
@@ -292,7 +288,7 @@ fn find_arguments_in_parent(
     [] -> acc
     [head, ..tail] -> {
       let acc = case head {
-        parser.Parameter(rewriter.BlockStart(_, name, _, _, _), _, _, content) ->
+        parser.Parameter(rewriter.BlockStart(_, name, _), _, _, content) ->
           dict.upsert(acc, name, fn(val) {
             case val {
               None -> content

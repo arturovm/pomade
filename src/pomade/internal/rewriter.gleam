@@ -42,27 +42,9 @@ pub type Element {
   // non-output tags
   SectionStart(line: Int, name: List(String))
   InvertedSectionStart(line: Int, name: List(String))
-  BlockStart(
-    line: Int,
-    name: String,
-    clearance: Clearance,
-    leading: Option(String),
-    trailing: Option(String),
-  )
-  ParentStart(
-    line: Int,
-    name: String,
-    clearance: Clearance,
-    leading: Option(String),
-    trailing: Option(String),
-  )
-  End(
-    line: Int,
-    name: List(String),
-    clearance: Clearance,
-    leading: Option(String),
-    trailing: Option(String),
-  )
+  BlockStart(line: Int, name: String, clearance: Clearance)
+  ParentStart(line: Int, name: String, clearance: Clearance)
+  End(line: Int, name: List(String), clearance: Clearance)
   Partial(line: Int, name: scanner.PartialName, leading: Option(String))
   // eof
   Eof(line: Int)
@@ -72,10 +54,12 @@ pub type Element {
 }
 
 pub type Clearance {
-  ClearsBoth
-  ClearsStart
-  ClearsEnd
-  ClearsNone
+  Clearance(start: SideClearance, end: SideClearance)
+}
+
+pub type SideClearance {
+  Clears(Option(String))
+  NotClears
 }
 
 type State {
@@ -99,10 +83,6 @@ type NonOutputTag {
   ElidedTag(line: Int)
 }
 
-pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
-  transduce_loop(tokens, LineStart(None), Empty)
-}
-
 // This is (my practical implementation of a) Streaming Data String Transducer,
 // (https://www.cis.upenn.edu/~alur/Popl11.pdf) which is a specialized form of
 // transducer that translates its input alphabet into the output alphabet in a
@@ -123,6 +103,10 @@ pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
 // (https://fsharpforfunandprofit.com) and reify the concepts in the paper as a
 // sort of hybrid representation of the possible states and the variables of
 // the transducer, for which I used the `State` type above.
+pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
+  transduce_loop(tokens, LineStart(None), Empty)
+}
+
 fn transduce_loop(
   tokens: List(scanner.Token),
   state: State,
@@ -294,60 +278,82 @@ fn commit_pending(state: State, line: Int) -> Tree {
   case state {
     LineStart(leading) -> commit_leading(Empty, line, leading)
     TagPending(FirstTag(leading, tag, trailing)) ->
-      commit_tag(Empty, leading, tag, trailing, ClearsStart)
+      commit_tag(Empty, tag, Clearance(Clears(leading), NotClears))
+      |> commit_trailing(tag.line, trailing)
     TagPending(InlineTag(current_line, tag, trailing)) ->
-      commit_tag(current_line, None, tag, trailing, ClearsNone)
+      commit_tag(current_line, tag, Clearance(NotClears, NotClears))
+      |> commit_trailing(tag.line, trailing)
     Content(current_line, literal) ->
       append_literal(current_line, line, literal)
   }
 }
 
-fn commit_tag(
-  acc: Tree,
-  leading: Option(String),
-  tag: NonOutputTag,
-  trailing: Option(String),
-  clearance: Clearance,
-) -> Tree {
+fn commit_tag(acc: Tree, tag: NonOutputTag, clearance: Clearance) -> Tree {
   case tag, clearance {
     // standalone elided
-    ElidedTag(_), ClearsBoth -> acc
+    ElidedTag(_), Clearance(Clears(_), Clears(_)) -> acc
     // all other elided cases
-    ElidedTag(line), _ ->
-      commit_leading(acc, line, leading) |> commit_trailing(line, trailing)
+    ElidedTag(line), clearance ->
+      commit_clearance_whitespace(acc, line, clearance)
     // standalone partial
-    PartialTag(line, name), ClearsBoth ->
+    PartialTag(line, name), Clearance(Clears(leading), Clears(_)) ->
       append(acc, Partial(line, name, leading))
     // all other partial cases
-    PartialTag(line, name), _ ->
-      commit_leading(acc, line, leading)
-      |> append(Partial(line, name, None))
+    PartialTag(line, name), Clearance(Clears(leading), NotClears) ->
+      commit_leading(acc, line, leading) |> append(Partial(line, name, None))
+    PartialTag(line, name), Clearance(NotClears, Clears(trailing)) ->
+      append(acc, Partial(line, name, None))
       |> commit_trailing(line, trailing)
-    // standalone section start
-    SectionStartTag(line, name), ClearsBoth ->
+    PartialTag(line, name), Clearance(NotClears, NotClears) ->
+      append(acc, Partial(line, name, None))
+    // section start
+    SectionStartTag(line, name), Clearance(Clears(_), Clears(_)) ->
       append(acc, SectionStart(line, name))
     // all other section start cases
-    SectionStartTag(line, name), _ ->
-      commit_leading(acc, line, leading)
-      |> append(SectionStart(line, name))
+    SectionStartTag(line, name), Clearance(Clears(leading), NotClears) ->
+      commit_leading(acc, line, leading) |> append(SectionStart(line, name))
+    SectionStartTag(line, name), Clearance(NotClears, Clears(trailing)) ->
+      append(acc, SectionStart(line, name))
       |> commit_trailing(line, trailing)
-    // standalone inverted section start
-    InvertedSectionStartTag(line, name), ClearsBoth ->
+    SectionStartTag(line, name), Clearance(NotClears, NotClears) ->
+      append(acc, SectionStart(line, name))
+    // inverted section start
+    InvertedSectionStartTag(line, name), Clearance(Clears(_), Clears(_)) ->
       append(acc, InvertedSectionStart(line, name))
-    // all other section start cases
-    InvertedSectionStartTag(line, name), _ ->
+    // all other inverted section start cases
+    InvertedSectionStartTag(line, name), Clearance(Clears(leading), NotClears)
+    ->
       commit_leading(acc, line, leading)
       |> append(InvertedSectionStart(line, name))
+    InvertedSectionStartTag(line, name), Clearance(NotClears, Clears(trailing))
+    ->
+      append(acc, InvertedSectionStart(line, name))
       |> commit_trailing(line, trailing)
+    InvertedSectionStartTag(line, name), Clearance(NotClears, NotClears) ->
+      append(acc, InvertedSectionStart(line, name))
     // blocks
     BlockStartTag(line, name), _ ->
-      append(acc, BlockStart(line, name, clearance, leading, trailing))
+      append(acc, BlockStart(line, name, clearance))
     // parents
     ParentStartTag(line, name), _ ->
-      append(acc, ParentStart(line, name, clearance, leading, trailing))
+      append(acc, ParentStart(line, name, clearance))
     // end tags
-    EndTag(line, name), _ ->
-      append(acc, End(line, name, clearance, leading, trailing))
+    EndTag(line, name), _ -> append(acc, End(line, name, clearance))
+  }
+}
+
+fn commit_clearance_whitespace(
+  acc: Tree,
+  line: Int,
+  clearance: Clearance,
+) -> Tree {
+  let acc = case clearance.start {
+    Clears(leading) -> commit_leading(acc, line, leading)
+    NotClears -> acc
+  }
+  case clearance.end {
+    Clears(trailing) -> commit_trailing(acc, line, trailing)
+    NotClears -> acc
   }
 }
 
@@ -373,14 +379,18 @@ fn end_line(
     // the line is empty, aside from the pending tag, so the tag clears both,
     // and there's no need to write the current line into the main accumulator
     TagPending(FirstTag(leading, tag, trailing)) ->
-      commit_tag(acc, leading, tag, glom(trailing, newline), ClearsBoth)
+      commit_tag(
+        acc,
+        tag,
+        Clearance(Clears(leading), Clears(glom(trailing, newline))),
+      )
     // if the latest tag was pending to be committed, then that means that the
     // line is NOT empty, so the tag only clears the end (and this is then a
     // content line), and we absorb the trailing whitespace into the element
     TagPending(InlineTag(current_line, tag, trailing)) ->
       append(acc, Indent(line))
       |> append_tree(current_line)
-      |> commit_tag(None, tag, glom(trailing, newline), ClearsEnd)
+      |> commit_tag(tag, Clearance(NotClears, Clears(glom(trailing, newline))))
     // content
     Content(current_line, literal) ->
       append(acc, Indent(line))
@@ -439,14 +449,6 @@ type Tree {
   Tree(List(Tree))
 }
 
-fn prepend(tree: Tree, prefix: Element) -> Tree {
-  append_tree(Leaf(prefix), tree)
-}
-
-fn prepend_tree(tree: Tree, prefix: Tree) -> Tree {
-  append_tree(prefix, tree)
-}
-
 fn append(tree: Tree, suffix: Element) -> Tree {
   append_tree(tree, Leaf(suffix))
 }
@@ -483,10 +485,9 @@ pub fn token_to_string(token: Element) -> String {
     SectionStart(_, path) -> token_name_with_path("SECTION_START", path)
     InvertedSectionStart(_, path) ->
       token_name_with_path("INVERTED_SECTION_START", path)
-    BlockStart(_, name, _, _, _) -> token_name_with_path("BLOCK_START", [name])
-    ParentStart(_, name, _, _, _) ->
-      token_name_with_path("PARENT_START", [name])
-    End(_, path, _, _, _) -> token_name_with_path("END_TAG", path)
+    BlockStart(_, name, _) -> token_name_with_path("BLOCK_START", [name])
+    ParentStart(_, name, _) -> token_name_with_path("PARENT_START", [name])
+    End(_, path, _) -> token_name_with_path("END_TAG", path)
     Partial(_, name, _) ->
       token_name_with_path("PARTIAL", case name {
         scanner.StaticName(name) -> [name]
