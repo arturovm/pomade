@@ -217,7 +217,7 @@ fn evaluate_parent(
   name: String,
   indentation: Option(String),
   start_tag: rewriter.Clearance,
-  content: List(parser.Expression),
+  content: List(parser.Argument),
   end_tag: rewriter.Clearance,
   env: environment.Environment,
   acc: StringTree,
@@ -259,22 +259,19 @@ fn render_end_tag(
 }
 
 fn find_arguments_in_parent(
-  content: List(parser.Expression),
+  content: List(parser.Argument),
   acc: Dict(String, List(parser.Expression)),
 ) -> Dict(String, List(parser.Expression)) {
   case content {
     [] -> acc
-    [head, ..tail] -> {
-      let acc = case head {
-        parser.Argument(name, content) ->
-          dict.upsert(acc, name, fn(val) {
-            case val {
-              None -> content
-              Some(previous) -> previous
-            }
-          })
-        _ -> acc
-      }
+    [parser.Argument(name, content), ..tail] -> {
+      let acc =
+        dict.upsert(acc, name, fn(val) {
+          case val {
+            None -> content
+            Some(previous) -> previous
+          }
+        })
       find_arguments_in_parent(tail, acc)
     }
   }
