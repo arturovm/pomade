@@ -140,13 +140,13 @@ fn parse_parameter(
   case tokens {
     [rewriter.BlockStart(_, data) as tag, ..tail] -> {
       use #(expressions, tail) <- result.try(parse_expressions(tail, []))
-      use #(end, tail) <- result.try(parse_end_tag(tail, tag, [data.name]))
+      use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
       let intrinsic_indentation = case standalone(data.clearance, end) {
         True -> intrinsic_indentation(data.clearance, tokens)
         False -> None
       }
       let deindented_expressions = deindent(intrinsic_indentation, expressions)
-      Ok(#(
+      #(
         Parameter(
           data.name,
           data.clearance,
@@ -155,7 +155,7 @@ fn parse_parameter(
           deindented_expressions,
         ),
         tail,
-      ))
+      )
     }
     _ -> parse_parent(tokens)
   }
@@ -256,13 +256,13 @@ fn parse_parent(
   case tokens {
     [rewriter.ParentStart(_, data) as tag, ..tail] -> {
       use #(expressions, tail) <- result.try(parse_arguments(tail, []))
-      use #(end_clearance, tail) <- result.try(
+      use #(end_clearance, tail) <- result.map(
         parse_end_tag(tail, tag, [data.name]),
       )
-      Ok(#(
+      #(
         Parent(data.name, data.clearance, end_clearance, None, expressions),
         tail,
-      ))
+      )
     }
     _ -> parse_inverted_section(tokens)
   }
@@ -275,33 +275,29 @@ fn parse_arguments(
   case tokens {
     [rewriter.Eof(_)] | [rewriter.End(_, _, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
-    non_empty ->
-      case parse_argument_or_discard_expression(non_empty) {
-        Ok(#(Some(some), tail)) -> parse_arguments(tail, [some, ..acc])
-        Ok(#(None, tail)) -> parse_arguments(tail, acc)
+    [rewriter.BlockStart(_, data) as tag, ..tail] ->
+      case parse_argument(tail, tag, data) {
+        Ok(#(argument, tail)) -> parse_arguments(tail, [argument, ..acc])
+        Error(error) -> Error(error)
+      }
+    other ->
+      case parse_expression(other) {
+        Ok(#(_, tail)) -> parse_arguments(tail, acc)
         Error(error) -> Error(error)
       }
   }
 }
 
-fn parse_argument_or_discard_expression(
+fn parse_argument(
   tokens: List(rewriter.Element),
-) -> Result(#(Option(Argument), List(rewriter.Element)), SyntaxError) {
-  case tokens {
-    [rewriter.BlockStart(_, data) as tag, ..tail] -> {
-      use #(expressions, tail) <- result.try(parse_expressions(tail, []))
-      use #(_, tail) <- result.try(parse_end_tag(tail, tag, [data.name]))
-      let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
-      let deindented_expressions = deindent(intrinsic_indentation, expressions)
-      Ok(#(Some(Argument(data.name, deindented_expressions)), tail))
-    }
-    other -> {
-      case parse_expression(other) {
-        Ok(#(_, tail)) -> Ok(#(None, tail))
-        Error(error) -> Error(error)
-      }
-    }
-  }
+  start: rewriter.Element,
+  data: rewriter.StartTagData,
+) -> Result(#(Argument, List(rewriter.Element)), SyntaxError) {
+  use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
+  use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
+  let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
+  let deindented_expressions = deindent(intrinsic_indentation, expressions)
+  #(Argument(data.name, deindented_expressions), tail)
 }
 
 fn parse_inverted_section(
@@ -372,8 +368,7 @@ fn parse_raw_variable(
   tokens: List(rewriter.Element),
 ) -> Result(#(Expression, List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.RawVariable(_, path), ..tail] ->
-      Ok(emit_expr(RawVariable, path, tail))
+    [rewriter.RawVariable(_, path), ..tail] -> Ok(#(RawVariable(path), tail))
     _ -> parse_variable(tokens)
   }
 }
@@ -382,7 +377,7 @@ fn parse_variable(
   tokens: List(rewriter.Element),
 ) -> Result(#(Expression, List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Variable(_, path), ..tail] -> Ok(emit_expr(Variable, path, tail))
+    [rewriter.Variable(_, path), ..tail] -> Ok(#(Variable(path), tail))
 
     _ -> parse_primary(tokens)
   }
@@ -410,8 +405,8 @@ fn parse_enclosed(
   use #(start, tail) <- result.try(opening_rule(tokens))
   use #(expressions, tail) <- result.try(parse_expressions(tail, []))
   use start_path <- result.try(tag_path(start))
-  use #(end, tail) <- result.try(parse_end_tag(tail, start, start_path))
-  Ok(#(expr_constructor(start_path, end, expressions), tail))
+  use #(end, tail) <- result.map(parse_end_tag(tail, start, start_path))
+  #(expr_constructor(start_path, end, expressions), tail)
 }
 
 fn tag_path(tag: rewriter.Element) -> Result(List(String), SyntaxError) {
@@ -432,21 +427,6 @@ fn parse_eof(
     [rewriter.Eof(_) as eof] -> Ok(#(eof, tokens))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
-  }
-}
-
-fn emit_expr(
-  expression: fn(x) -> Expression,
-  value: x,
-  tail: List(rewriter.Element),
-) -> #(Expression, List(rewriter.Element)) {
-  #(expression(value), tail)
-}
-
-fn remove_prefix(str: String, prefix: Option(String)) -> String {
-  case prefix {
-    Some(prefix) -> string.drop_start(str, string.length(prefix))
-    None -> str
   }
 }
 
