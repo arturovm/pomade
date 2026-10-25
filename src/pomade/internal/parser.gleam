@@ -267,8 +267,22 @@ fn parse_argument_or_discard_expression(
   tokens: List(rewriter.Element),
 ) -> Result(#(Option(Argument), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.BlockStart(_, data) as start, ..tail] ->
-      parse_argument(tail, data, start)
+    [rewriter.BlockStart(_, data) as start, ..tail] -> {
+      use #(expressions, tail) <- result.try(parse_expressions(tail, []))
+      use #(_, tail) <- result.try(parse_end_tag(tail, start, [data.name]))
+      let intrinsic_indentation = case data.clearance, tokens {
+        rewriter.Clearance(_, rewriter.Clears(_)),
+          [rewriter.Indent(_), rewriter.Leading(_, lexeme), ..]
+        -> Some(lexeme)
+        _, _ -> None
+      }
+      let deindented_expressions = case intrinsic_indentation {
+        None -> expressions
+        Some(intrinsic_indentation) ->
+          deindent(expressions, intrinsic_indentation, [])
+      }
+      Ok(#(Some(Argument(data.name, deindented_expressions)), tail))
+    }
     other -> {
       case parse_expression(other) {
         Ok(#(_, tail)) -> Ok(#(None, tail))
@@ -276,27 +290,6 @@ fn parse_argument_or_discard_expression(
       }
     }
   }
-}
-
-fn parse_argument(
-  tokens: List(rewriter.Element),
-  start: rewriter.StartTagData,
-  start_element: rewriter.Element,
-) -> Result(#(Option(Argument), List(rewriter.Element)), SyntaxError) {
-  use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
-  use #(_, tail) <- result.try(parse_end_tag(tail, start_element, [start.name]))
-  let intrinsic_indentation = case start.clearance, tokens {
-    rewriter.Clearance(_, rewriter.Clears(_)),
-      [rewriter.Indent(_), rewriter.Leading(_, lexeme), ..]
-    -> Some(lexeme)
-    _, _ -> None
-  }
-  let deindented_expressions = case intrinsic_indentation {
-    None -> expressions
-    Some(intrinsic_indentation) ->
-      deindent(expressions, intrinsic_indentation, [])
-  }
-  Ok(#(Some(Argument(start.name, deindented_expressions)), tail))
 }
 
 fn parse_inverted_section(
