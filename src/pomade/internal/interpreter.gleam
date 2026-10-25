@@ -91,7 +91,6 @@ fn evaluate_exprs(
           acc,
         ),
       )
-    _ -> acc
   }
 }
 
@@ -193,37 +192,81 @@ fn resolve_partial_name(
 fn evaluate_parameter(
   name: String,
   indentation: Option(String),
-  start_tag: rewriter.Clearance,
+  start: rewriter.Clearance,
   content: List(parser.Expression),
-  end_tag: rewriter.Clearance,
+  end: rewriter.Clearance,
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
+  let acc = render_block_leading(acc, start, end)
   let content = case dict.get(env.arguments, name) {
     Error(_) -> content
     Ok(override) -> override
   }
-  evaluate_exprs(
-    content,
-    environment.Environment(
-      ..env,
-      indentation: merge_indentation(env.indentation, indentation),
-    ),
-    acc,
-  )
+  let acc =
+    evaluate_exprs(
+      content,
+      environment.Environment(
+        ..env,
+        indentation: merge_indentation(env.indentation, indentation),
+      ),
+      acc,
+    )
+  render_block_trailing(acc, start, end)
+}
+
+fn render_block_leading(
+  acc: StringTree,
+  start: rewriter.Clearance,
+  end: rewriter.Clearance,
+) -> StringTree {
+  let leading = case start, end {
+    // if the pair is standalone, and the start tag itself is standalone, elide
+    rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)),
+      rewriter.Clearance(_, rewriter.Clears(_))
+    -> None
+    // otherwise always output whatever leading whitespace there is
+    rewriter.Clearance(rewriter.NotClears, _), _ -> None
+    rewriter.Clearance(rewriter.Clears(outer), _), _ -> outer
+  }
+  case leading {
+    None -> acc
+    Some(ws) -> string_tree.append(acc, ws)
+  }
+}
+
+fn render_block_trailing(
+  acc: StringTree,
+  start: rewriter.Clearance,
+  end: rewriter.Clearance,
+) -> StringTree {
+  let trailing = case start, end {
+    // if the pair is standalone, and the end tag itself is standalone, elide
+    rewriter.Clearance(rewriter.Clears(_), _),
+      rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_))
+    -> None
+    // otherwise always output whatever trailing whitespace there is
+    _, rewriter.Clearance(_, rewriter.NotClears) -> None
+    _, rewriter.Clearance(_, rewriter.Clears(outer)) -> outer
+  }
+  case trailing {
+    None -> acc
+    Some(ws) -> string_tree.append(acc, ws)
+  }
 }
 
 fn evaluate_parent(
   name: String,
   indentation: Option(String),
-  start_tag: rewriter.Clearance,
+  start: rewriter.Clearance,
   content: List(parser.Argument),
-  end_tag: rewriter.Clearance,
+  end: rewriter.Clearance,
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  case dict.get(env.templates, name) {
-    Ok(ast) ->
+  let acc = render_parent_leading(acc, start, end)
+  let acc = case dict.get(env.templates, name) {
+    Ok(ast) -> {
       evaluate_exprs(
         ast,
         environment.Environment(
@@ -233,7 +276,49 @@ fn evaluate_parent(
         ),
         acc,
       )
+    }
     Error(_) -> acc
+  }
+  render_parent_trailing(acc, start, end)
+}
+
+fn render_parent_leading(
+  acc: StringTree,
+  start: rewriter.Clearance,
+  end: rewriter.Clearance,
+) -> StringTree {
+  let leading = case start, end {
+    // if the pair is standalone, elide
+    rewriter.Clearance(rewriter.Clears(_), _),
+      rewriter.Clearance(_, rewriter.Clears(_))
+    -> None
+    // otherwise always output whatever leading whitespace there is
+    rewriter.Clearance(rewriter.NotClears, _), _ -> None
+    rewriter.Clearance(rewriter.Clears(outer), _), _ -> outer
+  }
+  case leading {
+    None -> acc
+    Some(ws) -> string_tree.append(acc, ws)
+  }
+}
+
+fn render_parent_trailing(
+  acc: StringTree,
+  start: rewriter.Clearance,
+  end: rewriter.Clearance,
+) -> StringTree {
+  let trailing = case start, end {
+    // if the pair is standalone, elide
+    rewriter.Clearance(rewriter.Clears(_), _),
+      rewriter.Clearance(_, rewriter.Clears(_))
+    -> None
+    // otherwise always output whatever trailing whitespace there is
+    _, rewriter.Clearance(_, rewriter.NotClears) -> None
+    _, rewriter.Clearance(_, rewriter.Clears(outer)) -> outer
+  }
+  case trailing {
+    None -> acc
+    Some(ws) -> string_tree.append(acc, ws)
   }
 }
 
@@ -246,13 +331,20 @@ fn render_end_tag(
   case clearance {
     rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> acc
     rewriter.Clearance(start, end) -> {
-      let acc = case start {
-        rewriter.Clears(Some(leading)) -> string_tree.append(acc, leading)
-        _ -> acc
+      let leading = case start {
+        rewriter.Clears(leading) -> leading
+        _ -> None
       }
-      case end {
-        rewriter.Clears(Some(trailing)) -> string_tree.append(acc, trailing)
-        _ -> acc
+      let trailing = case end {
+        rewriter.Clears(trailing) -> trailing
+        _ -> None
+      }
+      case leading, trailing {
+        None, None -> acc
+        Some(leading), None -> string_tree.append(acc, leading)
+        None, Some(trailing) -> string_tree.append(acc, trailing)
+        Some(leading), Some(trailing) ->
+          string_tree.append(acc, leading <> trailing)
       }
     }
   }

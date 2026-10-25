@@ -28,7 +28,9 @@ type Tests {
 
 const prefix = "dev/mustache/spec/specs"
 
-const skipped = [#("~inheritance.json", "Standalone block")]
+const skipped = []
+
+//[#("~inheritance.json", "Standalone block")]
 
 fn load_tests_from_file(file_name: String) -> List(Test) {
   let path = filepath.join(prefix, file_name)
