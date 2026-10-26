@@ -4,7 +4,6 @@ import gleam/string_tree
 
 import pomade/internal/interpreter
 import pomade/internal/parser
-import pomade/internal/rewriter
 import pomade/internal/scanner
 import pomade/internal/value.{Dict, Float, String}
 
@@ -64,15 +63,11 @@ pub fn raw_variable_test() {
     |> string_tree.to_string()
 }
 
-pub fn section_with_standalone_end_test() {
-  assert "hello\n"
+pub fn section_test() {
+  assert "hello"
     == interpreter.interpret(
       [
-        parser.Section(
-          ["section"],
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-          [parser.Indent, parser.Literal("hello")],
-        ),
+        parser.Section(["section"], [parser.Indent, parser.Literal("hello")]),
       ],
       Dict(dict.from_list([#("section", String("foo"))])),
       dict.new(),
@@ -107,17 +102,13 @@ pub fn section_with_parent_context_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Section(
-          ["sec"],
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          [
-            parser.Variable(["a"]),
-            parser.Literal(", "),
-            parser.Variable(["b"]),
-            parser.Literal(", "),
-            parser.Variable(["c", "d"]),
-          ],
-        ),
+        parser.Section(["sec"], [
+          parser.Variable(["a"]),
+          parser.Literal(", "),
+          parser.Variable(["b"]),
+          parser.Literal(", "),
+          parser.Variable(["c", "d"]),
+        ]),
       ],
       parent_env,
       dict.new(),
@@ -129,22 +120,14 @@ pub fn inverted_section_test() {
   assert "No repos :("
     == interpreter.interpret(
       [
-        parser.Section(
-          ["repo"],
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          [
-            parser.Literal("  <b>"),
-            parser.Variable(["name"]),
-            parser.Literal("</b>"),
-          ],
-        ),
-        parser.InvertedSection(
-          ["repo"],
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          [
-            parser.Literal("No repos :("),
-          ],
-        ),
+        parser.Section(["repo"], [
+          parser.Literal("  <b>"),
+          parser.Variable(["name"]),
+          parser.Literal("</b>"),
+        ]),
+        parser.InvertedSection(["repo"], [
+          parser.Literal("No repos :("),
+        ]),
       ],
       Dict(dict.from_list([#("repo", value.List([]))])),
       dict.new(),
@@ -264,15 +247,9 @@ pub fn block_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Parameter(
-          "block",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-          None,
-          [
-            parser.Literal("foo, bar, baz"),
-          ],
-        ),
+        parser.Parameter("block", None, [
+          parser.Literal("foo, bar, baz"),
+        ]),
       ],
       value.Dict(dict.new()),
       dict.new(),

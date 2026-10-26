@@ -9,8 +9,12 @@ pub fn empty_parser_test() {
 }
 
 pub fn indent_test() {
-  assert Ok([parser.Indent])
-    == parser.parse([rewriter.Indent(0), rewriter.Eof(0)])
+  assert Ok([parser.Indent, parser.Literal("Hello")])
+    == parser.parse([
+      rewriter.Indent(0),
+      rewriter.Literal(0, "Hello"),
+      rewriter.Eof(0),
+    ])
 }
 
 pub fn text_test() {
@@ -55,11 +59,7 @@ pub fn raw_variable_test() {
 
 pub fn section_test() {
   assert Ok([
-      parser.Section(
-        ["person"],
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        [parser.Variable(["name"])],
-      ),
+      parser.Section(["person"], [parser.Variable(["name"])]),
     ])
     == parser.parse([
       rewriter.SectionStart(0, ["person"]),
@@ -75,11 +75,7 @@ pub fn section_test() {
 
 pub fn inverted_section_test() {
   assert Ok([
-      parser.InvertedSection(
-        ["person"],
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        [parser.Literal("no repos :(")],
-      ),
+      parser.InvertedSection(["person"], [parser.Literal("no repos :(")]),
     ])
     == parser.parse([
       rewriter.InvertedSectionStart(0, ["person"]),
@@ -95,15 +91,10 @@ pub fn inverted_section_test() {
 
 pub fn block_test() {
   assert Ok([
-      parser.Parameter(
-        "title",
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        None,
-        [
-          parser.Literal("hello :)"),
-        ],
-      ),
+      parser.Parameter("title", None, [
+        parser.Indent,
+        parser.Literal("hello :)"),
+      ]),
     ])
     == parser.parse([
       rewriter.BlockStart(
@@ -125,17 +116,12 @@ pub fn block_test() {
 
 pub fn parent_test() {
   assert Ok([
-      parser.Parent(
-        "article",
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        None,
-        [
-          parser.Argument("title", [
-            parser.Literal("goodbye :("),
-          ]),
-        ],
-      ),
+      parser.Parent("article", None, [
+        parser.Argument("title", [
+          parser.Indent,
+          parser.Literal("goodbye :("),
+        ]),
+      ]),
     ])
     == parser.parse([
       rewriter.ParentStart(
@@ -185,18 +171,10 @@ pub fn partial_test() {
 pub fn recursion_test() {
   assert Ok([
       parser.Literal("some text"),
-      parser.Section(
-        ["a_section"],
-        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        [
-          parser.Variable(["some_variable"]),
-          parser.InvertedSection(
-            ["inner_section"],
-            rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-            [parser.Literal("inner text")],
-          ),
-        ],
-      ),
+      parser.Section(["a_section"], [
+        parser.Variable(["some_variable"]),
+        parser.InvertedSection(["inner_section"], [parser.Literal("inner text")]),
+      ]),
     ])
     == parser.parse([
       rewriter.Literal(0, "some text"),
