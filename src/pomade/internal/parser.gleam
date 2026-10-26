@@ -142,7 +142,7 @@ fn parse_parameter(
       }
       let deindented_expressions = deindent(intrinsic_indentation, expressions)
       let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-      let acc = insert_parameter_leading(acc, data.clearance, end)
+      let acc = insert_standalone_leading(acc, data.clearance, end)
       let acc = [
         Parameter(
           data.name,
@@ -158,14 +158,7 @@ fn parse_parameter(
   }
 }
 
-fn ensure_indent(expressions: List(Expression)) -> List(Expression) {
-  case expressions {
-    [Indent, ..] -> expressions
-    _ -> [Indent, ..expressions]
-  }
-}
-
-fn insert_parameter_leading(
+fn insert_standalone_leading(
   acc: List(Expression),
   start: rewriter.Clearance,
   end: rewriter.Clearance,
@@ -214,32 +207,12 @@ fn parse_parent(
       use #(expressions, tail) <- result.try(parse_arguments(tail, []))
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
       let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-      let acc = insert_parent_leading(acc, data.clearance, end)
+      let acc = insert_standalone_leading(acc, data.clearance, end)
       let acc = [Parent(data.name, extrinsic_indentation, expressions), ..acc]
-      let acc = insert_parent_trailing(acc, data.clearance, end)
+      let acc = insert_standalone_trailing(acc, data.clearance, end)
       #(acc, tail)
     }
     _ -> parse_inverted_section(tokens, acc)
-  }
-}
-
-fn insert_parent_leading(
-  acc: List(Expression),
-  start: rewriter.Clearance,
-  end: rewriter.Clearance,
-) -> List(Expression) {
-  let leading = case start, end {
-    // if the pair is standalone, elide
-    rewriter.Clearance(rewriter.Clears(_), _),
-      rewriter.Clearance(_, rewriter.Clears(_))
-    -> None
-    // otherwise always output whatever leading whitespace there is
-    rewriter.Clearance(rewriter.NotClears, _), _ -> None
-    rewriter.Clearance(rewriter.Clears(outer), _), _ -> outer
-  }
-  case leading {
-    None -> acc
-    Some(ws) -> [Leading(ws), ..acc]
   }
 }
 
@@ -276,7 +249,7 @@ fn parse_argument(
   #(Argument(data.name, deindented_expressions), tail)
 }
 
-fn insert_parent_trailing(
+fn insert_standalone_trailing(
   acc: List(Expression),
   start: rewriter.Clearance,
   end: rewriter.Clearance,
@@ -311,7 +284,7 @@ fn parse_inverted_section_start(
   tokens: List(rewriter.Element),
 ) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.InvertedSectionStart(_, _) as path, ..tail] -> Ok(#(path, tail))
+    [rewriter.InvertedSectionStart(_, _) as tag, ..tail] -> Ok(#(tag, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -332,7 +305,7 @@ fn parse_section_start(
   tokens: List(rewriter.Element),
 ) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.SectionStart(_, _) as path, ..tail] -> Ok(#(path, tail))
+    [rewriter.SectionStart(_, _) as tag, ..tail] -> Ok(#(tag, tail))
     [head, ..] -> Error(UnexpectedTokenError(head))
     [] -> Error(UnexpectedEndOfInputError)
   }
@@ -566,6 +539,13 @@ fn insert_end_tag_clearance(
         Some(trailing) -> [Literal(trailing), ..acc]
       }
     }
+  }
+}
+
+fn ensure_indent(expressions: List(Expression)) -> List(Expression) {
+  case expressions {
+    [Indent, ..] -> expressions
+    _ -> [Indent, ..expressions]
   }
 }
 
