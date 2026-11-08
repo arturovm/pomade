@@ -247,7 +247,7 @@ pub fn block_test() {
   assert "foo, bar, baz"
     == interpreter.interpret(
       [
-        parser.Parameter("block", None, [
+        parser.InlineParameter("block", [
           parser.Literal("foo, bar, baz"),
         ]),
       ],

@@ -58,11 +58,17 @@ fn evaluate_exprs(
       )
     [parser.Partial(name, indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
-    [parser.Parameter(name, indentation, content), ..tail] ->
+    [parser.InlineParameter(name, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
-        evaluate_parameter(name, indentation, content, env, acc),
+        evaluate_inline_parameter(name, content, env, acc),
+      )
+    [parser.StandaloneParameter(name, indentation, content), ..tail] ->
+      evaluate_exprs(
+        tail,
+        env,
+        evaluate_standalone_parameter(name, indentation, content, env, acc),
       )
     [parser.InlineParent(name, content), ..tail] ->
       evaluate_exprs(tail, env, evaluate_inline_parent(name, content, env, acc))
@@ -167,7 +173,20 @@ fn resolve_partial_name(
   }
 }
 
-fn evaluate_parameter(
+fn evaluate_inline_parameter(
+  name: String,
+  content: List(parser.Expression),
+  env: environment.Environment,
+  acc: StringTree,
+) -> StringTree {
+  let content = case dict.get(env.arguments, name) {
+    Error(_) -> content
+    Ok(override) -> override
+  }
+  evaluate_exprs(content, env, acc)
+}
+
+fn evaluate_standalone_parameter(
   name: String,
   indentation: Option(String),
   content: List(parser.Expression),

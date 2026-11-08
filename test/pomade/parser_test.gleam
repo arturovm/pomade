@@ -91,7 +91,7 @@ pub fn inverted_section_test() {
 
 pub fn block_test() {
   assert Ok([
-      parser.Parameter("title", None, [
+      parser.InlineParameter("title", [
         parser.Indent,
         parser.Literal("hello :)"),
       ]),
@@ -228,5 +228,48 @@ pub fn standalone_parent_test() {
         rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
       ),
       rewriter.Eof(2),
+    ])
+}
+
+pub fn standalone_parameter_test() {
+  assert Ok([
+      parser.StandaloneParameter("block", None, [parser.Indent]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
+        ),
+      ),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(1),
+    ])
+
+  assert Ok([
+      parser.StandaloneParameter("block", Some("    "), [parser.Indent]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(
+            rewriter.Clears(Some("    ")),
+            rewriter.Clears(Some("\n")),
+          ),
+        ),
+      ),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(Some("    ")), rewriter.Clears(None)),
+      ),
+      rewriter.Eof(1),
     ])
 }

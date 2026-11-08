@@ -38,7 +38,8 @@ pub type Expression {
   InvertedSection(path: List(String), content: List(Expression))
   Partial(name: scanner.PartialName, indentation: Option(String))
   // block parameter
-  Parameter(
+  InlineParameter(name: String, content: List(Expression))
+  StandaloneParameter(
     name: String,
     indentation: Option(String),
     content: List(Expression),
@@ -150,25 +151,38 @@ fn parse_parameter(
       )
       let reversed_expressions = remove_indent(reversed_expressions)
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
-      let expressions = list.reverse(reversed_expressions)
-      let expressions = ensure_indent(expressions)
-      let intrinsic_indentation = case standalone(data.clearance, end) {
-        True -> intrinsic_indentation(data.clearance, block_content)
-        False -> None
+      case standalone(data.clearance, end) {
+        True -> {
+          let expressions = list.reverse(reversed_expressions)
+          let expressions = ensure_indent(expressions)
+          let intrinsic_indentation = case standalone(data.clearance, end) {
+            True -> intrinsic_indentation(data.clearance, block_content)
+            False -> None
+          }
+          let deindented_expressions =
+            deindent(intrinsic_indentation, expressions)
+          let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
+          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = [
+            StandaloneParameter(
+              data.name,
+              option.or(intrinsic_indentation, extrinsic_indentation),
+              deindented_expressions,
+            ),
+            ..acc
+          ]
+          let acc = insert_parameter_trailing(acc, data.clearance, end)
+          #(acc, tail)
+        }
+        False -> {
+          let expressions = list.reverse(reversed_expressions)
+          let expressions = ensure_indent(expressions)
+          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = [InlineParameter(data.name, expressions), ..acc]
+          let acc = insert_parameter_trailing(acc, data.clearance, end)
+          #(acc, tail)
+        }
       }
-      let deindented_expressions = deindent(intrinsic_indentation, expressions)
-      let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-      let acc = insert_standalone_leading(acc, data.clearance, end)
-      let acc = [
-        Parameter(
-          data.name,
-          option.or(intrinsic_indentation, extrinsic_indentation),
-          deindented_expressions,
-        ),
-        ..acc
-      ]
-      let acc = insert_parameter_trailing(acc, data.clearance, end)
-      #(acc, tail)
     }
     _ -> parse_parent(tokens, acc)
   }
@@ -512,9 +526,9 @@ fn deindent_loop(
         ),
         ..acc
       ])
-    [Parameter(name, indentation, content), ..tail] ->
+    [StandaloneParameter(name, indentation, content), ..tail] ->
       deindent_loop(tail, by, [
-        Parameter(
+        StandaloneParameter(
           name,
           option.map(indentation, string.drop_start(_, string.length(by))),
           deindent_loop(content, by, []),
