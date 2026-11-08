@@ -273,3 +273,91 @@ pub fn standalone_parameter_test() {
       rewriter.Eof(1),
     ])
 }
+
+pub fn intrinsic_indentation_test() {
+  assert Ok([
+      parser.StandaloneParameter("block", Some("    "), [
+        parser.Indent,
+        parser.Literal("content\n"),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
+        ),
+      ),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "    "),
+      rewriter.Literal(2, "content\n"),
+      rewriter.End(
+        3,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(None)),
+      ),
+      rewriter.Eof(3),
+    ])
+
+  assert Ok([
+      parser.StandaloneParameter("block", Some("    "), [
+        parser.Indent,
+        parser.Literal("content"),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
+        ),
+      ),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "    "),
+      rewriter.Literal(2, "content"),
+      rewriter.End(
+        2,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(2),
+    ])
+
+  assert Ok([
+      parser.StandaloneParent("parent", None, [
+        parser.Argument("block", [parser.Indent, parser.Literal("content\n")]),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.ParentStart(
+        1,
+        rewriter.StartTagData(
+          "parent",
+          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
+        ),
+      ),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
+        ),
+      ),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "    "),
+      rewriter.Literal(2, "content\n"),
+      rewriter.End(
+        3,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
+      ),
+      rewriter.End(
+        3,
+        ["parent"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(3),
+    ])
+}

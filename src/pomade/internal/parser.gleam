@@ -504,10 +504,10 @@ fn deindent_loop(
   case expressions {
     [] -> list.reverse(acc)
     [Leading(indentation), ..tail] ->
-      deindent_loop(tail, by, [
-        Leading(string.drop_start(indentation, string.length(by))),
-        ..acc
-      ])
+      case string.drop_start(indentation, string.length(by)) {
+        "" -> deindent_loop(tail, by, acc)
+        indentation -> deindent_loop(tail, by, [Leading(indentation), ..acc])
+      }
     [Section(path, content), ..tail] ->
       deindent_loop(tail, by, [
         Section(path, deindent_loop(content, by, [])),
