@@ -256,3 +256,53 @@ pub fn block_test() {
     )
     |> string_tree.to_string()
 }
+
+pub fn indentation_at_template_expansion_test() {
+  assert "    foo"
+    == interpreter.interpret(
+      [parser.Partial(scanner.StaticName("partial"), Some("    "))],
+      value.Dict(dict.new()),
+      dict.from_list([#("partial", [parser.Indent, parser.Literal("foo")])]),
+    )
+    |> string_tree.to_string()
+
+  assert "    foo"
+    == interpreter.interpret(
+      [parser.StandaloneParent("parent", Some("    "), [])],
+      value.Dict(dict.new()),
+      dict.from_list([#("parent", [parser.Indent, parser.Literal("foo")])]),
+    )
+    |> string_tree.to_string()
+
+  assert "    foo"
+    == interpreter.interpret(
+      [
+        parser.StandaloneParameter("block", Some("    "), [
+          parser.Indent,
+          parser.Literal("foo"),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.new(),
+    )
+    |> string_tree.to_string()
+
+  assert "a    foo"
+    == interpreter.interpret(
+      [
+        parser.Literal("a"),
+        parser.InlineParent("parent", [
+          parser.Argument("block", [parser.Indent, parser.Literal("foo")]),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.from_list([
+        #("parent", [
+          parser.StandaloneParameter("block", Some("    "), [
+            parser.Indent,
+          ]),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+}
