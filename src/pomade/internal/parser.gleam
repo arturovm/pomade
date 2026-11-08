@@ -43,7 +43,12 @@ pub type Expression {
     indentation: Option(String),
     content: List(Expression),
   )
-  Parent(name: String, indentation: Option(String), arguments: List(Argument))
+  InlineParent(name: String, arguments: List(Argument))
+  StandaloneParent(
+    name: String,
+    indentation: Option(String),
+    arguments: List(Argument),
+  )
 }
 
 pub type Argument {
@@ -75,23 +80,32 @@ fn parse_template(
   tokens: List(rewriter.Element),
 ) -> Result(List(Expression), SyntaxError) {
   use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
-  use _ <- result.map(parse_eof(tail))
-  expressions
+  case tail {
+    [rewriter.Eof(_)] -> Ok(expressions)
+    [token, ..] -> Error(UnexpectedTokenError(token))
+    [] -> Error(UnexpectedEndOfInputError)
+  }
 }
 
 fn parse_expressions(
   tokens: List(rewriter.Element),
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
+  case parse_expressions_reversed(tokens, acc) {
+    Ok(#(acc, tail)) -> Ok(#(list.reverse(acc), tail))
+    error -> error
+  }
+}
+
+fn parse_expressions_reversed(
+  tokens: List(rewriter.Element),
+  acc: List(Expression),
+) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Eof(_)] | [rewriter.End(_, _, _), ..] ->
-      case acc {
-        [Indent, ..acc] -> Ok(#(list.reverse(acc), tokens))
-        _ -> Ok(#(list.reverse(acc), tokens))
-      }
+    [rewriter.Eof(_)] | [rewriter.End(_, _, _), ..] -> Ok(#(acc, tokens))
     non_empty ->
       case parse_expression(non_empty, acc) {
-        Ok(#(acc, tail)) -> parse_expressions(tail, acc)
+        Ok(#(acc, tail)) -> parse_expressions_reversed(tail, acc)
         Error(error) -> Error(error)
       }
   }
@@ -131,10 +145,12 @@ fn parse_parameter(
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
     [rewriter.BlockStart(_, data) as tag, ..block_content] -> {
-      use #(expressions, tail) <- result.try(
-        parse_expressions(block_content, []),
+      use #(reversed_expressions, tail) <- result.try(
+        parse_expressions_reversed(block_content, []),
       )
+      let reversed_expressions = remove_indent(reversed_expressions)
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
+      let expressions = list.reverse(reversed_expressions)
       let expressions = ensure_indent(expressions)
       let intrinsic_indentation = case standalone(data.clearance, end) {
         True -> intrinsic_indentation(data.clearance, block_content)
@@ -157,6 +173,19 @@ fn parse_parameter(
     _ -> parse_parent(tokens, acc)
   }
 }
+
+// fn parse_block(
+//   tag: rewriter.Element,
+//   data: rewriter.StartTagData,
+//   tokens: List(rewriter.Element),
+// ) -> Result(List(Expression), SyntaxError) {
+//   use #(reversed_expressions, tail) <- result.try(
+//     parse_expressions_reversed(tokens, []),
+//   )
+//   let reversed_expressions = remove_indent(reversed_expressions)
+//   use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
+//   list.reverse(reversed_expressions)
+// }
 
 fn insert_standalone_leading(
   acc: List(Expression),
@@ -206,11 +235,24 @@ fn parse_parent(
     [rewriter.ParentStart(_, data) as tag, ..tail] -> {
       use #(expressions, tail) <- result.try(parse_arguments(tail, []))
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
-      let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-      let acc = insert_standalone_leading(acc, data.clearance, end)
-      let acc = [Parent(data.name, extrinsic_indentation, expressions), ..acc]
-      let acc = insert_standalone_trailing(acc, data.clearance, end)
-      #(acc, tail)
+      case standalone(data.clearance, end) {
+        True -> {
+          let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
+          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = [
+            StandaloneParent(data.name, extrinsic_indentation, expressions),
+            ..acc
+          ]
+          let acc = insert_standalone_trailing(acc, data.clearance, end)
+          #(acc, tail)
+        }
+        False -> {
+          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = [InlineParent(data.name, expressions), ..acc]
+          let acc = insert_standalone_trailing(acc, data.clearance, end)
+          #(acc, tail)
+        }
+      }
     }
     _ -> parse_inverted_section(tokens, acc)
   }
@@ -241,7 +283,11 @@ fn parse_argument(
   start: rewriter.Element,
   data: rewriter.StartTagData,
 ) -> Result(#(Argument, List(rewriter.Element)), SyntaxError) {
-  use #(expressions, tail) <- result.try(parse_expressions(tokens, []))
+  use #(reversed_expressions, tail) <- result.try(
+    parse_expressions_reversed(tokens, []),
+  )
+  let reversed_expressions = remove_indent(reversed_expressions)
+  let expressions = list.reverse(reversed_expressions)
   use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
   let expressions = ensure_indent(expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
@@ -368,16 +414,6 @@ fn parse_primary(
   }
 }
 
-fn parse_eof(
-  tokens: List(rewriter.Element),
-) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
-  case tokens {
-    [rewriter.Eof(_) as eof] -> Ok(#(eof, tokens))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
-  }
-}
-
 // helpers
 
 fn parse_enclosed(
@@ -485,9 +521,9 @@ fn deindent_loop(
         ),
         ..acc
       ])
-    [Parent(name, indentation, content), ..tail] ->
+    [StandaloneParent(name, indentation, content), ..tail] ->
       deindent_loop(tail, by, [
-        Parent(
+        StandaloneParent(
           name,
           option.map(indentation, string.drop_start(_, string.length(by))),
           deindent_arguments(content, by, []),
@@ -546,6 +582,13 @@ fn ensure_indent(expressions: List(Expression)) -> List(Expression) {
   case expressions {
     [Indent, ..] -> expressions
     _ -> [Indent, ..expressions]
+  }
+}
+
+fn remove_indent(expressions: List(Expression)) -> List(Expression) {
+  case expressions {
+    [Indent, ..tail] -> tail
+    expressions -> expressions
   }
 }
 

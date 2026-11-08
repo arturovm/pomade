@@ -64,11 +64,13 @@ fn evaluate_exprs(
         env,
         evaluate_parameter(name, indentation, content, env, acc),
       )
-    [parser.Parent(name, indentation, content), ..tail] ->
+    [parser.InlineParent(name, content), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_inline_parent(name, content, env, acc))
+    [parser.StandaloneParent(name, indentation, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
-        evaluate_parent(name, indentation, content, env, acc),
+        evaluate_standalone_parent(name, indentation, content, env, acc),
       )
   }
 }
@@ -186,7 +188,27 @@ fn evaluate_parameter(
   )
 }
 
-fn evaluate_parent(
+fn evaluate_inline_parent(
+  name: String,
+  content: List(parser.Argument),
+  env: environment.Environment,
+  acc: StringTree,
+) -> StringTree {
+  case dict.get(env.templates, name) {
+    Ok(ast) ->
+      evaluate_exprs(
+        ast,
+        environment.Environment(
+          ..env,
+          arguments: find_arguments_in_parent(content, env.arguments),
+        ),
+        acc,
+      )
+    Error(_) -> acc
+  }
+}
+
+fn evaluate_standalone_parent(
   name: String,
   indentation: Option(String),
   content: List(parser.Argument),

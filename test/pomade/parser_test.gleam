@@ -116,7 +116,7 @@ pub fn block_test() {
 
 pub fn parent_test() {
   assert Ok([
-      parser.Parent("article", None, [
+      parser.InlineParent("article", [
         parser.Argument("title", [
           parser.Indent,
           parser.Literal("goodbye :("),
@@ -193,5 +193,40 @@ pub fn recursion_test() {
         rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Eof(0),
+    ])
+}
+
+pub fn standalone_parent_test() {
+  assert Ok([
+      parser.StandaloneParent("parent", Some("  "), [
+        parser.Argument("block", [parser.Indent]),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.ParentStart(
+        1,
+        rewriter.StartTagData(
+          "parent",
+          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
+        ),
+      ),
+      rewriter.End(
+        2,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
+      ),
+      rewriter.End(
+        2,
+        ["parent"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(2),
     ])
 }
