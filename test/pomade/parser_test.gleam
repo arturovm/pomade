@@ -361,3 +361,53 @@ pub fn intrinsic_indentation_test() {
       rewriter.Eof(3),
     ])
 }
+
+pub fn deindentation_test() {
+  assert Ok([
+      parser.StandaloneParameter("block", Some("        "), [
+        parser.Indent,
+        parser.Literal("text\n"),
+        parser.Section(["section"], [
+          parser.Literal("\n"),
+          parser.Indent,
+          parser.Leading("    "),
+          parser.Literal("text\n"),
+        ]),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(
+            rewriter.Clears(Some("    ")),
+            rewriter.Clears(Some("\n")),
+          ),
+        ),
+      ),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "        "),
+      rewriter.Literal(2, "text\n"),
+      rewriter.Leading(3, "        "),
+      rewriter.SectionStart(3, ["section"]),
+      rewriter.Literal(3, "\n"),
+      rewriter.Indent(4),
+      rewriter.Leading(4, "            "),
+      rewriter.Literal(4, "text\n"),
+      rewriter.End(
+        5,
+        ["section"],
+        rewriter.Clearance(
+          rewriter.Clears(Some("        ")),
+          rewriter.Clears(Some("\n")),
+        ),
+      ),
+      rewriter.End(
+        5,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(Some("    ")), rewriter.Clears(None)),
+      ),
+      rewriter.Eof(2),
+    ])
+}
