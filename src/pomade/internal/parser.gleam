@@ -187,35 +187,6 @@ fn parse_parameter(
   }
 }
 
-fn insert_start_leading(
-  acc: List(Expression),
-  start: rewriter.Clearance,
-) -> List(Expression) {
-  case start {
-    rewriter.Clearance(rewriter.Clears(Some(leading)), _) -> [
-      Leading(leading),
-      ..acc
-    ]
-    _ -> acc
-  }
-}
-
-fn insert_parameter_end_trailing(
-  acc: List(Expression),
-  end: rewriter.Clearance,
-) -> List(Expression) {
-  case end {
-    // if the end tag is not standalone, output whatever trailing whitespace
-    // there is
-    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
-      Literal(trailing),
-      ..acc
-    ]
-    // otherwise, elide
-    _ -> acc
-  }
-}
-
 fn parse_parent(
   tokens: List(rewriter.Element),
   acc: List(Expression),
@@ -280,20 +251,6 @@ fn parse_argument(
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
   #(Argument(data.name, deindented_expressions), tail)
-}
-
-fn insert_end_trailing(
-  acc: List(Expression),
-  end: rewriter.Clearance,
-) -> List(Expression) {
-  case end {
-    // output whatever trailing whitespace there is
-    rewriter.Clearance(_, rewriter.Clears(Some(trailing))) -> [
-      Literal(trailing),
-      ..acc
-    ]
-    _ -> acc
-  }
 }
 
 fn parse_inverted_section(
@@ -527,6 +484,49 @@ fn deindent_arguments(
         Argument(name, deindent_loop(content, by, [])),
         ..acc
       ])
+  }
+}
+
+fn insert_start_leading(
+  acc: List(Expression),
+  start: rewriter.Clearance,
+) -> List(Expression) {
+  case start {
+    rewriter.Clearance(rewriter.Clears(Some(leading)), _) -> [
+      Leading(leading),
+      ..acc
+    ]
+    _ -> acc
+  }
+}
+
+fn insert_end_trailing(
+  acc: List(Expression),
+  end: rewriter.Clearance,
+) -> List(Expression) {
+  case end {
+    // output whatever trailing whitespace there is
+    rewriter.Clearance(_, rewriter.Clears(Some(trailing))) -> [
+      Literal(trailing),
+      ..acc
+    ]
+    _ -> acc
+  }
+}
+
+fn insert_parameter_end_trailing(
+  acc: List(Expression),
+  end: rewriter.Clearance,
+) -> List(Expression) {
+  case end {
+    // if the end tag is not standalone, output whatever trailing whitespace
+    // there is
+    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
+      Literal(trailing),
+      ..acc
+    ]
+    // otherwise, elide
+    _ -> acc
   }
 }
 

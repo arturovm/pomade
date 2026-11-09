@@ -306,3 +306,85 @@ pub fn indentation_at_template_expansion_test() {
     )
     |> string_tree.to_string()
 }
+
+pub fn canonical_whitespace_model_test() {
+  let intermediate = #("intermediate", [
+    parser.Indent,
+    parser.Literal("Hi,\n"),
+    parser.StandaloneParent("invitation", Some("    "), []),
+  ])
+  assert "Hi,\n    please give me a:\n        high five\n"
+    == interpreter.interpret(
+      [
+        parser.StandaloneParent("intermediate", None, [
+          parser.Argument("greeting", [
+            parser.Indent,
+            parser.Literal("high five\n"),
+          ]),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.from_list([
+        intermediate,
+        #("invitation", [
+          parser.Indent,
+          parser.Literal("please give me a:\n"),
+          parser.StandaloneParameter("greeting", Some("    "), [
+            parser.Indent,
+            parser.Literal("hug\n"),
+          ]),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+
+  assert "Hi,\n    please give me a:\n            high five\n"
+    == interpreter.interpret(
+      [
+        parser.StandaloneParent("intermediate", None, [
+          parser.Argument("greeting", [
+            parser.Indent,
+            parser.Literal("high five\n"),
+          ]),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.from_list([
+        intermediate,
+        #("invitation", [
+          parser.Indent,
+          parser.Literal("please give me a:\n"),
+          parser.StandaloneParameter("greeting", Some("        "), [
+            parser.Indent,
+            parser.Literal("hug\n"),
+          ]),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+
+  assert "Hi,\n    please give me a:\n        high five\n"
+    == interpreter.interpret(
+      [
+        parser.StandaloneParent("intermediate", None, [
+          parser.Argument("greeting", [
+            parser.Indent,
+            parser.Literal("high five\n"),
+          ]),
+        ]),
+      ],
+      value.Dict(dict.new()),
+      dict.from_list([
+        intermediate,
+        #("invitation", [
+          parser.Indent,
+          parser.Literal("please give me a:\n"),
+          parser.StandaloneParameter("greeting", Some("    "), [
+            parser.Indent,
+            parser.Literal("hug"),
+          ]),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+}
