@@ -98,19 +98,19 @@ pub fn block_test() {
     ])
     == parser.parse([
       rewriter.BlockStart(
-        0,
+        1,
         rewriter.StartTagData(
           "title",
           rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
         ),
       ),
-      rewriter.Literal(0, "hello :)"),
+      rewriter.Literal(1, "hello :)"),
       rewriter.End(
-        0,
+        1,
         ["title"],
         rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
-      rewriter.Eof(0),
+      rewriter.Eof(1),
     ])
 }
 
@@ -199,7 +199,7 @@ pub fn recursion_test() {
 pub fn standalone_parent_test() {
   assert Ok([
       parser.StandaloneParent("parent", Some("  "), [
-        parser.Argument("block", [parser.Indent]),
+        parser.Argument("block", []),
       ]),
     ])
     == parser.parse([
@@ -233,7 +233,7 @@ pub fn standalone_parent_test() {
 
 pub fn standalone_parameter_test() {
   assert Ok([
-      parser.StandaloneParameter("block", None, [parser.Indent]),
+      parser.StandaloneParameter("block", None, []),
     ])
     == parser.parse([
       rewriter.BlockStart(
@@ -252,7 +252,7 @@ pub fn standalone_parameter_test() {
     ])
 
   assert Ok([
-      parser.StandaloneParameter("block", Some("    "), [parser.Indent]),
+      parser.StandaloneParameter("block", Some("    "), []),
     ])
     == parser.parse([
       rewriter.BlockStart(
@@ -407,6 +407,65 @@ pub fn deindentation_test() {
         5,
         ["block"],
         rewriter.Clearance(rewriter.Clears(Some("    ")), rewriter.Clears(None)),
+      ),
+      rewriter.Eof(2),
+    ])
+}
+
+pub fn internal_whitespace_test() {
+  // start tag is standalone
+  assert Ok([
+      parser.Indent,
+      parser.InlineParameter("block", [parser.Indent, parser.Literal("  ")]),
+      parser.Literal(" foo"),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(
+            rewriter.Clears(Some("  ")),
+            rewriter.Clears(Some("  \n")),
+          ),
+        ),
+      ),
+      rewriter.Indent(2),
+      rewriter.End(
+        2,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
+      ),
+      rewriter.Literal(2, " foo"),
+      rewriter.Eof(3),
+    ])
+
+  // end tag is standalone
+  assert Ok([
+      parser.Indent,
+      parser.Literal("foo "),
+      parser.InlineParameter("block", [
+        parser.Literal("  \n"),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.Literal(1, "foo "),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("  \n"))),
+        ),
+      ),
+      rewriter.End(
+        2,
+        ["block"],
+        rewriter.Clearance(
+          rewriter.Clears(Some("   ")),
+          rewriter.Clears(Some("    ")),
+        ),
       ),
       rewriter.Eof(2),
     ])
