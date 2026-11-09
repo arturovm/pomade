@@ -161,8 +161,7 @@ fn parse_parameter(
           }
           let deindented_expressions =
             deindent(intrinsic_indentation, expressions)
-          let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let extrinsic_indentation = extrinsic_indentation(data.clearance)
           let acc = [
             StandaloneParameter(
               data.name,
@@ -171,15 +170,15 @@ fn parse_parameter(
             ),
             ..acc
           ]
-          let acc = insert_parameter_trailing(acc, data.clearance, end)
+          let acc = insert_parameter_end_trailing(acc, end)
           #(acc, tail)
         }
         False -> {
           let expressions = list.reverse(reversed_expressions)
           let expressions = ensure_indent(expressions)
-          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = insert_start_leading(acc, data.clearance)
           let acc = [InlineParameter(data.name, expressions), ..acc]
-          let acc = insert_parameter_trailing(acc, data.clearance, end)
+          let acc = insert_parameter_end_trailing(acc, end)
           #(acc, tail)
         }
       }
@@ -188,56 +187,32 @@ fn parse_parameter(
   }
 }
 
-// fn parse_block(
-//   tag: rewriter.Element,
-//   data: rewriter.StartTagData,
-//   tokens: List(rewriter.Element),
-// ) -> Result(List(Expression), SyntaxError) {
-//   use #(reversed_expressions, tail) <- result.try(
-//     parse_expressions_reversed(tokens, []),
-//   )
-//   let reversed_expressions = remove_indent(reversed_expressions)
-//   use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
-//   list.reverse(reversed_expressions)
-// }
-
-fn insert_standalone_leading(
+fn insert_start_leading(
   acc: List(Expression),
   start: rewriter.Clearance,
-  end: rewriter.Clearance,
 ) -> List(Expression) {
-  let leading = case start, end {
-    // if the pair is standalone, elide
-    rewriter.Clearance(rewriter.Clears(_), _),
-      rewriter.Clearance(_, rewriter.Clears(_))
-    -> None
-    // otherwise always output whatever leading whitespace there is
-    rewriter.Clearance(rewriter.NotClears, _), _ -> None
-    rewriter.Clearance(rewriter.Clears(outer), _), _ -> outer
-  }
-  case leading {
-    None -> acc
-    Some(ws) -> [Leading(ws), ..acc]
+  case start {
+    rewriter.Clearance(rewriter.Clears(Some(leading)), _) -> [
+      Leading(leading),
+      ..acc
+    ]
+    _ -> acc
   }
 }
 
-fn insert_parameter_trailing(
+fn insert_parameter_end_trailing(
   acc: List(Expression),
-  start: rewriter.Clearance,
   end: rewriter.Clearance,
 ) -> List(Expression) {
-  let trailing = case start, end {
-    // if the pair is standalone, and the end tag itself is standalone, elide
-    rewriter.Clearance(rewriter.Clears(_), _),
-      rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_))
-    -> None
-    // otherwise always output whatever trailing whitespace there is
-    _, rewriter.Clearance(_, rewriter.NotClears) -> None
-    _, rewriter.Clearance(_, rewriter.Clears(outer)) -> outer
-  }
-  case trailing {
-    None -> acc
-    Some(ws) -> [Literal(ws), ..acc]
+  case end {
+    // if the end tag is not standalone, output whatever trailing whitespace
+    // there is
+    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
+      Literal(trailing),
+      ..acc
+    ]
+    // otherwise, elide
+    _ -> acc
   }
 }
 
@@ -251,19 +226,17 @@ fn parse_parent(
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
       case standalone(data.clearance, end) {
         True -> {
-          let extrinsic_indentation = extrinsic_indentation(data.clearance, end)
-          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let extrinsic_indentation = extrinsic_indentation(data.clearance)
           let acc = [
             StandaloneParent(data.name, extrinsic_indentation, expressions),
             ..acc
           ]
-          let acc = insert_standalone_trailing(acc, data.clearance, end)
           #(acc, tail)
         }
         False -> {
-          let acc = insert_standalone_leading(acc, data.clearance, end)
+          let acc = insert_start_leading(acc, data.clearance)
           let acc = [InlineParent(data.name, expressions), ..acc]
-          let acc = insert_standalone_trailing(acc, data.clearance, end)
+          let acc = insert_end_trailing(acc, end)
           #(acc, tail)
         }
       }
@@ -309,23 +282,17 @@ fn parse_argument(
   #(Argument(data.name, deindented_expressions), tail)
 }
 
-fn insert_standalone_trailing(
+fn insert_end_trailing(
   acc: List(Expression),
-  start: rewriter.Clearance,
   end: rewriter.Clearance,
 ) -> List(Expression) {
-  let trailing = case start, end {
-    // if the pair is standalone, elide
-    rewriter.Clearance(rewriter.Clears(_), _),
-      rewriter.Clearance(_, rewriter.Clears(_))
-    -> None
-    // otherwise always output whatever trailing whitespace there is
-    _, rewriter.Clearance(_, rewriter.NotClears) -> None
-    _, rewriter.Clearance(_, rewriter.Clears(outer)) -> outer
-  }
-  case trailing {
-    None -> acc
-    Some(ws) -> [Literal(ws), ..acc]
+  case end {
+    // output whatever trailing whitespace there is
+    rewriter.Clearance(_, rewriter.Clears(Some(trailing))) -> [
+      Literal(trailing),
+      ..acc
+    ]
+    _ -> acc
   }
 }
 
@@ -478,10 +445,10 @@ fn intrinsic_indentation(
   }
 }
 
-fn extrinsic_indentation(start, end) {
-  case standalone(start, end), start {
-    True, rewriter.Clearance(rewriter.Clears(leading), _) -> leading
-    _, _ -> None
+fn extrinsic_indentation(start) {
+  case start {
+    rewriter.Clearance(rewriter.Clears(leading), _) -> leading
+    _ -> None
   }
 }
 
@@ -568,27 +535,17 @@ fn insert_end_tag_clearance(
   clearance: rewriter.Clearance,
 ) -> List(Expression) {
   case clearance {
-    // standalone, so we elide the whole line
-    rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> acc
-    // otherwise, we extract the whitespace in the clearance
-    rewriter.Clearance(start, end) -> {
-      let leading = case start {
-        rewriter.Clears(leading) -> leading
-        _ -> None
-      }
-      let trailing = case end {
-        rewriter.Clears(trailing) -> trailing
-        _ -> None
-      }
-      let acc = case leading {
-        None -> acc
-        Some(leading) -> [Leading(leading), ..acc]
-      }
-      case trailing {
-        None -> acc
-        Some(trailing) -> [Literal(trailing), ..acc]
-      }
-    }
+    // we extract whatever whitespace is present in the clearance
+    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
+      Leading(leading),
+      ..acc
+    ]
+    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
+      Literal(trailing),
+      ..acc
+    ]
+    // in every other case, we don't do anything
+    _ -> acc
   }
 }
 
