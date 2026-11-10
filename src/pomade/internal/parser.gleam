@@ -154,7 +154,7 @@ fn parse_parameter(
       case standalone(data.clearance, end) {
         True -> {
           let expressions = list.reverse(reversed_expressions)
-          let expressions = ensure_indent(expressions)
+          // let expressions = ensure_indent(expressions)
           let intrinsic_indentation = case standalone(data.clearance, end) {
             True -> intrinsic_indentation(data.clearance, block_content)
             False -> None
@@ -178,7 +178,7 @@ fn parse_parameter(
           let reversed_expressions =
             insert_end_leading(reversed_expressions, end)
           let expressions = list.reverse(reversed_expressions)
-          let expressions = ensure_indent(expressions)
+          // let expressions = ensure_indent(expressions)
           let expressions = insert_start_trailing(expressions, data.clearance)
           let acc = [InlineParameter(data.name, expressions), ..acc]
           let acc = insert_parameter_end_trailing(acc, end)

@@ -92,7 +92,6 @@ pub fn inverted_section_test() {
 pub fn block_test() {
   assert Ok([
       parser.InlineParameter("title", [
-        parser.Indent,
         parser.Literal("hello :)"),
       ]),
     ])
@@ -412,11 +411,11 @@ pub fn deindentation_test() {
     ])
 }
 
-pub fn internal_whitespace_test() {
+pub fn surrounding_whitespace_test() {
   // start tag is standalone
   assert Ok([
       parser.Indent,
-      parser.InlineParameter("block", [parser.Indent, parser.Literal("  ")]),
+      parser.InlineParameter("block", [parser.Literal("  ")]),
       parser.Literal(" foo"),
     ])
     == parser.parse([
@@ -467,6 +466,37 @@ pub fn internal_whitespace_test() {
           rewriter.Clears(Some("    ")),
         ),
       ),
+      rewriter.Eof(2),
+    ])
+}
+
+pub fn handle_indentation_correctly_test() {
+  assert Ok([
+      parser.Indent,
+      parser.Literal("foo"),
+      parser.InlineParameter("block", [parser.Literal("bar")]),
+      parser.Literal("\n"),
+      parser.Indent,
+      parser.Literal("baz"),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.Literal(1, "foo"),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+        ),
+      ),
+      rewriter.Literal(1, "bar"),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
+      ),
+      rewriter.Indent(2),
+      rewriter.Literal(2, "baz"),
       rewriter.Eof(2),
     ])
 }

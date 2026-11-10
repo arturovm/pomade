@@ -387,4 +387,21 @@ pub fn canonical_whitespace_model_test() {
       ]),
     )
     |> string_tree.to_string()
+
+  assert "  foobar\n  baz"
+    == interpreter.interpret(
+      [parser.Indent, parser.Partial(scanner.StaticName("partial"), Some("  "))],
+      value.Dict(dict.new()),
+      dict.from_list([
+        #("partial", [
+          parser.Indent,
+          parser.Literal("foo"),
+          parser.InlineParameter("block", [parser.Literal("bar")]),
+          parser.Literal("\n"),
+          parser.Indent,
+          parser.Literal("baz"),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
 }
