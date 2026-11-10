@@ -174,7 +174,7 @@ fn parse_parameter(
           #(acc, tail)
         }
         False -> {
-          let acc = insert_start_leading(acc, data.clearance)
+          let acc = insert_parameter_start_leading(acc, data.clearance)
           let reversed_expressions =
             insert_end_leading(reversed_expressions, end)
           let expressions = list.reverse(reversed_expressions)
@@ -516,12 +516,25 @@ fn deindent_arguments(
   }
 }
 
+fn insert_parameter_start_leading(
+  acc: List(Expression),
+  start: rewriter.Clearance,
+) {
+  case start {
+    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
+      Leading(leading),
+      ..acc
+    ]
+    _ -> acc
+  }
+}
+
 fn insert_start_leading(
   acc: List(Expression),
   start: rewriter.Clearance,
 ) -> List(Expression) {
   case start {
-    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
+    rewriter.Clearance(rewriter.Clears(Some(leading)), _) -> [
       Leading(leading),
       ..acc
     ]
