@@ -417,7 +417,7 @@ pub fn surrounding_whitespace_test() {
   // start tag is standalone
   assert Ok([
       parser.Indent,
-      parser.InlineParameter("block", [parser.Literal("  ")]),
+      parser.InlineParameter("block", [parser.Indent, parser.Literal("  ")]),
       parser.Literal(" foo"),
     ])
     == parser.parse([

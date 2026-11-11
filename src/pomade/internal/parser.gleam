@@ -150,7 +150,6 @@ fn parse_parameter(
         parse_expressions_reversed(block_content, []),
       )
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
-      let reversed_expressions = remove_indent(reversed_expressions)
       case standalone(data.clearance, end) {
         True -> {
           let expressions = list.reverse(reversed_expressions)
