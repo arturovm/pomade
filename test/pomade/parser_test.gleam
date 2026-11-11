@@ -419,11 +419,50 @@ pub fn deindentation_test() {
 }
 
 pub fn surrounding_whitespace_test() {
-  // inline parameters
+  // standalone parameters always map to plain parameters
+  assert Ok([
+      parser.Indent,
+      parser.Parameter("block", Some(" "), [
+        parser.Indent,
+        parser.Literal("  foo\n"),
+        parser.Indent,
+        parser.Leading("   "),
+        parser.Literal("bar\n"),
+      ]),
+      parser.Indent,
+      parser.Literal("baz"),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(Some(" ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.Literal(1, "  foo\n"),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "   "),
+      rewriter.Literal(2, "bar\n"),
+      rewriter.End(
+        3,
+        ["block"],
+        rewriter.Clearance(
+          rewriter.Clears(Some("    ")),
+          rewriter.Clears(Some("\n")),
+        ),
+      ),
+      rewriter.Indent(4),
+      rewriter.Literal(4, "baz"),
+      rewriter.Eof(4),
+    ])
+  // inline parameters map to either an inline parameter or a plain parameter,
+  // depending on the end clearance of the start tag
   // start tag is standalone
   assert Ok([
       parser.Indent,
-      parser.InlineParameter("block", [parser.Indent, parser.Literal("  ")]),
+      parser.Parameter("block", None, [parser.Indent, parser.Literal("  ")]),
       parser.Literal(" foo"),
     ])
     == parser.parse([
@@ -475,45 +514,6 @@ pub fn surrounding_whitespace_test() {
         ),
       ),
       rewriter.Eof(2),
-    ])
-
-  // standalone parameters
-  assert Ok([
-      parser.Indent,
-      parser.Parameter("block", Some(" "), [
-        parser.Indent,
-        parser.Literal("  foo\n"),
-        parser.Indent,
-        parser.Leading("   "),
-        parser.Literal("bar\n"),
-      ]),
-      parser.Indent,
-      parser.Literal("baz"),
-    ])
-    == parser.parse([
-      rewriter.Indent(1),
-      rewriter.BlockStart(
-        1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(Some(" ")), rewriter.NotClears),
-        ),
-      ),
-      rewriter.Literal(1, "  foo\n"),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "   "),
-      rewriter.Literal(2, "bar\n"),
-      rewriter.End(
-        3,
-        ["block"],
-        rewriter.Clearance(
-          rewriter.Clears(Some("    ")),
-          rewriter.Clears(Some("\n")),
-        ),
-      ),
-      rewriter.Indent(4),
-      rewriter.Literal(4, "baz"),
-      rewriter.Eof(4),
     ])
 }
 
