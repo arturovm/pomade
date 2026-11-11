@@ -46,6 +46,7 @@ pub type Element {
   ParentStart(line: Int, data: StartTagData)
   End(line: Int, name: List(String), clearance: Clearance)
   Partial(line: Int, name: scanner.PartialName, leading: Option(String))
+  InlinePartial(line: Int, name: scanner.PartialName)
   // eof
   Eof(line: Int)
   // synthetic tokens
@@ -306,12 +307,12 @@ fn commit_tag(acc: Tree, tag: NonOutputTag, clearance: Clearance) -> Tree {
       append(acc, Partial(line, name, leading))
     // all other partial cases
     PartialTag(line, name), Clearance(Clears(leading), NotClears) ->
-      commit_leading(acc, line, leading) |> append(Partial(line, name, None))
+      commit_leading(acc, line, leading) |> append(InlinePartial(line, name))
     PartialTag(line, name), Clearance(NotClears, Clears(trailing)) ->
-      append(acc, Partial(line, name, None))
+      append(acc, InlinePartial(line, name))
       |> commit_trailing(line, trailing)
     PartialTag(line, name), Clearance(NotClears, NotClears) ->
-      append(acc, Partial(line, name, None))
+      append(acc, InlinePartial(line, name))
     // section start
     SectionStartTag(line, name), Clearance(Clears(_), Clears(_)) ->
       append(acc, SectionStart(line, name))
@@ -498,6 +499,11 @@ pub fn token_to_string(token: Element) -> String {
     End(_, path, _) -> token_name_with_path("END_TAG", path)
     Partial(_, name, _) ->
       token_name_with_path("PARTIAL", case name {
+        scanner.StaticName(name) -> [name]
+        scanner.DynamicName(path) -> path
+      })
+    InlinePartial(_, name) ->
+      token_name_with_path("INLINE_PARTIAL", case name {
         scanner.StaticName(name) -> [name]
         scanner.DynamicName(path) -> path
       })

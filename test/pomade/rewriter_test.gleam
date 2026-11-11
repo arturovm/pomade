@@ -121,6 +121,23 @@ pub fn line_start_test() {
     == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)])
 }
 
+pub fn inline_partial_test() {
+  assert [
+      rewriter.Indent(1),
+      rewriter.Leading(1, " \t"),
+      rewriter.InlinePartial(1, scanner.StaticName("hello")),
+      rewriter.Literal(1, "foo \n"),
+      rewriter.Eof(2),
+    ]
+    == rewriter.rewrite([
+      scanner.Whitespace(1, " \t"),
+      scanner.Partial(1, scanner.StaticName("hello")),
+      scanner.Text(1, "foo"),
+      scanner.Newline(1, " \n"),
+      scanner.Eof(2),
+    ])
+}
+
 pub fn standalone_partial_test() {
   // leading whitespace
   assert [

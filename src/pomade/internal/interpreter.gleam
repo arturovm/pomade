@@ -58,13 +58,15 @@ fn evaluate_exprs(
       )
     [parser.Partial(name, indentation), ..tail] ->
       evaluate_exprs(tail, env, evaluate_partial(name, indentation, env, acc))
+    [parser.InlinePartial(name), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_inline_partial(name, env, acc))
     [parser.InlineParameter(name, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
         evaluate_inline_parameter(name, content, env, acc),
       )
-    [parser.StandaloneParameter(name, indentation, content), ..tail] ->
+    [parser.Parameter(name, indentation, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
@@ -72,7 +74,7 @@ fn evaluate_exprs(
       )
     [parser.InlineParent(name, content), ..tail] ->
       evaluate_exprs(tail, env, evaluate_inline_parent(name, content, env, acc))
-    [parser.StandaloneParent(name, indentation, content), ..tail] ->
+    [parser.Parent(name, indentation, content), ..tail] ->
       evaluate_exprs(
         tail,
         env,
@@ -150,6 +152,18 @@ fn evaluate_partial(
         ),
         acc,
       )
+    Error(_) -> acc
+  }
+}
+
+fn evaluate_inline_partial(
+  name: scanner.PartialName,
+  env: environment.Environment,
+  acc: StringTree,
+) -> StringTree {
+  let name = resolve_partial_name(name, env)
+  case dict.get(env.templates, name) {
+    Ok(ast) -> evaluate_exprs(ast, env, acc)
     Error(_) -> acc
   }
 }

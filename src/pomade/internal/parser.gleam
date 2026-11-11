@@ -37,19 +37,16 @@ pub type Expression {
   Section(path: List(String), content: List(Expression))
   InvertedSection(path: List(String), content: List(Expression))
   Partial(name: scanner.PartialName, indentation: Option(String))
+  InlinePartial(name: scanner.PartialName)
   // block parameter
-  InlineParameter(name: String, content: List(Expression))
-  StandaloneParameter(
+  Parameter(
     name: String,
     indentation: Option(String),
     content: List(Expression),
   )
+  InlineParameter(name: String, content: List(Expression))
+  Parent(name: String, indentation: Option(String), arguments: List(Argument))
   InlineParent(name: String, arguments: List(Argument))
-  StandaloneParent(
-    name: String,
-    indentation: Option(String),
-    arguments: List(Argument),
-  )
 }
 
 pub type Argument {
@@ -160,7 +157,7 @@ fn parse_parameter(
             deindent(intrinsic_indentation, expressions)
           let extrinsic_indentation = extrinsic_indentation(data.clearance)
           let acc = [
-            StandaloneParameter(
+            Parameter(
               data.name,
               option.or(intrinsic_indentation, extrinsic_indentation),
               deindented_expressions,
@@ -225,7 +222,7 @@ fn parse_parent(
         True -> {
           let extrinsic_indentation = extrinsic_indentation(data.clearance)
           let acc = [
-            StandaloneParent(data.name, extrinsic_indentation, expressions),
+            Parent(data.name, extrinsic_indentation, expressions),
             ..acc
           ]
           #(acc, tail)
@@ -342,6 +339,17 @@ fn parse_partial(
   case tokens {
     [rewriter.Partial(_, name, indentation), ..tail] ->
       Ok(#([Partial(name, indentation), ..acc], tail))
+    _ -> parse_inline_partial(tokens, acc)
+  }
+}
+
+fn parse_inline_partial(
+  tokens: List(rewriter.Element),
+  acc: List(Expression),
+) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
+  case tokens {
+    [rewriter.InlinePartial(_, name), ..tail] ->
+      Ok(#([InlinePartial(name), ..acc], tail))
     _ -> parse_raw_variable(tokens, acc)
   }
 }
@@ -476,18 +484,18 @@ fn deindent_loop(
         ),
         ..acc
       ])
-    [StandaloneParameter(name, indentation, content), ..tail] ->
+    [Parameter(name, indentation, content), ..tail] ->
       deindent_loop(tail, by, [
-        StandaloneParameter(
+        Parameter(
           name,
           option.map(indentation, string.drop_start(_, string.length(by))),
           deindent_loop(content, by, []),
         ),
         ..acc
       ])
-    [StandaloneParent(name, indentation, content), ..tail] ->
+    [Parent(name, indentation, content), ..tail] ->
       deindent_loop(tail, by, [
-        StandaloneParent(
+        Parent(
           name,
           option.map(indentation, string.drop_start(_, string.length(by))),
           deindent_arguments(content, by, []),

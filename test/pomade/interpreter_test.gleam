@@ -268,7 +268,7 @@ pub fn indentation_at_template_expansion_test() {
 
   assert "    foo"
     == interpreter.interpret(
-      [parser.StandaloneParent("parent", Some("    "), [])],
+      [parser.Parent("parent", Some("    "), [])],
       value.Dict(dict.new()),
       dict.from_list([#("parent", [parser.Indent, parser.Literal("foo")])]),
     )
@@ -277,7 +277,7 @@ pub fn indentation_at_template_expansion_test() {
   assert "    foo"
     == interpreter.interpret(
       [
-        parser.StandaloneParameter("block", Some("    "), [
+        parser.Parameter("block", Some("    "), [
           parser.Indent,
           parser.Literal("foo"),
         ]),
@@ -298,7 +298,7 @@ pub fn indentation_at_template_expansion_test() {
       value.Dict(dict.new()),
       dict.from_list([
         #("parent", [
-          parser.StandaloneParameter("block", Some("    "), [
+          parser.Parameter("block", Some("    "), [
             parser.Indent,
           ]),
         ]),
@@ -311,12 +311,12 @@ pub fn canonical_whitespace_model_test() {
   let intermediate = #("intermediate", [
     parser.Indent,
     parser.Literal("Hi,\n"),
-    parser.StandaloneParent("invitation", Some("    "), []),
+    parser.Parent("invitation", Some("    "), []),
   ])
   assert "Hi,\n    please give me a:\n        high five\n"
     == interpreter.interpret(
       [
-        parser.StandaloneParent("intermediate", None, [
+        parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
             parser.Indent,
             parser.Literal("high five\n"),
@@ -329,7 +329,7 @@ pub fn canonical_whitespace_model_test() {
         #("invitation", [
           parser.Indent,
           parser.Literal("please give me a:\n"),
-          parser.StandaloneParameter("greeting", Some("    "), [
+          parser.Parameter("greeting", Some("    "), [
             parser.Indent,
             parser.Literal("hug\n"),
           ]),
@@ -341,7 +341,7 @@ pub fn canonical_whitespace_model_test() {
   assert "Hi,\n    please give me a:\n            high five\n"
     == interpreter.interpret(
       [
-        parser.StandaloneParent("intermediate", None, [
+        parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
             parser.Indent,
             parser.Literal("high five\n"),
@@ -354,7 +354,7 @@ pub fn canonical_whitespace_model_test() {
         #("invitation", [
           parser.Indent,
           parser.Literal("please give me a:\n"),
-          parser.StandaloneParameter("greeting", Some("        "), [
+          parser.Parameter("greeting", Some("        "), [
             parser.Indent,
             parser.Literal("hug\n"),
           ]),
@@ -366,7 +366,7 @@ pub fn canonical_whitespace_model_test() {
   assert "Hi,\n    please give me a:\n        high five\n"
     == interpreter.interpret(
       [
-        parser.StandaloneParent("intermediate", None, [
+        parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
             parser.Indent,
             parser.Literal("high five\n"),
@@ -379,7 +379,7 @@ pub fn canonical_whitespace_model_test() {
         #("invitation", [
           parser.Indent,
           parser.Literal("please give me a:\n"),
-          parser.StandaloneParameter("greeting", Some("    "), [
+          parser.Parameter("greeting", Some("    "), [
             parser.Indent,
             parser.Literal("hug"),
           ]),

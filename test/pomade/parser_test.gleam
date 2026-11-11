@@ -166,6 +166,12 @@ pub fn partial_test() {
       rewriter.Partial(0, scanner.StaticName("box"), Some("  \t")),
       rewriter.Eof(0),
     ])
+
+  let assert Ok([parser.InlinePartial(scanner.StaticName("box"))]) =
+    parser.parse([
+      rewriter.InlinePartial(0, scanner.StaticName("box")),
+      rewriter.Eof(0),
+    ])
 }
 
 pub fn recursion_test() {
@@ -198,7 +204,7 @@ pub fn recursion_test() {
 
 pub fn standalone_parent_test() {
   assert Ok([
-      parser.StandaloneParent("parent", Some("  "), [
+      parser.Parent("parent", Some("  "), [
         parser.Argument("block", []),
       ]),
     ])
@@ -233,7 +239,7 @@ pub fn standalone_parent_test() {
 
 pub fn standalone_parameter_test() {
   assert Ok([
-      parser.StandaloneParameter("block", None, []),
+      parser.Parameter("block", None, []),
     ])
     == parser.parse([
       rewriter.BlockStart(
@@ -252,7 +258,7 @@ pub fn standalone_parameter_test() {
     ])
 
   assert Ok([
-      parser.StandaloneParameter("block", Some("    "), []),
+      parser.Parameter("block", Some("    "), []),
     ])
     == parser.parse([
       rewriter.BlockStart(
@@ -276,7 +282,7 @@ pub fn standalone_parameter_test() {
 
 pub fn intrinsic_indentation_test() {
   assert Ok([
-      parser.StandaloneParameter("block", Some("    "), [
+      parser.Parameter("block", Some("    "), [
         parser.Indent,
         parser.Literal("content\n"),
       ]),
@@ -301,7 +307,7 @@ pub fn intrinsic_indentation_test() {
     ])
 
   assert Ok([
-      parser.StandaloneParameter("block", Some("    "), [
+      parser.Parameter("block", Some("    "), [
         parser.Indent,
         parser.Literal("content"),
       ]),
@@ -326,7 +332,7 @@ pub fn intrinsic_indentation_test() {
     ])
 
   assert Ok([
-      parser.StandaloneParent("parent", None, [
+      parser.Parent("parent", None, [
         parser.Argument("block", [parser.Indent, parser.Literal("content\n")]),
       ]),
     ])
@@ -364,7 +370,7 @@ pub fn intrinsic_indentation_test() {
 
 pub fn deindentation_test() {
   assert Ok([
-      parser.StandaloneParameter("block", Some("        "), [
+      parser.Parameter("block", Some("        "), [
         parser.Indent,
         parser.Literal("text\n"),
         parser.Section(["section"], [
@@ -474,7 +480,7 @@ pub fn surrounding_whitespace_test() {
   // standalone parameters
   assert Ok([
       parser.Indent,
-      parser.StandaloneParameter("block", Some(" "), [
+      parser.Parameter("block", Some(" "), [
         parser.Indent,
         parser.Literal("  foo\n"),
         parser.Indent,
