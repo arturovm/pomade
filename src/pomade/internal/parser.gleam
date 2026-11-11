@@ -522,6 +522,7 @@ fn insert_parameter_start_leading(
 ) {
   case start {
     rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
+      Indent,
       Leading(leading),
       ..acc
     ]

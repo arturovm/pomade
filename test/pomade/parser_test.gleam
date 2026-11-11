@@ -412,6 +412,7 @@ pub fn deindentation_test() {
 }
 
 pub fn surrounding_whitespace_test() {
+  // inline parameters
   // start tag is standalone
   assert Ok([
       parser.Indent,
@@ -467,6 +468,44 @@ pub fn surrounding_whitespace_test() {
         ),
       ),
       rewriter.Eof(2),
+    ])
+
+  // standalone parameters
+  assert Ok([
+      parser.Indent,
+      parser.StandaloneParameter("block", Some(" "), [
+        parser.Literal("  foo\n"),
+        parser.Indent,
+        parser.Leading("   "),
+        parser.Literal("bar\n"),
+      ]),
+      parser.Indent,
+      parser.Literal("baz"),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(Some(" ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.Literal(1, "  foo\n"),
+      rewriter.Indent(2),
+      rewriter.Leading(2, "   "),
+      rewriter.Literal(2, "bar\n"),
+      rewriter.End(
+        3,
+        ["block"],
+        rewriter.Clearance(
+          rewriter.Clears(Some("    ")),
+          rewriter.Clears(Some("\n")),
+        ),
+      ),
+      rewriter.Indent(4),
+      rewriter.Literal(4, "baz"),
+      rewriter.Eof(4),
     ])
 }
 
