@@ -149,39 +149,69 @@ fn parse_parameter(
       use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
       case standalone(data.clearance, end) {
         True -> {
-          let expressions = list.reverse(reversed_expressions)
-          let expressions = ensure_indent(data.clearance.end, expressions)
-          let intrinsic_indentation =
-            intrinsic_indentation(data.clearance, block_content)
-          let deindented_expressions =
-            deindent(intrinsic_indentation, expressions)
-          let extrinsic_indentation = extrinsic_indentation(data.clearance)
-          let acc = [
-            Parameter(
-              data.name,
-              option.or(intrinsic_indentation, extrinsic_indentation),
-              deindented_expressions,
-            ),
-            ..acc
-          ]
-          let acc = insert_parameter_end_trailing(acc, end)
+          let acc =
+            parse_standalone_parameter(
+              data,
+              reversed_expressions,
+              end,
+              block_content,
+              acc,
+            )
           #(acc, tail)
         }
         False -> {
-          let acc = insert_parameter_start_leading(acc, data.clearance)
-          let reversed_expressions =
-            insert_end_leading(reversed_expressions, end)
-          let expressions = list.reverse(reversed_expressions)
-          let expressions = ensure_indent(data.clearance.end, expressions)
-          let expressions = insert_start_trailing(expressions, data.clearance)
-          let acc = [InlineParameter(data.name, expressions), ..acc]
-          let acc = insert_parameter_end_trailing(acc, end)
+          let acc = parse_inline_parameter(data, reversed_expressions, end, acc)
           #(acc, tail)
         }
       }
     }
     _ -> parse_parent(tokens, acc)
   }
+}
+
+fn parse_standalone_parameter(
+  start_data: rewriter.StartTagData,
+  reversed_expressions,
+  end,
+  block_content,
+  acc,
+) {
+  let expressions = list.reverse(reversed_expressions)
+  let expressions = ensure_indent(start_data.clearance.end, expressions)
+  let intrinsic_indentation =
+    intrinsic_indentation(start_data.clearance, block_content)
+  let deindented_expressions = deindent(intrinsic_indentation, expressions)
+  let extrinsic_indentation = extrinsic_indentation(start_data.clearance)
+  let acc = [
+    Parameter(
+      start_data.name,
+      option.or(intrinsic_indentation, extrinsic_indentation),
+      deindented_expressions,
+    ),
+    ..acc
+  ]
+  insert_parameter_end_trailing(acc, end)
+}
+
+fn parse_inline_parameter(
+  start_data: rewriter.StartTagData,
+  reversed_expressions,
+  end,
+  acc,
+) {
+  let acc = insert_parameter_start_leading(acc, start_data.clearance)
+  let reversed_expressions = insert_end_leading(reversed_expressions, end)
+  let expressions = list.reverse(reversed_expressions)
+  let expressions = ensure_indent(start_data.clearance.end, expressions)
+  let expressions = insert_start_trailing(expressions, start_data.clearance)
+  let acc = case start_data.clearance {
+    rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> [
+      Parameter(start_data.name, None, expressions),
+      ..acc
+    ]
+    _ -> [InlineParameter(start_data.name, expressions), ..acc]
+  }
+  insert_parameter_end_trailing(acc, end)
 }
 
 fn insert_end_leading(
