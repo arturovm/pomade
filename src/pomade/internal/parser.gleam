@@ -154,11 +154,9 @@ fn parse_parameter(
       case standalone(data.clearance, end) {
         True -> {
           let expressions = list.reverse(reversed_expressions)
-          // let expressions = ensure_indent(expressions)
-          let intrinsic_indentation = case standalone(data.clearance, end) {
-            True -> intrinsic_indentation(data.clearance, block_content)
-            False -> None
-          }
+          let expressions = ensure_indent(data.clearance.end, expressions)
+          let intrinsic_indentation =
+            intrinsic_indentation(data.clearance, block_content)
           let deindented_expressions =
             deindent(intrinsic_indentation, expressions)
           let extrinsic_indentation = extrinsic_indentation(data.clearance)
@@ -178,7 +176,7 @@ fn parse_parameter(
           let reversed_expressions =
             insert_end_leading(reversed_expressions, end)
           let expressions = list.reverse(reversed_expressions)
-          // let expressions = ensure_indent(expressions)
+          let expressions = ensure_indent(data.clearance.end, expressions)
           let expressions = insert_start_trailing(expressions, data.clearance)
           let acc = [InlineParameter(data.name, expressions), ..acc]
           let acc = insert_parameter_end_trailing(acc, end)
@@ -276,7 +274,7 @@ fn parse_argument(
   use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
   let reversed_expressions = remove_indent(reversed_expressions)
   let expressions = list.reverse(reversed_expressions)
-  let expressions = ensure_indent(expressions)
+  let expressions = ensure_indent(data.clearance.end, expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
   #(Argument(data.name, deindented_expressions), tail)
@@ -592,10 +590,17 @@ fn insert_end_tag_clearance(
   }
 }
 
-fn ensure_indent(expressions: List(Expression)) -> List(Expression) {
-  case expressions {
-    [] | [Indent, ..] -> expressions
-    _ -> [Indent, ..expressions]
+// A block's content is essentially an "inline template", so we have to ensure
+// that it has a line start. We only need to do this when the start tag doesn't
+// clear its end, because otherwise the rewriter will have taken care of this
+// for us.
+fn ensure_indent(
+  start_trailing: rewriter.SideClearance,
+  expressions: List(Expression),
+) -> List(Expression) {
+  case start_trailing, expressions {
+    rewriter.Clears(_), _ | rewriter.NotClears, [] -> expressions
+    rewriter.NotClears, expressions -> [Indent, ..expressions]
   }
 }
 

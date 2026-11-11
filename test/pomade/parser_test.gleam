@@ -92,6 +92,7 @@ pub fn inverted_section_test() {
 pub fn block_test() {
   assert Ok([
       parser.InlineParameter("title", [
+        parser.Indent,
         parser.Literal("hello :)"),
       ]),
     ])
@@ -474,6 +475,7 @@ pub fn surrounding_whitespace_test() {
   assert Ok([
       parser.Indent,
       parser.StandaloneParameter("block", Some(" "), [
+        parser.Indent,
         parser.Literal("  foo\n"),
         parser.Indent,
         parser.Leading("   "),
@@ -513,7 +515,7 @@ pub fn handle_indentation_correctly_test() {
   assert Ok([
       parser.Indent,
       parser.Literal("foo"),
-      parser.InlineParameter("block", [parser.Literal("bar")]),
+      parser.InlineParameter("block", [parser.Indent, parser.Literal("bar")]),
       parser.Literal("\n"),
       parser.Indent,
       parser.Literal("baz"),
