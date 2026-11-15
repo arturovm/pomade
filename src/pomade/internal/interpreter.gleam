@@ -143,16 +143,67 @@ fn evaluate_partial(
 ) -> StringTree {
   let name = resolve_partial_name(name, env)
   case dict.get(env.templates, name) {
-    Ok(ast) ->
+    Ok(ast) -> {
+      let ast = apply_indentation(ast, indentation)
       evaluate_exprs(
         ast,
-        environment.Environment(
-          ..env,
-          indentation: merge_indentation(env.indentation, indentation),
-        ),
+        environment.Environment(..env, indentation: indentation),
         acc,
       )
+    }
     Error(_) -> acc
+  }
+}
+
+fn apply_indentation(
+  exprs: List(parser.Expression),
+  indentation: Option(String),
+) -> List(parser.Expression) {
+  case indentation {
+    Some(indentation) -> apply_indentation_loop(exprs, indentation, [])
+    None -> exprs
+  }
+}
+
+fn apply_indentation_loop(
+  exprs: List(parser.Expression),
+  indentation: String,
+  acc: List(parser.Expression),
+) -> List(parser.Expression) {
+  case exprs {
+    [] -> list.reverse(acc)
+    [parser.Partial(name, partial_indentation), ..tail] -> {
+      let new_indentation = case partial_indentation {
+        None -> Some(indentation)
+        Some(partial_indentation) -> Some(indentation <> partial_indentation)
+      }
+      apply_indentation_loop(tail, indentation, [
+        parser.Partial(name, new_indentation),
+        ..acc
+      ])
+    }
+    [parser.Parent(name, parent_indentation, arguments), ..tail] -> {
+      let new_indentation = case parent_indentation {
+        None -> Some(indentation)
+        Some(parent_indentation) -> Some(indentation <> parent_indentation)
+      }
+      apply_indentation_loop(tail, indentation, [
+        parser.Parent(name, new_indentation, arguments),
+        ..acc
+      ])
+    }
+    [parser.Parameter(name, parent_indentation, content), ..tail] -> {
+      let new_indentation = case parent_indentation {
+        None -> Some(indentation)
+        Some(parameter_indentation) ->
+          Some(indentation <> parameter_indentation)
+      }
+      apply_indentation_loop(tail, indentation, [
+        parser.Parameter(name, new_indentation, content),
+        ..acc
+      ])
+    }
+    [head, ..tail] -> apply_indentation_loop(tail, indentation, [head, ..acc])
   }
 }
 
@@ -197,6 +248,10 @@ fn evaluate_inline_parameter(
     Error(_) -> content
     Ok(override) -> override
   }
+  let content = case content {
+    [parser.Indent, ..tail] -> tail
+    _ -> content
+  }
   evaluate_exprs(content, env, acc)
 }
 
@@ -211,12 +266,10 @@ fn evaluate_standalone_parameter(
     Error(_) -> content
     Ok(override) -> override
   }
+  let content = apply_indentation(content, indentation)
   evaluate_exprs(
     content,
-    environment.Environment(
-      ..env,
-      indentation: merge_indentation(env.indentation, indentation),
-    ),
+    environment.Environment(..env, indentation: indentation),
     acc,
   )
 }
@@ -249,16 +302,18 @@ fn evaluate_standalone_parent(
   acc: StringTree,
 ) -> StringTree {
   case dict.get(env.templates, name) {
-    Ok(ast) ->
+    Ok(ast) -> {
+      let ast = apply_indentation(ast, indentation)
       evaluate_exprs(
         ast,
         environment.Environment(
           ..env,
-          indentation: merge_indentation(env.indentation, indentation),
+          indentation: indentation,
           arguments: find_arguments_in_parent(content, env.arguments),
         ),
         acc,
       )
+    }
     Error(_) -> acc
   }
 }

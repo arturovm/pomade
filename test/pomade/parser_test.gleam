@@ -421,7 +421,6 @@ pub fn deindentation_test() {
 pub fn surrounding_whitespace_test() {
   // standalone parameters always map to plain parameters
   assert Ok([
-      parser.Indent,
       parser.Parameter("block", Some(" "), [
         parser.Indent,
         parser.Literal("  foo\n"),
@@ -545,5 +544,97 @@ pub fn handle_indentation_correctly_test() {
       rewriter.Indent(2),
       rewriter.Literal(2, "baz"),
       rewriter.Eof(2),
+    ])
+
+  assert Ok([parser.Parameter("block", Some("  "), [])])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(1),
+    ])
+  assert Ok([parser.Parameter("block", Some("  "), [])])
+    == parser.parse([
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(
+            rewriter.Clears(Some("  ")),
+            rewriter.Clears(Some("\n")),
+          ),
+        ),
+      ),
+      rewriter.End(
+        2,
+        ["block"],
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.Clears(None)),
+      ),
+      rewriter.Eof(1),
+    ])
+}
+
+pub fn standalone_parameter_absorbs_indent_test() {
+  assert Ok([
+      parser.Parameter("block", Some("  "), [
+        parser.Indent,
+        parser.Literal("content"),
+      ]),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.Literal(1, "content"),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(None)),
+      ),
+      rewriter.Eof(1),
+    ])
+}
+
+pub fn inline_parameter_restores_leading_test() {
+  assert Ok([
+      parser.Indent,
+      parser.Leading("  "),
+      parser.InlineParameter("block", [
+        parser.Indent,
+        parser.Literal("content"),
+      ]),
+      parser.Literal("foo"),
+    ])
+    == parser.parse([
+      rewriter.Indent(1),
+      rewriter.BlockStart(
+        1,
+        rewriter.StartTagData(
+          "block",
+          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
+        ),
+      ),
+      rewriter.Literal(1, "content"),
+      rewriter.End(
+        1,
+        ["block"],
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
+      ),
+      rewriter.Literal(1, "foo"),
+      rewriter.Eof(1),
     ])
 }

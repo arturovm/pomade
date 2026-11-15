@@ -186,10 +186,10 @@ pub fn partial_test() {
 }
 
 pub fn nested_partial_test() {
-  assert "  foo\n  bar\n   \tbaz\n   \tqux\nquux"
+  assert " foo\n bar\n   baz\n   qux\nquux"
     == interpreter.interpret(
       [
-        parser.Partial(scanner.StaticName("one"), Some("  ")),
+        parser.Partial(scanner.StaticName("one"), Some(" ")),
         parser.Literal("quux"),
       ],
       value.Dict(dict.new()),
@@ -199,7 +199,7 @@ pub fn nested_partial_test() {
           parser.Literal("foo\n"),
           parser.Indent,
           parser.Literal("bar\n"),
-          parser.Partial(scanner.StaticName("two"), Some(" \t")),
+          parser.Partial(scanner.StaticName("two"), Some("  ")),
         ]),
         #("two", [
           parser.Indent,
@@ -400,6 +400,51 @@ pub fn canonical_whitespace_model_test() {
           parser.Literal("\n"),
           parser.Indent,
           parser.Literal("baz"),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+}
+
+pub fn inline_parameter_in_indented_partial_test() {
+  assert "  ax\n  y\n"
+    == interpreter.interpret(
+      [parser.Partial(scanner.StaticName("partial"), Some("  "))],
+      value.Dict(dict.new()),
+      dict.from_list([
+        #("partial", [
+          parser.Indent,
+          parser.Literal("a"),
+          parser.InlineParameter("block", [
+            parser.Indent,
+            parser.Literal("x\n"),
+            parser.Indent,
+            parser.Literal("y"),
+          ]),
+          parser.Literal("\n"),
+        ]),
+      ]),
+    )
+    |> string_tree.to_string()
+}
+
+// we need an indentation pass on each eval, to merge
+// indents with blocks and parents and partials
+// and we need to undo the stuff I did changing
+// standalones to inlines
+pub fn extrinsic_indentation_in_partial_test() {
+  assert "    first\n      second"
+    == interpreter.interpret(
+      [parser.Partial(scanner.StaticName("partial"), Some("  "))],
+      value.Dict(dict.new()),
+      dict.from_list([
+        #("partial", [
+          parser.Parameter("block", Some("  "), [
+            parser.Indent,
+            parser.Literal("first\n"),
+            parser.Indent,
+            parser.Literal("second"),
+          ]),
         ]),
       ]),
     )

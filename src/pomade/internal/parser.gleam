@@ -171,17 +171,19 @@ fn parse_parameter(
 
 fn parse_standalone_parameter(
   start_data: rewriter.StartTagData,
-  reversed_expressions,
-  end,
-  block_content,
-  acc,
-) {
+  reversed_expressions: List(Expression),
+  end: rewriter.Clearance,
+  tokens: List(rewriter.Element),
+  acc: List(Expression),
+) -> List(Expression) {
   let expressions = list.reverse(reversed_expressions)
   let expressions = ensure_indent(start_data.clearance.end, expressions)
   let intrinsic_indentation =
-    intrinsic_indentation(start_data.clearance, block_content)
+    intrinsic_indentation(start_data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
-  let extrinsic_indentation = extrinsic_indentation(start_data.clearance)
+  let extrinsic_indentation =
+    extrinsic_parameter_indentation(start_data.clearance)
+  let acc = remove_indent(acc)
   let acc = [
     Parameter(
       start_data.name,
@@ -195,15 +197,15 @@ fn parse_standalone_parameter(
 
 fn parse_inline_parameter(
   start_data: rewriter.StartTagData,
-  reversed_expressions,
-  end,
-  acc,
-) {
-  let acc = insert_parameter_start_leading(acc, start_data.clearance)
+  reversed_expressions: List(Expression),
+  end: rewriter.Clearance,
+  acc: List(Expression),
+) -> List(Expression) {
   let reversed_expressions = insert_end_leading(reversed_expressions, end)
   let expressions = list.reverse(reversed_expressions)
   let expressions = ensure_indent(start_data.clearance.end, expressions)
   let expressions = insert_start_trailing(expressions, start_data.clearance)
+  let acc = insert_parameter_start_leading(acc, start_data.clearance)
   let acc = case start_data.clearance {
     rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> [
       Parameter(start_data.name, None, expressions),
@@ -458,17 +460,58 @@ fn intrinsic_indentation(
   start: rewriter.Clearance,
   tokens: List(rewriter.Element),
 ) -> Option(String) {
-  case start, tokens {
-    rewriter.Clearance(_, rewriter.Clears(_)),
-      [rewriter.Indent(_), rewriter.Leading(_, lexeme), ..]
-    -> Some(lexeme)
-    _, _ -> None
+  case start {
+    rewriter.Clearance(_, rewriter.Clears(_)) ->
+      case tokens {
+        [rewriter.Indent(_), rewriter.Leading(_, lexeme), ..]
+        | [
+            rewriter.BlockStart(
+              _,
+              rewriter.StartTagData(
+                _,
+                rewriter.Clearance(
+                  rewriter.Clears(Some(lexeme)),
+                  rewriter.NotClears,
+                ),
+              ),
+            ),
+          ]
+        | [
+            rewriter.ParentStart(
+              _,
+              rewriter.StartTagData(
+                _,
+                rewriter.Clearance(
+                  rewriter.Clears(Some(lexeme)),
+                  rewriter.NotClears,
+                ),
+              ),
+            ),
+          ]
+        | [
+            rewriter.End(
+              _,
+              _,
+              rewriter.Clearance(rewriter.Clears(Some(lexeme)), _),
+            ),
+            ..
+          ] -> Some(lexeme)
+        _ -> None
+      }
+    __ -> None
   }
 }
 
 fn extrinsic_indentation(start) {
   case start {
     rewriter.Clearance(rewriter.Clears(leading), _) -> leading
+    _ -> None
+  }
+}
+
+fn extrinsic_parameter_indentation(start) {
+  case start {
+    rewriter.Clearance(rewriter.Clears(leading), rewriter.NotClears) -> leading
     _ -> None
   }
 }
@@ -557,7 +600,6 @@ fn insert_parameter_start_leading(
 ) {
   case start {
     rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
-      Indent,
       Leading(leading),
       ..acc
     ]
@@ -629,7 +671,7 @@ fn insert_end_tag_clearance(
 
 // A block's content is essentially an "inline template", so we have to ensure
 // that it has a line start. We only need to do this when the start tag doesn't
-// clear its end, because otherwise the rewriter will have taken care of this
+// clear at the end, because otherwise the rewriter will have taken care of this
 // for us.
 fn ensure_indent(
   start_trailing: rewriter.SideClearance,
