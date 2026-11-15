@@ -12,7 +12,6 @@ import pomade/internal/value.{type Value, Bool, Dict, Float, Int, String}
 pub type Environment {
   Environment(
     value: Value,
-    indentation: Option(String),
     templates: Dict(String, List(parser.Expression)),
     arguments: Dict(String, List(parser.Expression)),
     parent: Option(Environment),

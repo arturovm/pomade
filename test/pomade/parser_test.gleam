@@ -9,12 +9,17 @@ pub fn empty_parser_test() {
 }
 
 pub fn indent_test() {
-  assert Ok([parser.Indent, parser.Literal("Hello")])
+  assert Ok([parser.LineStart(None), parser.Literal("Hello")])
     == parser.parse([
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "Hello"),
       rewriter.Eof(0),
     ])
+}
+
+pub fn line_start_test() {
+  assert Ok([parser.LineStart(None)])
+    == parser.parse([rewriter.LineStart(0, None), rewriter.Eof(0)])
 }
 
 pub fn text_test() {
@@ -92,7 +97,6 @@ pub fn inverted_section_test() {
 pub fn block_test() {
   assert Ok([
       parser.InlineParameter("title", [
-        parser.Indent,
         parser.Literal("hello :)"),
       ]),
     ])
@@ -118,7 +122,6 @@ pub fn parent_test() {
   assert Ok([
       parser.InlineParent("article", [
         parser.Argument("title", [
-          parser.Indent,
           parser.Literal("goodbye :("),
         ]),
       ]),
@@ -283,7 +286,7 @@ pub fn standalone_parameter_test() {
 pub fn intrinsic_indentation_test() {
   assert Ok([
       parser.Parameter("block", Some("    "), [
-        parser.Indent,
+        parser.LineStart(None),
         parser.Literal("content\n"),
       ]),
     ])
@@ -295,8 +298,7 @@ pub fn intrinsic_indentation_test() {
           rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "    "),
+      rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content\n"),
       rewriter.End(
         3,
@@ -308,7 +310,7 @@ pub fn intrinsic_indentation_test() {
 
   assert Ok([
       parser.Parameter("block", Some("    "), [
-        parser.Indent,
+        parser.LineStart(None),
         parser.Literal("content"),
       ]),
     ])
@@ -320,8 +322,7 @@ pub fn intrinsic_indentation_test() {
           rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "    "),
+      rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content"),
       rewriter.End(
         2,
@@ -333,7 +334,10 @@ pub fn intrinsic_indentation_test() {
 
   assert Ok([
       parser.Parent("parent", None, [
-        parser.Argument("block", [parser.Indent, parser.Literal("content\n")]),
+        parser.Argument("block", [
+          parser.LineStart(None),
+          parser.Literal("content\n"),
+        ]),
       ]),
     ])
     == parser.parse([
@@ -351,8 +355,7 @@ pub fn intrinsic_indentation_test() {
           rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "    "),
+      rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content\n"),
       rewriter.End(
         3,
@@ -371,12 +374,12 @@ pub fn intrinsic_indentation_test() {
 pub fn deindentation_test() {
   assert Ok([
       parser.Parameter("block", Some("        "), [
-        parser.Indent,
+        parser.LineStart(None),
         parser.Literal("text\n"),
+        parser.LineStart(None),
         parser.Section(["section"], [
           parser.Literal("\n"),
-          parser.Indent,
-          parser.Leading("    "),
+          parser.LineStart(Some("    ")),
           parser.Literal("text\n"),
         ]),
       ]),
@@ -392,14 +395,12 @@ pub fn deindentation_test() {
           ),
         ),
       ),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "        "),
+      rewriter.LineStart(2, Some("        ")),
       rewriter.Literal(2, "text\n"),
-      rewriter.Leading(3, "        "),
+      rewriter.LineStart(3, Some("        ")),
       rewriter.SectionStart(3, ["section"]),
       rewriter.Literal(3, "\n"),
-      rewriter.Indent(4),
-      rewriter.Leading(4, "            "),
+      rewriter.LineStart(4, Some("            ")),
       rewriter.Literal(4, "text\n"),
       rewriter.End(
         5,
@@ -422,17 +423,14 @@ pub fn surrounding_whitespace_test() {
   // standalone parameters always map to plain parameters
   assert Ok([
       parser.Parameter("block", Some(" "), [
-        parser.Indent,
         parser.Literal("  foo\n"),
-        parser.Indent,
-        parser.Leading("   "),
+        parser.LineStart(Some("   ")),
         parser.Literal("bar\n"),
       ]),
-      parser.Indent,
+      parser.LineStart(None),
       parser.Literal("baz"),
     ])
     == parser.parse([
-      rewriter.Indent(1),
       rewriter.BlockStart(
         1,
         rewriter.StartTagData(
@@ -441,8 +439,7 @@ pub fn surrounding_whitespace_test() {
         ),
       ),
       rewriter.Literal(1, "  foo\n"),
-      rewriter.Indent(2),
-      rewriter.Leading(2, "   "),
+      rewriter.LineStart(2, Some("   ")),
       rewriter.Literal(2, "bar\n"),
       rewriter.End(
         3,
@@ -452,7 +449,7 @@ pub fn surrounding_whitespace_test() {
           rewriter.Clears(Some("\n")),
         ),
       ),
-      rewriter.Indent(4),
+      rewriter.LineStart(4, None),
       rewriter.Literal(4, "baz"),
       rewriter.Eof(4),
     ])
@@ -460,12 +457,13 @@ pub fn surrounding_whitespace_test() {
   // depending on the end clearance of the start tag
   // start tag is standalone
   assert Ok([
-      parser.Indent,
-      parser.Parameter("block", None, [parser.Indent, parser.Literal("  ")]),
+      parser.Parameter("block", None, [
+        parser.LineStart(None),
+        parser.Literal("  "),
+      ]),
       parser.Literal(" foo"),
     ])
     == parser.parse([
-      rewriter.Indent(1),
       rewriter.BlockStart(
         1,
         rewriter.StartTagData(
@@ -476,7 +474,7 @@ pub fn surrounding_whitespace_test() {
           ),
         ),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.End(
         2,
         ["block"],
@@ -488,14 +486,14 @@ pub fn surrounding_whitespace_test() {
 
   // end tag is standalone
   assert Ok([
-      parser.Indent,
+      parser.LineStart(None),
       parser.Literal("foo "),
       parser.InlineParameter("block", [
         parser.Literal("  \n"),
       ]),
     ])
     == parser.parse([
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "foo "),
       rewriter.BlockStart(
         1,
@@ -518,15 +516,17 @@ pub fn surrounding_whitespace_test() {
 
 pub fn handle_indentation_correctly_test() {
   assert Ok([
-      parser.Indent,
+      parser.LineStart(None),
       parser.Literal("foo"),
-      parser.InlineParameter("block", [parser.Indent, parser.Literal("bar")]),
+      parser.InlineParameter("block", [
+        parser.Literal("bar"),
+      ]),
       parser.Literal("\n"),
-      parser.Indent,
+      parser.LineStart(None),
       parser.Literal("baz"),
     ])
     == parser.parse([
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "foo"),
       rewriter.BlockStart(
         1,
@@ -541,12 +541,14 @@ pub fn handle_indentation_correctly_test() {
         ["block"],
         rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.Literal(2, "baz"),
       rewriter.Eof(2),
     ])
 
-  assert Ok([parser.Parameter("block", Some("  "), [])])
+  assert Ok([
+      parser.Parameter("block", Some("  "), []),
+    ])
     == parser.parse([
       rewriter.BlockStart(
         1,
@@ -586,12 +588,10 @@ pub fn handle_indentation_correctly_test() {
 pub fn standalone_parameter_absorbs_indent_test() {
   assert Ok([
       parser.Parameter("block", Some("  "), [
-        parser.Indent,
         parser.Literal("content"),
       ]),
     ])
     == parser.parse([
-      rewriter.Indent(1),
       rewriter.BlockStart(
         1,
         rewriter.StartTagData(
@@ -611,16 +611,13 @@ pub fn standalone_parameter_absorbs_indent_test() {
 
 pub fn inline_parameter_restores_leading_test() {
   assert Ok([
-      parser.Indent,
-      parser.Leading("  "),
+      parser.LineStart(Some("  ")),
       parser.InlineParameter("block", [
-        parser.Indent,
         parser.Literal("content"),
       ]),
       parser.Literal("foo"),
     ])
     == parser.parse([
-      rewriter.Indent(1),
       rewriter.BlockStart(
         1,
         rewriter.StartTagData(

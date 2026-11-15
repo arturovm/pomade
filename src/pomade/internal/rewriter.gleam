@@ -50,6 +50,7 @@ pub type Element {
   // eof
   Eof(line: Int)
   // synthetic tokens
+  LineStart(line: Int, whitespace: Option(String))
   Leading(line: Int, lexeme: String)
   Indent(line: Int)
 }
@@ -70,9 +71,9 @@ pub type SideClearance {
 // SDST types
 
 type State {
-  LineStart(leading: Option(String))
-  TagPending(TagPendingData)
-  Content(current_line: Tree, literal: Option(String))
+  LineStartState(leading: Option(String))
+  TagPendingState(TagPendingData)
+  ContentState(current_line: Tree, literal: Option(String))
 }
 
 type TagPendingData {
@@ -111,7 +112,7 @@ type NonOutputTag {
 // sort of hybrid representation of the possible states and the variables of
 // the transducer, for which I used the `State` type above.
 pub fn rewrite(tokens: List(scanner.Token)) -> List(Element) {
-  transduce_loop(tokens, LineStart(None), Empty)
+  transduce_loop(tokens, LineStartState(None), Empty)
 }
 
 fn transduce_loop(
@@ -125,8 +126,8 @@ fn transduce_loop(
       transduce_loop(
         tail,
         case state {
-          LineStart(leading) ->
-            TagPending(FirstTag(leading, ElidedTag(line), None))
+          LineStartState(leading) ->
+            TagPendingState(FirstTag(leading, ElidedTag(line), None))
           _ -> state
         },
         acc,
@@ -135,15 +136,15 @@ fn transduce_loop(
       transduce_loop(
         tail,
         case state {
-          LineStart(leading) ->
-            TagPending(FirstTag(leading, ElidedTag(line), None))
+          LineStartState(leading) ->
+            TagPendingState(FirstTag(leading, ElidedTag(line), None))
           _ -> state
         },
         acc,
       )
     [scanner.Variable(line, name), ..tail] -> {
       let next_state =
-        Content(
+        ContentState(
           commit_pending(state, line) |> append(Variable(line, name)),
           None,
         )
@@ -151,7 +152,7 @@ fn transduce_loop(
     }
     [scanner.RawVariable(line, name), ..tail] -> {
       let next_state =
-        Content(
+        ContentState(
           commit_pending(state, line) |> append(RawVariable(line, name)),
           None,
         )
@@ -159,18 +160,18 @@ fn transduce_loop(
     }
     [scanner.Text(line, lexeme), ..tail] -> {
       let next_state = case state {
-        Content(current_line, literal) ->
-          Content(current_line, glom_literal(literal, lexeme))
-        state -> Content(commit_pending(state, line), Some(lexeme))
+        ContentState(current_line, literal) ->
+          ContentState(current_line, glom_literal(literal, lexeme))
+        state -> ContentState(commit_pending(state, line), Some(lexeme))
       }
       transduce_loop(tail, next_state, acc)
     }
     [scanner.SectionStart(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(leading, SectionStartTag(line, name), None))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(leading, SectionStartTag(line, name), None))
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             SectionStartTag(line, name),
             None,
@@ -180,14 +181,14 @@ fn transduce_loop(
     }
     [scanner.InvertedSectionStart(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(
             leading,
             InvertedSectionStartTag(line, name),
             None,
           ))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             InvertedSectionStartTag(line, name),
             None,
@@ -197,10 +198,10 @@ fn transduce_loop(
     }
     [scanner.End(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(leading, EndTag(line, name), None))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(leading, EndTag(line, name), None))
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             EndTag(line, name),
             None,
@@ -211,32 +212,32 @@ fn transduce_loop(
     [scanner.Whitespace(_, lexeme), ..tail] -> {
       let next_state = case state {
         // if we are at line start, then whitespace is considered leading
-        LineStart(_) -> LineStart(Some(lexeme))
+        LineStartState(_) -> LineStartState(Some(lexeme))
         // if we are no longer at line start and there's a previous tag in
         // the first tag variable, whitespace is treated as a possible trailing
         // value, plus we keep the existing trailing variable as is, in case the
         // SST has presviously seen whitespace and then passed a comment tag
-        TagPending(FirstTag(leading, tag, trailing)) ->
-          TagPending(FirstTag(leading, tag, glom_literal(trailing, lexeme)))
+        TagPendingState(FirstTag(leading, tag, trailing)) ->
+          TagPendingState(FirstTag(leading, tag, glom_literal(trailing, lexeme)))
         // as above
-        TagPending(InlineTag(current_line, tag, trailing)) ->
-          TagPending(InlineTag(
+        TagPendingState(InlineTag(current_line, tag, trailing)) ->
+          TagPendingState(InlineTag(
             current_line,
             tag,
             glom_literal(trailing, lexeme),
           ))
         // otherwise, it's treated as a literal
-        Content(current_line, literal) ->
-          Content(current_line, glom_literal(literal, lexeme))
+        ContentState(current_line, literal) ->
+          ContentState(current_line, glom_literal(literal, lexeme))
       }
       transduce_loop(tail, next_state, acc)
     }
     [scanner.Partial(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(leading, PartialTag(line, name), None))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(leading, PartialTag(line, name), None))
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             PartialTag(line, name),
             None,
@@ -246,10 +247,10 @@ fn transduce_loop(
     }
     [scanner.BlockStart(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(leading, BlockStartTag(line, name), None))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(leading, BlockStartTag(line, name), None))
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             BlockStartTag(line, name),
             None,
@@ -259,10 +260,10 @@ fn transduce_loop(
     }
     [scanner.ParentStart(line, name), ..tail] -> {
       let next_state = case state {
-        LineStart(leading) ->
-          TagPending(FirstTag(leading, ParentStartTag(line, name), None))
-        TagPending(_) | Content(_, _) ->
-          TagPending(InlineTag(
+        LineStartState(leading) ->
+          TagPendingState(FirstTag(leading, ParentStartTag(line, name), None))
+        TagPendingState(_) | ContentState(_, _) ->
+          TagPendingState(InlineTag(
             commit_pending(state, line),
             ParentStartTag(line, name),
             None,
@@ -272,25 +273,25 @@ fn transduce_loop(
     }
     [scanner.Newline(line, lexeme), ..tail] -> {
       let acc = end_line(acc, state, line, Some(lexeme))
-      transduce_loop(tail, LineStart(None), acc)
+      transduce_loop(tail, LineStartState(None), acc)
     }
     [scanner.Eof(line), ..tail] -> {
       let acc = end_line(acc, state, line, None)
-      transduce_loop(tail, LineStart(None), append(acc, Eof(line)))
+      transduce_loop(tail, LineStartState(None), append(acc, Eof(line)))
     }
   }
 }
 
 fn commit_pending(state: State, line: Int) -> Tree {
   case state {
-    LineStart(leading) -> commit_leading(Empty, line, leading)
-    TagPending(FirstTag(leading, tag, trailing)) ->
+    LineStartState(leading) -> commit_leading(Empty, line, leading)
+    TagPendingState(FirstTag(leading, tag, trailing)) ->
       commit_tag(Empty, tag, Clearance(Clears(leading), NotClears))
       |> commit_trailing(tag.line, trailing)
-    TagPending(InlineTag(current_line, tag, trailing)) ->
+    TagPendingState(InlineTag(current_line, tag, trailing)) ->
       commit_tag(current_line, tag, Clearance(NotClears, NotClears))
       |> commit_trailing(tag.line, trailing)
-    Content(current_line, literal) ->
+    ContentState(current_line, literal) ->
       append_literal(current_line, line, literal)
   }
 }
@@ -372,20 +373,19 @@ fn end_line(
 ) -> Tree {
   case state {
     // empty line with possibly whitespace
-    LineStart(leading) ->
+    LineStartState(leading) ->
       case newline {
         // eof-terminated line, so we just write the whitespace
         None -> append_whitespace(acc, line, leading)
         // nl-terminated line, so we can prepend indentation marker, etc.
         Some(newline) ->
-          append(acc, Indent(line))
-          |> commit_leading(line, leading)
+          commit_leading(acc, line, leading)
           |> append(Literal(line, newline))
       }
     // if the first tag was pending to be committed, then that means that
     // the line is empty, aside from the pending tag, so the tag clears both,
     // and there's no need to write the current line into the main accumulator
-    TagPending(FirstTag(leading, tag, trailing)) ->
+    TagPendingState(FirstTag(leading, tag, trailing)) ->
       commit_tag(
         acc,
         tag,
@@ -394,22 +394,20 @@ fn end_line(
     // if the latest tag was pending to be committed, then that means that the
     // line is NOT empty, so the tag only clears the end (and this is then a
     // content line), and we absorb the trailing whitespace into the element
-    TagPending(InlineTag(current_line, tag, trailing)) ->
-      append(acc, Indent(line))
-      |> append_tree(current_line)
+    TagPendingState(InlineTag(current_line, tag, trailing)) ->
+      append_tree(acc, current_line)
       |> commit_tag(tag, Clearance(NotClears, Clears(glom(trailing, newline))))
     // content
-    Content(current_line, literal) ->
-      append(acc, Indent(line))
-      |> append_tree(current_line)
+    ContentState(current_line, literal) ->
+      append_tree(acc, current_line)
       |> append_literal(line, glom(literal, newline))
   }
 }
 
 fn commit_leading(acc: Tree, line: Int, leading: Option(String)) -> Tree {
   case leading {
-    Some(leading) -> append(acc, Leading(line, leading))
-    None -> acc
+    Some(leading) -> append(acc, LineStart(line, Some(leading)))
+    None -> append(acc, LineStart(line, None))
   }
 }
 
@@ -511,6 +509,7 @@ pub fn token_to_string(token: Element) -> String {
     Variable(_, path) -> token_name_with_path("VARIABLE", path)
     Indent(_) -> "INDENT"
     Leading(_, _) -> "LEADING"
+    LineStart(_, _) -> "LINE_START"
     Eof(_) -> "EOF"
   }
 }

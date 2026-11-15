@@ -1,7 +1,8 @@
 //// Mustache syntactical grammar:
 ////
 //// template        -> {expression} EOF ;
-//// expression      -> Indent ;
+//// expression      -> LineStart ;
+//// LineStart       -> LINE_START | Indent ;
 //// Indent          -> INDENT | Leading ;
 //// Leading         -> LEADING | Parameter ;
 //// Parameter       -> BLOCK_START {expression} END | Parent ;
@@ -24,13 +25,12 @@ import pomade/internal/rewriter
 import pomade/internal/scanner
 
 pub type Expression {
-  // Indent is a marker for applying indentation at runtime
-  Indent
-  // Leading is a special expression used to manipulate whitespace at the
-  // beginning of a line. I added this expression solely to deal with
-  // the weird rules of the inheritance spec around indentation and
-  // de-indentation
-  Leading(String)
+  // Indent is 
+  // LineStart is a special expression used as a marker for applying indentation
+  // at runtime, and to manipulate whitespace at the beginning of a line. I
+  // added this expression solely to deal with the rules of the inheritance spec
+  // around indentation and de-indentation
+  LineStart(Option(String))
   Literal(value: String)
   Variable(path: List(String))
   RawVariable(path: List(String))
@@ -113,29 +113,40 @@ fn parse_expression(
   tokens: List(rewriter.Element),
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-  parse_indent(tokens, acc)
+  parse_line_start(tokens, acc)
 }
 
-fn parse_indent(
+fn parse_line_start(
   tokens: List(rewriter.Element),
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.Indent(_), ..tail] -> Ok(#([Indent, ..acc], tail))
-    _ -> parse_leading(tokens, acc)
-  }
-}
-
-fn parse_leading(
-  tokens: List(rewriter.Element),
-  acc: List(Expression),
-) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-  case tokens {
-    [rewriter.Leading(_, lexeme), ..tail] ->
-      Ok(#([Leading(lexeme), ..acc], tail))
+    [rewriter.LineStart(_, leading), ..tail] ->
+      Ok(#([LineStart(leading), ..acc], tail))
     _ -> parse_parameter(tokens, acc)
   }
 }
+
+// fn parse_indent(
+//   tokens: List(rewriter.Element),
+//   acc: List(Expression),
+// ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
+//   case tokens {
+//     [rewriter.Indent(_), ..tail] -> Ok(#([Indent, ..acc], tail))
+//     _ -> parse_leading(tokens, acc)
+//   }
+// }
+
+// fn parse_leading(
+//   tokens: List(rewriter.Element),
+//   acc: List(Expression),
+// ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
+//   case tokens {
+//     [rewriter.Leading(_, lexeme), ..tail] ->
+//       Ok(#([Leading(lexeme), ..acc], tail))
+//     _ -> parse_parameter(tokens, acc)
+//   }
+// }
 
 fn parse_parameter(
   tokens: List(rewriter.Element),
@@ -177,13 +188,11 @@ fn parse_standalone_parameter(
   acc: List(Expression),
 ) -> List(Expression) {
   let expressions = list.reverse(reversed_expressions)
-  let expressions = ensure_indent(start_data.clearance.end, expressions)
   let intrinsic_indentation =
     intrinsic_indentation(start_data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
   let extrinsic_indentation =
     extrinsic_parameter_indentation(start_data.clearance)
-  let acc = remove_indent(acc)
   let acc = [
     Parameter(
       start_data.name,
@@ -201,10 +210,10 @@ fn parse_inline_parameter(
   end: rewriter.Clearance,
   acc: List(Expression),
 ) -> List(Expression) {
-  let reversed_expressions = insert_end_leading(reversed_expressions, end)
-  let expressions = list.reverse(reversed_expressions)
-  let expressions = ensure_indent(start_data.clearance.end, expressions)
-  let expressions = insert_start_trailing(expressions, start_data.clearance)
+  let expressions =
+    insert_end_leading(reversed_expressions, end)
+    |> list.reverse()
+    |> insert_start_trailing(start_data.clearance)
   let acc = insert_parameter_start_leading(acc, start_data.clearance)
   let acc = case start_data.clearance {
     rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> [
@@ -302,7 +311,6 @@ fn parse_argument(
   use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
   let reversed_expressions = remove_indent(reversed_expressions)
   let expressions = list.reverse(reversed_expressions)
-  let expressions = ensure_indent(data.clearance.end, expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
   #(Argument(data.name, deindented_expressions), tail)
@@ -463,7 +471,7 @@ fn intrinsic_indentation(
   case start {
     rewriter.Clearance(_, rewriter.Clears(_)) ->
       case tokens {
-        [rewriter.Indent(_), rewriter.Leading(_, lexeme), ..]
+        [rewriter.LineStart(_, Some(lexeme)), ..]
         | [
             rewriter.BlockStart(
               _,
@@ -534,11 +542,17 @@ fn deindent_loop(
 ) -> List(Expression) {
   case expressions {
     [] -> list.reverse(acc)
-    [Leading(indentation), ..tail] ->
+    [LineStart(Some(indentation)), ..tail] ->
       case string.drop_start(indentation, string.length(by)) {
-        "" -> deindent_loop(tail, by, acc)
-        indentation -> deindent_loop(tail, by, [Leading(indentation), ..acc])
+        "" -> deindent_loop(tail, by, [LineStart(None), ..acc])
+        indentation ->
+          deindent_loop(tail, by, [LineStart(Some(indentation)), ..acc])
       }
+    // [Leading(indentation), ..tail] ->
+    //   case string.drop_start(indentation, string.length(by)) {
+    //     "" -> deindent_loop(tail, by, acc)
+    //     indentation -> deindent_loop(tail, by, [Leading(indentation), ..acc])
+    //   }
     [Section(path, content), ..tail] ->
       deindent_loop(tail, by, [
         Section(path, deindent_loop(content, by, [])),
@@ -599,8 +613,8 @@ fn insert_parameter_start_leading(
   start: rewriter.Clearance,
 ) {
   case start {
-    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
-      Leading(leading),
+    rewriter.Clearance(rewriter.Clears(leading), rewriter.NotClears) -> [
+      LineStart(leading),
       ..acc
     ]
     _ -> acc
@@ -612,8 +626,8 @@ fn insert_start_leading(
   start: rewriter.Clearance,
 ) -> List(Expression) {
   case start {
-    rewriter.Clearance(rewriter.Clears(Some(leading)), _) -> [
-      Leading(leading),
+    rewriter.Clearance(rewriter.Clears(leading), _) -> [
+      LineStart(leading),
       ..acc
     ]
     _ -> acc
@@ -656,8 +670,8 @@ fn insert_end_tag_clearance(
 ) -> List(Expression) {
   case clearance {
     // we extract whatever whitespace is present in the clearance
-    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
-      Leading(leading),
+    rewriter.Clearance(rewriter.Clears(leading), rewriter.NotClears) -> [
+      LineStart(leading),
       ..acc
     ]
     rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
@@ -669,23 +683,10 @@ fn insert_end_tag_clearance(
   }
 }
 
-// A block's content is essentially an "inline template", so we have to ensure
-// that it has a line start. We only need to do this when the start tag doesn't
-// clear at the end, because otherwise the rewriter will have taken care of this
-// for us.
-fn ensure_indent(
-  start_trailing: rewriter.SideClearance,
-  expressions: List(Expression),
-) -> List(Expression) {
-  case start_trailing, expressions {
-    rewriter.Clears(_), _ | rewriter.NotClears, [] -> expressions
-    rewriter.NotClears, expressions -> [Indent, ..expressions]
-  }
-}
-
 fn remove_indent(expressions: List(Expression)) -> List(Expression) {
   case expressions {
-    [Indent, ..tail] -> tail
+    [LineStart(Some(leading)), ..tail] -> [Literal(leading), ..tail]
+    [LineStart(None), ..tail] -> tail
     expressions -> expressions
   }
 }

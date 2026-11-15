@@ -15,7 +15,7 @@ pub fn interpret(
 ) -> StringTree {
   evaluate_exprs(
     template,
-    environment.Environment(environment, None, templates, dict.new(), None),
+    environment.Environment(environment, templates, dict.new(), None),
     string_tree.new(),
   )
 }
@@ -27,14 +27,9 @@ fn evaluate_exprs(
 ) -> StringTree {
   case exprs {
     [] -> acc
+    [parser.LineStart(value), ..tail] ->
+      evaluate_exprs(tail, env, evaluate_line_start(value, acc))
     [parser.Literal(value), ..tail] ->
-      evaluate_exprs(tail, env, string_tree.append(acc, value))
-    [parser.Indent, ..tail] ->
-      evaluate_exprs(tail, env, case env.indentation {
-        None -> acc
-        Some(indentation) -> string_tree.append(acc, indentation)
-      })
-    [parser.Leading(value), ..tail] ->
       evaluate_exprs(tail, env, string_tree.append(acc, value))
     [parser.Variable(path), ..tail] ->
       evaluate_exprs(
@@ -80,6 +75,13 @@ fn evaluate_exprs(
         env,
         evaluate_standalone_parent(name, indentation, content, env, acc),
       )
+  }
+}
+
+fn evaluate_line_start(leading: Option(String), acc: StringTree) -> StringTree {
+  case leading {
+    Some(leading) -> string_tree.append(acc, leading)
+    None -> acc
   }
 }
 
@@ -145,11 +147,7 @@ fn evaluate_partial(
   case dict.get(env.templates, name) {
     Ok(ast) -> {
       let ast = apply_indentation(ast, indentation)
-      evaluate_exprs(
-        ast,
-        environment.Environment(..env, indentation: indentation),
-        acc,
-      )
+      evaluate_exprs(ast, env, acc)
     }
     Error(_) -> acc
   }
@@ -172,34 +170,40 @@ fn apply_indentation_loop(
 ) -> List(parser.Expression) {
   case exprs {
     [] -> list.reverse(acc)
-    [parser.Partial(name, partial_indentation), ..tail] -> {
-      let new_indentation = case partial_indentation {
-        None -> Some(indentation)
-        Some(partial_indentation) -> Some(indentation <> partial_indentation)
-      }
+    [parser.LineStart(leading), ..tail] -> {
       apply_indentation_loop(tail, indentation, [
-        parser.Partial(name, new_indentation),
+        parser.LineStart(indent(indentation, leading)),
+        ..acc
+      ])
+    }
+    [parser.Partial(name, partial_indentation), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.Partial(name, indent(indentation, partial_indentation)),
         ..acc
       ])
     }
     [parser.Parent(name, parent_indentation, arguments), ..tail] -> {
-      let new_indentation = case parent_indentation {
-        None -> Some(indentation)
-        Some(parent_indentation) -> Some(indentation <> parent_indentation)
-      }
       apply_indentation_loop(tail, indentation, [
-        parser.Parent(name, new_indentation, arguments),
+        parser.Parent(name, indent(indentation, parent_indentation), arguments),
         ..acc
       ])
     }
-    [parser.Parameter(name, parent_indentation, content), ..tail] -> {
-      let new_indentation = case parent_indentation {
-        None -> Some(indentation)
-        Some(parameter_indentation) ->
-          Some(indentation <> parameter_indentation)
-      }
+    [parser.Parameter(name, parameter_indentation, content), ..tail] -> {
       apply_indentation_loop(tail, indentation, [
-        parser.Parameter(name, new_indentation, content),
+        parser.Parameter(
+          name,
+          indent(indentation, parameter_indentation),
+          apply_indentation_loop(content, indentation, []),
+        ),
+        ..acc
+      ])
+    }
+    [parser.InlineParameter(name, content), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.InlineParameter(
+          name,
+          apply_indentation_loop(content, indentation, []),
+        ),
         ..acc
       ])
     }
@@ -219,12 +223,10 @@ fn evaluate_inline_partial(
   }
 }
 
-fn merge_indentation(outer: Option(String), inner: Option(String)) {
-  case outer, inner {
-    None, None -> None
-    None, Some(inner) -> Some(inner)
-    Some(outer), None -> Some(outer)
-    Some(outer), Some(inner) -> Some(outer <> inner)
+fn indent(outer: String, inner: Option(String)) {
+  case inner {
+    None -> Some(outer)
+    Some(inner) -> Some(outer <> inner)
   }
 }
 
@@ -248,10 +250,6 @@ fn evaluate_inline_parameter(
     Error(_) -> content
     Ok(override) -> override
   }
-  let content = case content {
-    [parser.Indent, ..tail] -> tail
-    _ -> content
-  }
   evaluate_exprs(content, env, acc)
 }
 
@@ -267,11 +265,15 @@ fn evaluate_standalone_parameter(
     Ok(override) -> override
   }
   let content = apply_indentation(content, indentation)
-  evaluate_exprs(
-    content,
-    environment.Environment(..env, indentation: indentation),
-    acc,
-  )
+  // A block's content is essentially an "inline template", so we have to ensure
+  // that it has a line start. We only need to do this when the start tag
+  // doesn't clear at the end, because otherwise the rewriter will have taken
+  // care of this for us.
+  let content = case content {
+    [parser.LineStart(_), ..] -> content
+    content -> [parser.LineStart(indentation), ..content]
+  }
+  evaluate_exprs(content, env, acc)
 }
 
 fn evaluate_inline_parent(
@@ -308,7 +310,6 @@ fn evaluate_standalone_parent(
         ast,
         environment.Environment(
           ..env,
-          indentation: indentation,
           arguments: find_arguments_in_parent(content, env.arguments),
         ),
         acc,

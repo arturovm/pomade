@@ -67,7 +67,10 @@ pub fn section_test() {
   assert "hello"
     == interpreter.interpret(
       [
-        parser.Section(["section"], [parser.Indent, parser.Literal("hello")]),
+        parser.Section(["section"], [
+          parser.LineStart(None),
+          parser.Literal("hello"),
+        ]),
       ],
       Dict(dict.from_list([#("section", String("foo"))])),
       dict.new(),
@@ -175,9 +178,9 @@ pub fn partial_test() {
       value.Dict(dict.new()),
       dict.from_list([
         #("partial", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal(">\n"),
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal(">"),
         ]),
       ]),
@@ -195,16 +198,16 @@ pub fn nested_partial_test() {
       value.Dict(dict.new()),
       dict.from_list([
         #("one", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("foo\n"),
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("bar\n"),
           parser.Partial(scanner.StaticName("two"), Some("  ")),
         ]),
         #("two", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("baz\n"),
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("qux\n"),
         ]),
       ]),
@@ -262,7 +265,9 @@ pub fn indentation_at_template_expansion_test() {
     == interpreter.interpret(
       [parser.Partial(scanner.StaticName("partial"), Some("    "))],
       value.Dict(dict.new()),
-      dict.from_list([#("partial", [parser.Indent, parser.Literal("foo")])]),
+      dict.from_list([
+        #("partial", [parser.LineStart(None), parser.Literal("foo")]),
+      ]),
     )
     |> string_tree.to_string()
 
@@ -270,7 +275,9 @@ pub fn indentation_at_template_expansion_test() {
     == interpreter.interpret(
       [parser.Parent("parent", Some("    "), [])],
       value.Dict(dict.new()),
-      dict.from_list([#("parent", [parser.Indent, parser.Literal("foo")])]),
+      dict.from_list([
+        #("parent", [parser.LineStart(None), parser.Literal("foo")]),
+      ]),
     )
     |> string_tree.to_string()
 
@@ -278,7 +285,7 @@ pub fn indentation_at_template_expansion_test() {
     == interpreter.interpret(
       [
         parser.Parameter("block", Some("    "), [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("foo"),
         ]),
       ],
@@ -292,14 +299,17 @@ pub fn indentation_at_template_expansion_test() {
       [
         parser.Literal("a"),
         parser.InlineParent("parent", [
-          parser.Argument("block", [parser.Indent, parser.Literal("foo")]),
+          parser.Argument("block", [
+            parser.LineStart(None),
+            parser.Literal("foo"),
+          ]),
         ]),
       ],
       value.Dict(dict.new()),
       dict.from_list([
         #("parent", [
           parser.Parameter("block", Some("    "), [
-            parser.Indent,
+            parser.LineStart(None),
           ]),
         ]),
       ]),
@@ -309,7 +319,7 @@ pub fn indentation_at_template_expansion_test() {
 
 pub fn canonical_whitespace_model_test() {
   let intermediate = #("intermediate", [
-    parser.Indent,
+    parser.LineStart(None),
     parser.Literal("Hi,\n"),
     parser.Parent("invitation", Some("    "), []),
   ])
@@ -318,7 +328,7 @@ pub fn canonical_whitespace_model_test() {
       [
         parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("high five\n"),
           ]),
         ]),
@@ -327,10 +337,10 @@ pub fn canonical_whitespace_model_test() {
       dict.from_list([
         intermediate,
         #("invitation", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("please give me a:\n"),
           parser.Parameter("greeting", Some("    "), [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("hug\n"),
           ]),
         ]),
@@ -343,7 +353,7 @@ pub fn canonical_whitespace_model_test() {
       [
         parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("high five\n"),
           ]),
         ]),
@@ -352,10 +362,10 @@ pub fn canonical_whitespace_model_test() {
       dict.from_list([
         intermediate,
         #("invitation", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("please give me a:\n"),
           parser.Parameter("greeting", Some("        "), [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("hug\n"),
           ]),
         ]),
@@ -368,7 +378,7 @@ pub fn canonical_whitespace_model_test() {
       [
         parser.Parent("intermediate", None, [
           parser.Argument("greeting", [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("high five\n"),
           ]),
         ]),
@@ -377,10 +387,10 @@ pub fn canonical_whitespace_model_test() {
       dict.from_list([
         intermediate,
         #("invitation", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("please give me a:\n"),
           parser.Parameter("greeting", Some("    "), [
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("hug"),
           ]),
         ]),
@@ -390,15 +400,18 @@ pub fn canonical_whitespace_model_test() {
 
   assert "  foobar\n  baz"
     == interpreter.interpret(
-      [parser.Indent, parser.Partial(scanner.StaticName("partial"), Some("  "))],
+      [
+        parser.LineStart(None),
+        parser.Partial(scanner.StaticName("partial"), Some("  ")),
+      ],
       value.Dict(dict.new()),
       dict.from_list([
         #("partial", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("foo"),
           parser.InlineParameter("block", [parser.Literal("bar")]),
           parser.Literal("\n"),
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("baz"),
         ]),
       ]),
@@ -413,12 +426,11 @@ pub fn inline_parameter_in_indented_partial_test() {
       value.Dict(dict.new()),
       dict.from_list([
         #("partial", [
-          parser.Indent,
+          parser.LineStart(None),
           parser.Literal("a"),
           parser.InlineParameter("block", [
-            parser.Indent,
             parser.Literal("x\n"),
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("y"),
           ]),
           parser.Literal("\n"),
@@ -433,16 +445,15 @@ pub fn inline_parameter_in_indented_partial_test() {
 // and we need to undo the stuff I did changing
 // standalones to inlines
 pub fn extrinsic_indentation_in_partial_test() {
-  assert "    first\n      second"
+  assert "   first\n    second"
     == interpreter.interpret(
-      [parser.Partial(scanner.StaticName("partial"), Some("  "))],
+      [parser.Partial(scanner.StaticName("partial"), Some(" "))],
       value.Dict(dict.new()),
       dict.from_list([
         #("partial", [
           parser.Parameter("block", Some("  "), [
-            parser.Indent,
             parser.Literal("first\n"),
-            parser.Indent,
+            parser.LineStart(None),
             parser.Literal("second"),
           ]),
         ]),

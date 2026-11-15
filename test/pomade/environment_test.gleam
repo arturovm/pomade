@@ -7,7 +7,7 @@ import pomade/internal/value.{Dict, List, String}
 pub fn empty_test() {
   assert ""
     == environment.get_and_format(
-      Environment(Dict(dict.new()), None, dict.new(), dict.new(), None),
+      Environment(Dict(dict.new()), dict.new(), dict.new(), None),
       [],
     )
 }
@@ -15,7 +15,7 @@ pub fn empty_test() {
 pub fn not_found_test() {
   assert ""
     == environment.get_and_format(
-      Environment(Dict(dict.new()), None, dict.new(), dict.new(), None),
+      Environment(Dict(dict.new()), dict.new(), dict.new(), None),
       [
         "non_existent",
       ],
@@ -26,7 +26,6 @@ pub fn get_string_test() {
   let env =
     Environment(
       value.Dict(dict.from_list([#("foo", value.String("bar"))])),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -38,7 +37,6 @@ pub fn get_int_test() {
   let env =
     Environment(
       value.Dict(dict.from_list([#("number_value", value.Int(2))])),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -50,7 +48,6 @@ pub fn get_float_test() {
   let env =
     Environment(
       value.Dict(dict.from_list([#("number_value", value.Float(1.5))])),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -62,7 +59,6 @@ pub fn get_bool_test() {
   let env =
     Environment(
       value.Dict(dict.from_list([#("boolean_value", value.Bool(True))])),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -81,7 +77,6 @@ pub fn get_path_name_test() {
           ),
         ]),
       ),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -90,7 +85,7 @@ pub fn get_path_name_test() {
 }
 
 pub fn get_self_test() {
-  let env = Environment(String("hello"), None, dict.new(), dict.new(), None)
+  let env = Environment(String("hello"), dict.new(), dict.new(), None)
   assert "hello" == environment.get_and_format(env, ["."])
 }
 
@@ -106,7 +101,6 @@ pub fn get_value_test() {
           #("foo", value.String("goodbye")),
         ]),
       ),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -140,7 +134,6 @@ pub fn get_value_in_parent_test() {
           ),
         ]),
       ),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -152,7 +145,6 @@ pub fn get_value_in_parent_test() {
           #("b", value.String("bar")),
         ]),
       ),
-      None,
       dict.new(),
       dict.new(),
       Some(parent_env),
@@ -170,7 +162,6 @@ pub fn get_list_test() {
           #("list_value", value.List([value.String("Hello")])),
         ]),
       ),
-      None,
       dict.new(),
       dict.new(),
       None,
@@ -182,7 +173,6 @@ pub fn get_partial_test() {
   let env =
     Environment(
       value.String("hello"),
-      None,
       dict.from_list([#("some_partial", [])]),
       dict.new(),
       None,

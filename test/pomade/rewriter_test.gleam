@@ -10,8 +10,7 @@ pub fn empty_test() {
 
 pub fn standalone_interpolation_test() {
   assert [
-      rewriter.Indent(1),
-      rewriter.Leading(1, "  "),
+      rewriter.LineStart(1, Some("  ")),
       rewriter.Variable(1, ["string"]),
       rewriter.Literal(1, "\n"),
       rewriter.Eof(2),
@@ -26,9 +25,9 @@ pub fn standalone_interpolation_test() {
 
 pub fn elide_set_delimiters_test() {
   assert [
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "random text\n"),
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite([
@@ -44,9 +43,9 @@ pub fn elide_set_delimiters_test() {
 
 pub fn elide_comment_test() {
   assert [
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "random text\n"),
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "foo\n"),
     ]
     == rewriter.rewrite([
@@ -62,9 +61,9 @@ pub fn elide_comment_test() {
 
 pub fn indented_standalone_test() {
   assert [
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "Begin.\n"),
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "End.\n"),
       rewriter.Eof(0),
     ]
@@ -82,7 +81,7 @@ pub fn indented_standalone_test() {
 
 pub fn standalone_without_newline_test() {
   assert [
-      rewriter.Indent(0),
+      rewriter.LineStart(0, None),
       rewriter.Literal(0, "!\n"),
       rewriter.Eof(0),
     ]
@@ -108,8 +107,7 @@ pub fn indented_inline_test() {
 
   let ast = rewriter.rewrite(tokens)
   assert [
-      rewriter.Indent(1),
-      rewriter.Leading(1, "  "),
+      rewriter.LineStart(1, Some("  ")),
       rewriter.Literal(1, "12 \n"),
       rewriter.Eof(2),
     ]
@@ -117,14 +115,17 @@ pub fn indented_inline_test() {
 }
 
 pub fn line_start_test() {
-  assert [rewriter.Indent(1), rewriter.Literal(1, "\n"), rewriter.Eof(2)]
+  assert [
+      rewriter.LineStart(1, None),
+      rewriter.Literal(1, "\n"),
+      rewriter.Eof(2),
+    ]
     == rewriter.rewrite([scanner.Newline(1, "\n"), scanner.Eof(2)])
 }
 
 pub fn inline_partial_test() {
   assert [
-      rewriter.Indent(1),
-      rewriter.Leading(1, " \t"),
+      rewriter.LineStart(1, Some(" \t")),
       rewriter.InlinePartial(1, scanner.StaticName("hello")),
       rewriter.Literal(1, "foo \n"),
       rewriter.Eof(2),
@@ -351,7 +352,7 @@ pub fn standalone_parent_test() {
     ])
 }
 
-pub fn block_clerance_test() {
+pub fn block_clearance_test() {
   // clears both
   assert [
       rewriter.BlockStart(
@@ -382,9 +383,8 @@ pub fn block_clerance_test() {
     ])
   // clears start
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a\n"),
-      rewriter.Indent(2),
       rewriter.BlockStart(
         2,
         rewriter.StartTagData(
@@ -402,9 +402,8 @@ pub fn block_clerance_test() {
       scanner.Newline(2, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a\n"),
-      rewriter.Indent(2),
       rewriter.BlockStart(
         2,
         rewriter.StartTagData(
@@ -425,7 +424,7 @@ pub fn block_clerance_test() {
     ])
   // clears end
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
@@ -434,7 +433,7 @@ pub fn block_clerance_test() {
           rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
     ]
     == rewriter.rewrite([
@@ -445,7 +444,7 @@ pub fn block_clerance_test() {
       scanner.Newline(2, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
@@ -454,7 +453,7 @@ pub fn block_clerance_test() {
           rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
       rewriter.Eof(3),
     ]
@@ -468,7 +467,7 @@ pub fn block_clerance_test() {
     ])
   // clears none
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
@@ -486,7 +485,7 @@ pub fn block_clerance_test() {
       scanner.Newline(1, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
@@ -538,9 +537,9 @@ pub fn parent_clerance_test() {
     ])
   // clears start
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a\n"),
-      rewriter.Indent(2),
+      // rewriter.LineStart(1, None),
       rewriter.ParentStart(
         2,
         rewriter.StartTagData(
@@ -558,9 +557,9 @@ pub fn parent_clerance_test() {
       scanner.Newline(2, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a\n"),
-      rewriter.Indent(2),
+      // rewriter.LineStart(1, None),
       rewriter.ParentStart(
         2,
         rewriter.StartTagData(
@@ -581,7 +580,7 @@ pub fn parent_clerance_test() {
     ])
   // clears end
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
@@ -590,7 +589,7 @@ pub fn parent_clerance_test() {
           rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
     ]
     == rewriter.rewrite([
@@ -601,7 +600,7 @@ pub fn parent_clerance_test() {
       scanner.Newline(2, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
@@ -610,7 +609,7 @@ pub fn parent_clerance_test() {
           rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
         ),
       ),
-      rewriter.Indent(2),
+      rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
       rewriter.Eof(3),
     ]
@@ -624,7 +623,7 @@ pub fn parent_clerance_test() {
     ])
   // clears none
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
@@ -642,7 +641,7 @@ pub fn parent_clerance_test() {
       scanner.Newline(1, "\n"),
     ])
   assert [
-      rewriter.Indent(1),
+      rewriter.LineStart(1, None),
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
