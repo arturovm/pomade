@@ -153,64 +153,6 @@ fn evaluate_partial(
   }
 }
 
-fn apply_indentation(
-  exprs: List(parser.Expression),
-  indentation: Option(String),
-) -> List(parser.Expression) {
-  case indentation {
-    Some(indentation) -> apply_indentation_loop(exprs, indentation, [])
-    None -> exprs
-  }
-}
-
-fn apply_indentation_loop(
-  exprs: List(parser.Expression),
-  indentation: String,
-  acc: List(parser.Expression),
-) -> List(parser.Expression) {
-  case exprs {
-    [] -> list.reverse(acc)
-    [parser.LineStart(leading), ..tail] -> {
-      apply_indentation_loop(tail, indentation, [
-        parser.LineStart(indent(indentation, leading)),
-        ..acc
-      ])
-    }
-    [parser.Partial(name, partial_indentation), ..tail] -> {
-      apply_indentation_loop(tail, indentation, [
-        parser.Partial(name, indent(indentation, partial_indentation)),
-        ..acc
-      ])
-    }
-    [parser.Parent(name, parent_indentation, arguments), ..tail] -> {
-      apply_indentation_loop(tail, indentation, [
-        parser.Parent(name, indent(indentation, parent_indentation), arguments),
-        ..acc
-      ])
-    }
-    [parser.Parameter(name, parameter_indentation, content), ..tail] -> {
-      apply_indentation_loop(tail, indentation, [
-        parser.Parameter(
-          name,
-          indent(indentation, parameter_indentation),
-          apply_indentation_loop(content, indentation, []),
-        ),
-        ..acc
-      ])
-    }
-    [parser.InlineParameter(name, content), ..tail] -> {
-      apply_indentation_loop(tail, indentation, [
-        parser.InlineParameter(
-          name,
-          apply_indentation_loop(content, indentation, []),
-        ),
-        ..acc
-      ])
-    }
-    [head, ..tail] -> apply_indentation_loop(tail, indentation, [head, ..acc])
-  }
-}
-
 fn evaluate_inline_partial(
   name: scanner.PartialName,
   env: environment.Environment,
@@ -270,7 +212,7 @@ fn evaluate_standalone_parameter(
   // doesn't clear at the end, because otherwise the rewriter will have taken
   // care of this for us.
   let content = case content {
-    [parser.LineStart(_), ..] -> content
+    [] | [parser.LineStart(_), ..] -> content
     content -> [parser.LineStart(indentation), ..content]
   }
   evaluate_exprs(content, env, acc)
@@ -321,21 +263,79 @@ fn evaluate_standalone_parent(
 
 // helpers
 
+fn apply_indentation(
+  exprs: List(parser.Expression),
+  indentation: Option(String),
+) -> List(parser.Expression) {
+  case indentation {
+    Some(indentation) -> apply_indentation_loop(exprs, indentation, [])
+    None -> exprs
+  }
+}
+
+fn apply_indentation_loop(
+  exprs: List(parser.Expression),
+  indentation: String,
+  acc: List(parser.Expression),
+) -> List(parser.Expression) {
+  case exprs {
+    [] -> list.reverse(acc)
+    [parser.LineStart(leading), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.LineStart(indent(indentation, leading)),
+        ..acc
+      ])
+    }
+    [parser.Partial(name, partial_indentation), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.Partial(name, indent(indentation, partial_indentation)),
+        ..acc
+      ])
+    }
+    [parser.Parent(name, parent_indentation, arguments), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.Parent(name, indent(indentation, parent_indentation), arguments),
+        ..acc
+      ])
+    }
+    [parser.Parameter(name, parameter_indentation, content), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.Parameter(
+          name,
+          indent(indentation, parameter_indentation),
+          apply_indentation_loop(content, indentation, []),
+        ),
+        ..acc
+      ])
+    }
+    [parser.InlineParameter(name, content), ..tail] -> {
+      apply_indentation_loop(tail, indentation, [
+        parser.InlineParameter(
+          name,
+          apply_indentation_loop(content, indentation, []),
+        ),
+        ..acc
+      ])
+    }
+    [head, ..tail] -> apply_indentation_loop(tail, indentation, [head, ..acc])
+  }
+}
+
 fn find_arguments_in_parent(
   content: List(parser.Argument),
-  acc: Dict(String, List(parser.Expression)),
+  args: Dict(String, List(parser.Expression)),
 ) -> Dict(String, List(parser.Expression)) {
   case content {
-    [] -> acc
+    [] -> args
     [parser.Argument(name, content), ..tail] -> {
-      let acc =
-        dict.upsert(acc, name, fn(val) {
+      let args =
+        dict.upsert(args, name, fn(val) {
           case val {
             None -> content
             Some(previous) -> previous
           }
         })
-      find_arguments_in_parent(tail, acc)
+      find_arguments_in_parent(tail, args)
     }
   }
 }

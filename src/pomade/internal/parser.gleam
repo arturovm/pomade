@@ -25,7 +25,6 @@ import pomade/internal/rewriter
 import pomade/internal/scanner
 
 pub type Expression {
-  // Indent is 
   // LineStart is a special expression used as a marker for applying indentation
   // at runtime, and to manipulate whitespace at the beginning of a line. I
   // added this expression solely to deal with the rules of the inheritance spec
@@ -38,7 +37,6 @@ pub type Expression {
   InvertedSection(path: List(String), content: List(Expression))
   Partial(name: scanner.PartialName, indentation: Option(String))
   InlinePartial(name: scanner.PartialName)
-  // block parameter
   Parameter(
     name: String,
     indentation: Option(String),
@@ -127,27 +125,6 @@ fn parse_line_start(
   }
 }
 
-// fn parse_indent(
-//   tokens: List(rewriter.Element),
-//   acc: List(Expression),
-// ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-//   case tokens {
-//     [rewriter.Indent(_), ..tail] -> Ok(#([Indent, ..acc], tail))
-//     _ -> parse_leading(tokens, acc)
-//   }
-// }
-
-// fn parse_leading(
-//   tokens: List(rewriter.Element),
-//   acc: List(Expression),
-// ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-//   case tokens {
-//     [rewriter.Leading(_, lexeme), ..tail] ->
-//       Ok(#([Leading(lexeme), ..acc], tail))
-//     _ -> parse_parameter(tokens, acc)
-//   }
-// }
-
 fn parse_parameter(
   tokens: List(rewriter.Element),
   acc: List(Expression),
@@ -215,13 +192,7 @@ fn parse_inline_parameter(
     |> list.reverse()
     |> insert_start_trailing(start_data.clearance)
   let acc = insert_parameter_start_leading(acc, start_data.clearance)
-  let acc = case start_data.clearance {
-    rewriter.Clearance(rewriter.Clears(_), rewriter.Clears(_)) -> [
-      Parameter(start_data.name, None, expressions),
-      ..acc
-    ]
-    _ -> [InlineParameter(start_data.name, expressions), ..acc]
-  }
+  let acc = [InlineParameter(start_data.name, expressions), ..acc]
   insert_parameter_end_trailing(acc, end)
 }
 
@@ -548,11 +519,6 @@ fn deindent_loop(
         indentation ->
           deindent_loop(tail, by, [LineStart(Some(indentation)), ..acc])
       }
-    // [Leading(indentation), ..tail] ->
-    //   case string.drop_start(indentation, string.length(by)) {
-    //     "" -> deindent_loop(tail, by, acc)
-    //     indentation -> deindent_loop(tail, by, [Leading(indentation), ..acc])
-    //   }
     [Section(path, content), ..tail] ->
       deindent_loop(tail, by, [
         Section(path, deindent_loop(content, by, [])),

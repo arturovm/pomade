@@ -457,7 +457,7 @@ pub fn surrounding_whitespace_test() {
   // depending on the end clearance of the start tag
   // start tag is standalone
   assert Ok([
-      parser.Parameter("block", None, [
+      parser.InlineParameter("block", [
         parser.LineStart(None),
         parser.Literal("  "),
       ]),
