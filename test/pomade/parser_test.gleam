@@ -634,3 +634,10 @@ pub fn inline_parameter_restores_leading_test() {
       rewriter.Eof(1),
     ])
 }
+
+pub fn errors_test() {
+  assert Error(
+      parser.NoMatchingEndTagError(rewriter.SectionStart(1, ["section"])),
+    )
+    == parser.parse([rewriter.SectionStart(1, ["section"]), rewriter.Eof(1)])
+}

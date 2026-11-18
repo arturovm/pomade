@@ -134,7 +134,10 @@ fn parse_parameter(
       use #(reversed_expressions, tail) <- result.try(
         parse_expressions_reversed(block_content, []),
       )
-      use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
+      use #(end, tail) <- result.map(
+        parse_end_tag(tail, [data.name])
+        |> result.map_error(fn(_) { NoMatchingEndTagError(tag) }),
+      )
       case standalone(data.clearance, end) {
         True -> {
           let acc =
@@ -203,7 +206,10 @@ fn parse_parent(
   case tokens {
     [rewriter.ParentStart(_, data) as tag, ..tail] -> {
       use #(expressions, tail) <- result.try(parse_arguments(tail, []))
-      use #(end, tail) <- result.map(parse_end_tag(tail, tag, [data.name]))
+      use #(end, tail) <- result.map(
+        parse_end_tag(tail, [data.name])
+        |> result.map_error(fn(_) { NoMatchingEndTagError(tag) }),
+      )
       case standalone(data.clearance, end) {
         True -> {
           let extrinsic_indentation = extrinsic_indentation(data.clearance)
@@ -253,7 +259,10 @@ fn parse_argument(
   use #(reversed_expressions, tail) <- result.try(
     parse_expressions_reversed(tokens, []),
   )
-  use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
+  use #(_, tail) <- result.map(
+    parse_end_tag(tail, [data.name])
+    |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
+  )
   let expressions = list.reverse(reversed_expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
@@ -265,8 +274,21 @@ fn parse_inverted_section(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.InvertedSectionStart(_, _) as start, ..tail] ->
-      parse_enclosed(tail, start, InvertedSection, acc)
+    [rewriter.InvertedSectionStart(_, start_path) as start, ..tail] -> {
+      use #(reversed_expressions, tail) <- result.try(
+        parse_expressions_reversed(tail, []),
+      )
+      use #(end, tail) <- result.map(
+        parse_end_tag(tail, start_path)
+        |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
+      )
+      let expressions =
+        insert_end_leading(reversed_expressions, end)
+        |> list.reverse()
+      let acc = [InvertedSection(start_path, expressions), ..acc]
+      let acc = insert_end_trailing(acc, end)
+      #(acc, tail)
+    }
     _ -> parse_section(tokens, acc)
   }
 }
@@ -276,23 +298,33 @@ fn parse_section(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.SectionStart(_, _) as start, ..tail] ->
-      parse_enclosed(tail, start, Section, acc)
+    [rewriter.SectionStart(_, start_path) as start, ..tail] -> {
+      use #(reversed_expressions, tail) <- result.try(
+        parse_expressions_reversed(tail, []),
+      )
+      use #(end, tail) <- result.map(
+        parse_end_tag(tail, start_path)
+        |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
+      )
+      let expressions =
+        insert_end_leading(reversed_expressions, end)
+        |> list.reverse()
+      let acc = [Section(start_path, expressions), ..acc]
+      let acc = insert_end_trailing(acc, end)
+      #(acc, tail)
+    }
     _ -> parse_partial(tokens, acc)
   }
 }
 
 fn parse_end_tag(
   tokens: List(rewriter.Element),
-  start: rewriter.Element,
   name: List(String),
-) -> Result(#(rewriter.Clearance, List(rewriter.Element)), SyntaxError) {
+) -> Result(#(rewriter.Clearance, List(rewriter.Element)), Nil) {
   case tokens {
     [rewriter.End(_, end_name, clearance), ..tail] if end_name == name ->
       Ok(#(clearance, tail))
-    [rewriter.End(_, _, _), ..] -> Error(NoMatchingEndTagError(start))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
+    _ -> Error(Nil)
   }
 }
 
@@ -351,36 +383,6 @@ fn parse_primary(
 }
 
 // helpers
-
-fn parse_enclosed(
-  tokens: List(rewriter.Element),
-  start: rewriter.Element,
-  expr_constructor: fn(List(String), List(Expression)) -> Expression,
-  acc: List(Expression),
-) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-  use #(reversed_expressions, tail) <- result.try(
-    parse_expressions_reversed(tokens, []),
-  )
-  use start_path <- result.try(tag_path(start))
-  use #(end, tail) <- result.map(parse_end_tag(tail, start, start_path))
-  let expressions =
-    insert_end_leading(reversed_expressions, end)
-    |> list.reverse()
-  let acc = [expr_constructor(start_path, expressions), ..acc]
-  let acc = insert_end_trailing(acc, end)
-  #(acc, tail)
-}
-
-fn tag_path(tag: rewriter.Element) -> Result(List(String), SyntaxError) {
-  case tag {
-    rewriter.SectionStart(_, path) -> Ok(path)
-    rewriter.InvertedSectionStart(_, path) -> Ok(path)
-    rewriter.End(_, path, _) -> Ok(path)
-    rewriter.BlockStart(_, rewriter.StartTagData(name, _)) -> Ok([name])
-    rewriter.ParentStart(_, rewriter.StartTagData(name, _)) -> Ok([name])
-    any -> Error(UnexpectedTokenError(any))
-  }
-}
 
 fn standalone(start: rewriter.Clearance, end: rewriter.Clearance) -> Bool {
   case start, end {
