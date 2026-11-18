@@ -178,7 +178,7 @@ fn parse_standalone_parameter(
     ),
     ..acc
   ]
-  insert_parameter_end_trailing(acc, end)
+  insert_end_trailing(acc, end)
 }
 
 fn parse_inline_parameter(
@@ -191,35 +191,9 @@ fn parse_inline_parameter(
     insert_end_leading(reversed_expressions, end)
     |> list.reverse()
     |> insert_start_trailing(start_data.clearance)
-  let acc = insert_parameter_start_leading(acc, start_data.clearance)
+  let acc = insert_start_leading(acc, start_data.clearance)
   let acc = [InlineParameter(start_data.name, expressions), ..acc]
-  insert_parameter_end_trailing(acc, end)
-}
-
-fn insert_end_leading(
-  acc: List(Expression),
-  end: rewriter.Clearance,
-) -> List(Expression) {
-  case end {
-    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
-      LineStart(Some(leading)),
-      ..acc
-    ]
-    _ -> acc
-  }
-}
-
-fn insert_start_trailing(
-  acc: List(Expression),
-  start: rewriter.Clearance,
-) -> List(Expression) {
-  case start {
-    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
-      Literal(trailing),
-      ..acc
-    ]
-    _ -> acc
-  }
+  insert_end_trailing(acc, end)
 }
 
 fn parse_parent(
@@ -240,9 +214,9 @@ fn parse_parent(
           #(acc, tail)
         }
         False -> {
-          let acc = insert_start_leading(acc, data.clearance)
+          let acc = insert_parent_start_leading(acc, data.clearance)
           let acc = [InlineParent(data.name, expressions), ..acc]
-          let acc = insert_end_trailing(acc, end)
+          let acc = insert_parent_end_trailing(acc, end)
           #(acc, tail)
         }
       }
@@ -291,19 +265,9 @@ fn parse_inverted_section(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.InvertedSectionStart(_, _), ..] ->
-      parse_enclosed(tokens, parse_inverted_section_start, InvertedSection, acc)
+    [rewriter.InvertedSectionStart(_, _) as start, ..tail] ->
+      parse_enclosed(tail, start, InvertedSection, acc)
     _ -> parse_section(tokens, acc)
-  }
-}
-
-fn parse_inverted_section_start(
-  tokens: List(rewriter.Element),
-) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
-  case tokens {
-    [rewriter.InvertedSectionStart(_, _) as tag, ..tail] -> Ok(#(tag, tail))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
   }
 }
 
@@ -312,19 +276,9 @@ fn parse_section(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.SectionStart(_, _), ..] ->
-      parse_enclosed(tokens, parse_section_start, Section, acc)
+    [rewriter.SectionStart(_, _) as start, ..tail] ->
+      parse_enclosed(tail, start, Section, acc)
     _ -> parse_partial(tokens, acc)
-  }
-}
-
-fn parse_section_start(
-  tokens: List(rewriter.Element),
-) -> Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError) {
-  case tokens {
-    [rewriter.SectionStart(_, _) as tag, ..tail] -> Ok(#(tag, tail))
-    [head, ..] -> Error(UnexpectedTokenError(head))
-    [] -> Error(UnexpectedEndOfInputError)
   }
 }
 
@@ -400,17 +354,20 @@ fn parse_primary(
 
 fn parse_enclosed(
   tokens: List(rewriter.Element),
-  opening_rule: fn(List(rewriter.Element)) ->
-    Result(#(rewriter.Element, List(rewriter.Element)), SyntaxError),
+  start: rewriter.Element,
   expr_constructor: fn(List(String), List(Expression)) -> Expression,
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
-  use #(start, tail) <- result.try(opening_rule(tokens))
-  use #(expressions, tail) <- result.try(parse_expressions(tail, []))
+  use #(reversed_expressions, tail) <- result.try(
+    parse_expressions_reversed(tokens, []),
+  )
   use start_path <- result.try(tag_path(start))
   use #(end, tail) <- result.map(parse_end_tag(tail, start, start_path))
+  let expressions =
+    insert_end_leading(reversed_expressions, end)
+    |> list.reverse()
   let acc = [expr_constructor(start_path, expressions), ..acc]
-  let acc = insert_end_tag_clearance(acc, end)
+  let acc = insert_end_trailing(acc, end)
   #(acc, tail)
 }
 
@@ -573,10 +530,7 @@ fn deindent_arguments(
   }
 }
 
-fn insert_parameter_start_leading(
-  acc: List(Expression),
-  start: rewriter.Clearance,
-) {
+fn insert_start_leading(acc: List(Expression), start: rewriter.Clearance) {
   case start {
     rewriter.Clearance(rewriter.Clears(leading), rewriter.NotClears) -> [
       LineStart(leading),
@@ -586,26 +540,12 @@ fn insert_parameter_start_leading(
   }
 }
 
-fn insert_start_leading(
+fn insert_start_trailing(
   acc: List(Expression),
   start: rewriter.Clearance,
 ) -> List(Expression) {
   case start {
-    rewriter.Clearance(rewriter.Clears(leading), _) -> [
-      LineStart(leading),
-      ..acc
-    ]
-    _ -> acc
-  }
-}
-
-fn insert_end_trailing(
-  acc: List(Expression),
-  end: rewriter.Clearance,
-) -> List(Expression) {
-  case end {
-    // output whatever trailing whitespace there is
-    rewriter.Clearance(_, rewriter.Clears(Some(trailing))) -> [
+    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
       Literal(trailing),
       ..acc
     ]
@@ -613,7 +553,20 @@ fn insert_end_trailing(
   }
 }
 
-fn insert_parameter_end_trailing(
+fn insert_end_leading(
+  acc: List(Expression),
+  end: rewriter.Clearance,
+) -> List(Expression) {
+  case end {
+    rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
+      LineStart(Some(leading)),
+      ..acc
+    ]
+    _ -> acc
+  }
+}
+
+fn insert_end_trailing(
   acc: List(Expression),
   end: rewriter.Clearance,
 ) -> List(Expression) {
@@ -629,21 +582,29 @@ fn insert_parameter_end_trailing(
   }
 }
 
-fn insert_end_tag_clearance(
+fn insert_parent_start_leading(
   acc: List(Expression),
-  clearance: rewriter.Clearance,
+  start: rewriter.Clearance,
 ) -> List(Expression) {
-  case clearance {
-    // we extract whatever whitespace is present in the clearance
-    rewriter.Clearance(rewriter.Clears(leading), rewriter.NotClears) -> [
+  case start {
+    rewriter.Clearance(rewriter.Clears(leading), _) -> [
       LineStart(leading),
       ..acc
     ]
-    rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some(trailing))) -> [
+    _ -> acc
+  }
+}
+
+fn insert_parent_end_trailing(
+  acc: List(Expression),
+  end: rewriter.Clearance,
+) -> List(Expression) {
+  case end {
+    // output whatever trailing whitespace there is
+    rewriter.Clearance(_, rewriter.Clears(Some(trailing))) -> [
       Literal(trailing),
       ..acc
     ]
-    // in every other case, we don't do anything
     _ -> acc
   }
 }
