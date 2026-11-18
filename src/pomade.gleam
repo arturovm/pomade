@@ -34,24 +34,24 @@ pub opaque type Template {
 /// // -> "Hello, world!"
 /// ```
 ///
-/// With partials:
+/// With templates:
 ///
 /// ```
 /// let template = "Fly, you {{>other_template}}!"
 /// let data =
 ///   pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
-/// let partials = dict.from_list([#("other_template", "{{adjective}}")])
-/// pomade.compile_and_render(template, data, partials)
+/// let templates = dict.from_list([#("other_template", "{{adjective}}")])
+/// pomade.compile_and_render(template, data, templates)
 /// // -> Ok(StringTree)
 /// // -> "Fly, you fools!"
 /// ```
 pub fn compile_and_render(
   template: String,
   data: Value,
-  partials: Dict(String, String),
+  templates: Dict(String, String),
 ) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
-  render(template, data, partials)
+  render(template, data, templates)
 }
 
 /// `compile` prepares a template for future application, to avoid the overhead
@@ -73,14 +73,14 @@ pub fn compile(template: String) -> Result(Template, Error) {
   use ast <- result.map(
     parser.parse(rewritten) |> result.map_error(error_from_syntax_error),
   )
-  Template(fn(data, partials) {
-    use partials <- result.map(compile_partials(partials))
-    interpreter.interpret(ast, data, partials)
+  Template(fn(data, templates) {
+    use templates <- result.map(compile_templates(templates))
+    interpreter.interpret(ast, data, templates)
   })
 }
 
 /// `render` takes a pre-compiled template and applies it to the supplied data
-/// and partials.
+/// and templates.
 ///
 /// ### Examples
 ///
@@ -92,10 +92,10 @@ pub fn compile(template: String) -> Result(Template, Error) {
 pub fn render(
   template: Template,
   data: Value,
-  partials: Dict(String, String),
+  templates: Dict(String, String),
 ) -> Result(StringTree, Error) {
   let Template(template) = template
-  template(data, partials)
+  template(data, templates)
 }
 
 // convenience functions
@@ -108,9 +108,9 @@ pub fn render(
 pub fn compile_and_render_string(
   template: String,
   data: Value,
-  partials: Dict(String, String),
+  templates: Dict(String, String),
 ) -> Result(String, Error) {
-  compile_and_render(template, data, partials)
+  compile_and_render(template, data, templates)
   |> result.map(string_tree.to_string)
 }
 
@@ -121,15 +121,15 @@ pub fn compile_and_render_string(
 pub fn render_string(
   template: Template,
   data: Value,
-  partials: Dict(String, String),
+  templates: Dict(String, String),
 ) -> Result(String, Error) {
-  render(template, data, partials)
+  render(template, data, templates)
   |> result.map(string_tree.to_string)
 }
 
 // helpers
 
-fn compile_partials(
+fn compile_templates(
   sources: Dict(String, String),
 ) -> Result(Dict(String, List(parser.Expression)), Error) {
   dict.to_list(sources)
