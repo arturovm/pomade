@@ -202,7 +202,7 @@ fn insert_end_leading(
 ) -> List(Expression) {
   case end {
     rewriter.Clearance(rewriter.Clears(Some(leading)), rewriter.NotClears) -> [
-      Literal(leading),
+      LineStart(Some(leading)),
       ..acc
     ]
     _ -> acc
@@ -280,7 +280,6 @@ fn parse_argument(
     parse_expressions_reversed(tokens, []),
   )
   use #(_, tail) <- result.map(parse_end_tag(tail, start, [data.name]))
-  let reversed_expressions = remove_indent(reversed_expressions)
   let expressions = list.reverse(reversed_expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
   let deindented_expressions = deindent(intrinsic_indentation, expressions)
@@ -646,14 +645,6 @@ fn insert_end_tag_clearance(
     ]
     // in every other case, we don't do anything
     _ -> acc
-  }
-}
-
-fn remove_indent(expressions: List(Expression)) -> List(Expression) {
-  case expressions {
-    [LineStart(Some(leading)), ..tail] -> [Literal(leading), ..tail]
-    [LineStart(None), ..tail] -> tail
-    expressions -> expressions
   }
 }
 

@@ -453,13 +453,12 @@ pub fn surrounding_whitespace_test() {
       rewriter.Literal(4, "baz"),
       rewriter.Eof(4),
     ])
-  // inline parameters map to either an inline parameter or a plain parameter,
-  // depending on the end clearance of the start tag
+  // inline parameters map to inline parameters
   // start tag is standalone
   assert Ok([
       parser.InlineParameter("block", [
         parser.LineStart(None),
-        parser.Literal("  "),
+        parser.LineStart(Some("  ")),
       ]),
       parser.Literal(" foo"),
     ])
