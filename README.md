@@ -27,13 +27,13 @@ specification:
 It additionally supports the following optional features:
 
 - Dynamic names for partials
+- Inheritance (blocks and parents)
 
 `pomade` passes the full [suite of tests](https://github.com/mustache/spec) for
 these features.
 
 The optional, as-of-yet unsupported aspects are:
 
-- Inheritance (blocks and parents)
 - Lambdas and functions
 
 
@@ -85,8 +85,8 @@ pub fn render_compiled(
 
 #### Using partials
 
-You can also render templates with partials, by passing a `Dict(String, String)`
-in the partials argument, mapping a partial name to the source of that partial:
+You can render templates with partials, by passing a `Dict(String, String)` in
+the templates argument, mapping a partial name to the source of that partial:
 
 ```gleam
 pub fn render_with_partials() -> Result(StringTree, pomade.Error) {
@@ -129,6 +129,31 @@ pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) 
   pomade.render(template, data, partials)
   // -> Ok(StringTree)
   // -> "1.21 gigawatts!"
+}
+```
+
+#### Using inheritance
+
+`pomade` supports the inheritance features of the Mustache specification. Like
+partials, you can render a parent template by passing its source in the
+templates argument and referencing its name:
+
+```gleam
+pub fn render_with_inheritance() -> Result(StringTree, pomade.Error) {
+  let template_source =
+    "{{<parent_template}}
+       {{$bending}}
+         Monkey feathers!
+       {{/bending}}
+    {{/parent_template}}"
+  let assert Ok(template) = pomade.compile(template_source)
+  let templates =
+    dict.from_list([
+      #("parent_template", "{{$bending}}Twinkle Toes{{/bending}}"),
+    ])
+  pomade.render(template, pomade.dict(dict.new()), templates)
+  // -> Ok(StringTree)
+  // -> "Monkey feathers!"
 }
 ```
 

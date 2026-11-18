@@ -29,6 +29,23 @@ pub fn render_with_partials() -> Result(StringTree, pomade.Error) {
   // -> "Fly, you fools!"
 }
 
+pub fn render_with_inheritance() -> Result(StringTree, pomade.Error) {
+  let template_source =
+    "{{<parent_template}}
+       {{$bending}}
+         Monkey feathers!
+       {{/bending}}
+    {{/parent_template}}"
+  let assert Ok(template) = pomade.compile(template_source)
+  let templates =
+    dict.from_list([
+      #("parent_template", "{{$bending}}Twinkle Toes{{/bending}}"),
+    ])
+  pomade.render(template, pomade.dict(dict.new()), templates)
+  // -> Ok(StringTree)
+  // -> "Monkey feathers!"
+}
+
 pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) {
   let template_source = "1.21 {{>*dig.down}}!"
   let assert Ok(template) = pomade.compile(template_source)
