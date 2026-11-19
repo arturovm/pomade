@@ -46,13 +46,11 @@ pub fn main() {
         label: "data without escaping",
         data: #(
           template,
-          pomade.dict(
-            dict.from_list([
-              #("external_index", pomade.string("product")),
-              #("url", pomade.string("/products/7")),
-              #("image", pomade.string("products/product.jpg")),
-            ]),
-          ),
+          pomade.dict([
+            #("external_index", pomade.string("product")),
+            #("url", pomade.string("/products/7")),
+            #("image", pomade.string("products/product.jpg")),
+          ]),
           [
             #("external_index", chaplin.string("product")),
             #("url", chaplin.string("/products/7")),
@@ -64,13 +62,11 @@ pub fn main() {
         label: "data with escaping",
         data: #(
           template,
-          pomade.dict(
-            dict.from_list([
-              #("external_index", pomade.string("<h1>Bear > Shark</h1>")),
-              #("url", pomade.string("/<h1>Bear > Shark</h1>/7")),
-              #("image", pomade.string("products/<h1>Bear > Shark</h1>.jpg")),
-            ]),
-          ),
+          pomade.dict([
+            #("external_index", pomade.string("<h1>Bear > Shark</h1>")),
+            #("url", pomade.string("/<h1>Bear > Shark</h1>/7")),
+            #("image", pomade.string("products/<h1>Bear > Shark</h1>.jpg")),
+          ]),
           [
             #("external_index", chaplin.string("<h1>Bear > Shark</h1>")),
             #("url", chaplin.string("/<h1>Bear > Shark</h1>/7")),

@@ -27,13 +27,11 @@ const template =
 pub fn main() {
   let assert Ok(pomade_compiled) = pomade.compile(template)
   let pomade_data =
-    pomade.dict(
-      dict.from_list([
-        #("external_index", pomade.string("product")),
-        #("url", pomade.string("/products/7")),
-        #("image", pomade.string("products/product.jpg")),
-      ]),
-    )
+    pomade.dict([
+      #("external_index", pomade.string("product")),
+      #("url", pomade.string("/products/7")),
+      #("image", pomade.string("products/product.jpg")),
+    ])
 
   let assert Ok(chaplin_compiled) = chaplin.compile(template)
   let chaplin_data = [
@@ -67,11 +65,9 @@ pub fn main() {
         label: "render list of 10",
         data: #(
           pomade_compiled,
-          pomade.dict(
-            dict.from_list([
-              #("products", pomade.list(list.repeat(pomade_data, 10))),
-            ]),
-          ),
+          pomade.dict([
+            #("products", pomade.list(list.repeat(pomade_data, 10))),
+          ]),
           chaplin_compiled,
           [
             #(
@@ -85,11 +81,9 @@ pub fn main() {
         label: "render list of 100",
         data: #(
           pomade_compiled,
-          pomade.dict(
-            dict.from_list([
-              #("products", pomade.list(list.repeat(pomade_data, 100))),
-            ]),
-          ),
+          pomade.dict([
+            #("products", pomade.list(list.repeat(pomade_data, 100))),
+          ]),
           chaplin_compiled,
           [
             #(
@@ -103,11 +97,9 @@ pub fn main() {
         label: "render list of 1000",
         data: #(
           pomade_compiled,
-          pomade.dict(
-            dict.from_list([
-              #("products", pomade.list(list.repeat(pomade_data, 1000))),
-            ]),
-          ),
+          pomade.dict([
+            #("products", pomade.list(list.repeat(pomade_data, 1000))),
+          ]),
           chaplin_compiled,
           [
             #(

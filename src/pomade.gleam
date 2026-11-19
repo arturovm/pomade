@@ -174,8 +174,8 @@ pub type Value =
   value.Value
 
 /// `dict` creates a `Value` from a `Dict(String, Value)`.
-pub fn dict(value: Dict(String, Value)) -> Value {
-  value.Dict(value)
+pub fn dict(from_list value: List(#(String, Value))) -> Value {
+  value.Dict(dict.from_list(value))
 }
 
 /// `int` creates a `Value` from an `Int`.

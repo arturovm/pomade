@@ -4,8 +4,6 @@ import gleeunit
 
 import pomade
 
-import pomade/internal/value.{Dict, String}
-
 pub fn main() -> Nil {
   gleeunit.main()
 }
@@ -16,13 +14,13 @@ pub fn render_test() {
   assert Ok("hello, world!")
     == pomade.compile_and_render_string(
       template_source,
-      Dict(dict.from_list([#("greeting", String("world"))])),
+      pomade.dict([#("greeting", pomade.string("world"))]),
       dict.new(),
     )
   assert Ok("hello, Joe!")
     == pomade.compile_and_render_string(
       template_source,
-      Dict(dict.from_list([#("greeting", String("Joe"))])),
+      pomade.dict([#("greeting", pomade.string("Joe"))]),
       dict.new(),
     )
 }
@@ -33,13 +31,13 @@ pub fn compile_test() {
   assert Ok("I get up")
     == pomade.render_string(
       template,
-      Dict(dict.from_list([#("direction", String("up"))])),
+      pomade.dict([#("direction", pomade.string("up"))]),
       dict.new(),
     )
   assert Ok("I get down")
     == pomade.render_string(
       template,
-      Dict(dict.from_list([#("direction", String("down"))])),
+      pomade.dict([#("direction", pomade.string("down"))]),
       dict.new(),
     )
 }
@@ -48,5 +46,5 @@ pub fn passing_value_as_env_test() {
   let assert Ok(template) = pomade.compile("This is {{.}}")
 
   assert Ok("This is great")
-    == pomade.render_string(template, String("great"), dict.new())
+    == pomade.render_string(template, pomade.string("great"), dict.new())
 }

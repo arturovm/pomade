@@ -20,8 +20,7 @@ const partial =
 
 pub fn main() {
   let assert Ok(compiled) = pomade.compile(template)
-  let data =
-    pomade.dict(dict.from_list([#("name", pomade.string("Charlie Chaplin"))]))
+  let data = pomade.dict([#("name", pomade.string("Charlie Chaplin"))])
   let partials = dict.from_list([#("user", partial)])
 
   benchmark.run(
@@ -34,23 +33,17 @@ pub fn main() {
     [
       benchmark.Data(label: "render list of 10", data: #(
         compiled,
-        pomade.dict(
-          dict.from_list([#("names", pomade.list(list.repeat(data, 10)))]),
-        ),
+        pomade.dict([#("names", pomade.list(list.repeat(data, 10)))]),
         partials,
       )),
       benchmark.Data(label: "render list of 100", data: #(
         compiled,
-        pomade.dict(
-          dict.from_list([#("names", pomade.list(list.repeat(data, 100)))]),
-        ),
+        pomade.dict([#("names", pomade.list(list.repeat(data, 100)))]),
         partials,
       )),
       benchmark.Data(label: "render list of 1000", data: #(
         compiled,
-        pomade.dict(
-          dict.from_list([#("names", pomade.list(list.repeat(data, 1000)))]),
-        ),
+        pomade.dict([#("names", pomade.list(list.repeat(data, 1000)))]),
         partials,
       )),
     ],
