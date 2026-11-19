@@ -143,7 +143,7 @@ fn evaluate_partial(
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  let name = resolve_partial_name(name, env)
+  let name = resolve_template_name(name, env)
   case dict.get(env.templates, name) {
     Ok(ast) -> {
       let ast = apply_indentation(ast, indentation)
@@ -158,7 +158,7 @@ fn evaluate_inline_partial(
   env: environment.Environment,
   acc: StringTree,
 ) -> StringTree {
-  let name = resolve_partial_name(name, env)
+  let name = resolve_template_name(name, env)
   case dict.get(env.templates, name) {
     Ok(ast) -> evaluate_exprs(ast, env, acc)
     Error(_) -> acc
@@ -169,16 +169,6 @@ fn indent(outer: String, inner: Option(String)) {
   case inner {
     None -> Some(outer)
     Some(inner) -> Some(outer <> inner)
-  }
-}
-
-fn resolve_partial_name(
-  name: scanner.PartialName,
-  env: environment.Environment,
-) -> String {
-  case name {
-    scanner.StaticName(name) -> name
-    scanner.DynamicName(path) -> environment.get_and_format(env, path)
   }
 }
 
@@ -262,6 +252,16 @@ fn evaluate_standalone_parent(
 }
 
 // helpers
+
+fn resolve_template_name(
+  name: scanner.PartialName,
+  env: environment.Environment,
+) -> String {
+  case name {
+    scanner.StaticName(name) -> name
+    scanner.DynamicName(path) -> environment.get_and_format(env, path)
+  }
+}
 
 fn apply_indentation(
   exprs: List(parser.Expression),

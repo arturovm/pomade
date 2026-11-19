@@ -544,6 +544,8 @@ fn is_blank(lexeme: String) -> Bool {
   }
 }
 
+// formatting
+
 pub fn error_to_string(error: LexicalError) -> String {
   "line "
   <> int.to_string(error.line)
