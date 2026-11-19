@@ -103,10 +103,8 @@ pub fn block_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "title",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "title",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, "hello :)"),
       rewriter.End(
@@ -129,18 +127,14 @@ pub fn parent_test() {
     == parser.parse([
       rewriter.ParentStart(
         0,
-        rewriter.StartTagData(
-          "article",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "article",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(0, "hello :)"),
       rewriter.BlockStart(
         0,
-        rewriter.StartTagData(
-          "title",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "title",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(0, "goodbye :("),
       rewriter.End(
@@ -214,17 +208,13 @@ pub fn standalone_parent_test() {
     == parser.parse([
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "parent",
-          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
-        ),
+        "parent",
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
       ),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.End(
         2,
@@ -247,10 +237,8 @@ pub fn standalone_parameter_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.End(
         1,
@@ -266,12 +254,10 @@ pub fn standalone_parameter_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(
-            rewriter.Clears(Some("    ")),
-            rewriter.Clears(Some("\n")),
-          ),
+        "block",
+        rewriter.Clearance(
+          rewriter.Clears(Some("    ")),
+          rewriter.Clears(Some("\n")),
         ),
       ),
       rewriter.End(
@@ -293,10 +279,8 @@ pub fn intrinsic_indentation_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content\n"),
@@ -317,10 +301,8 @@ pub fn intrinsic_indentation_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content"),
@@ -343,17 +325,13 @@ pub fn intrinsic_indentation_test() {
     == parser.parse([
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "parent",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "parent",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, Some("    ")),
       rewriter.Literal(2, "content\n"),
@@ -387,12 +365,10 @@ pub fn deindentation_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(
-            rewriter.Clears(Some("    ")),
-            rewriter.Clears(Some("\n")),
-          ),
+        "block",
+        rewriter.Clearance(
+          rewriter.Clears(Some("    ")),
+          rewriter.Clears(Some("\n")),
         ),
       ),
       rewriter.LineStart(2, Some("        ")),
@@ -433,10 +409,8 @@ pub fn surrounding_whitespace_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(Some(" ")), rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(Some(" ")), rewriter.NotClears),
       ),
       rewriter.Literal(1, "  foo\n"),
       rewriter.LineStart(2, Some("   ")),
@@ -465,12 +439,10 @@ pub fn surrounding_whitespace_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(
-            rewriter.Clears(Some("  ")),
-            rewriter.Clears(Some("  \n")),
-          ),
+        "block",
+        rewriter.Clearance(
+          rewriter.Clears(Some("  ")),
+          rewriter.Clears(Some("  \n")),
         ),
       ),
       rewriter.LineStart(2, None),
@@ -496,10 +468,8 @@ pub fn surrounding_whitespace_test() {
       rewriter.Literal(1, "foo "),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("  \n"))),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("  \n"))),
       ),
       rewriter.End(
         2,
@@ -529,10 +499,8 @@ pub fn handle_indentation_correctly_test() {
       rewriter.Literal(1, "foo"),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, "bar"),
       rewriter.End(
@@ -551,10 +519,8 @@ pub fn handle_indentation_correctly_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
       ),
       rewriter.End(
         1,
@@ -567,12 +533,10 @@ pub fn handle_indentation_correctly_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(
-            rewriter.Clears(Some("  ")),
-            rewriter.Clears(Some("\n")),
-          ),
+        "block",
+        rewriter.Clearance(
+          rewriter.Clears(Some("  ")),
+          rewriter.Clears(Some("\n")),
         ),
       ),
       rewriter.End(
@@ -593,10 +557,8 @@ pub fn standalone_parameter_absorbs_indent_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
       ),
       rewriter.Literal(1, "content"),
       rewriter.End(
@@ -619,10 +581,8 @@ pub fn inline_parameter_restores_leading_test() {
     == parser.parse([
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "block",
-          rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
-        ),
+        "block",
+        rewriter.Clearance(rewriter.Clears(Some("  ")), rewriter.NotClears),
       ),
       rewriter.Literal(1, "content"),
       rewriter.End(

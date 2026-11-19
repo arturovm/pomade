@@ -191,12 +191,10 @@ pub fn standalone_block_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some(" \n")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some(" \n")),
         ),
       ),
       rewriter.Eof(2),
@@ -211,13 +209,8 @@ pub fn standalone_block_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(None),
-          ),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(Some(" \t")), rewriter.Clears(None)),
       ),
       rewriter.Eof(1),
     ]
@@ -230,12 +223,10 @@ pub fn standalone_block_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some("   \n")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some("   \n")),
         ),
       ),
       rewriter.Eof(2),
@@ -251,12 +242,10 @@ pub fn standalone_block_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some("  ")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some("  ")),
         ),
       ),
       rewriter.Eof(1),
@@ -274,12 +263,10 @@ pub fn standalone_parent_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some(" \n")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some(" \n")),
         ),
       ),
       rewriter.Eof(2),
@@ -294,13 +281,8 @@ pub fn standalone_parent_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(None),
-          ),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(Some(" \t")), rewriter.Clears(None)),
       ),
       rewriter.Eof(1),
     ]
@@ -313,12 +295,10 @@ pub fn standalone_parent_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some("   \n")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some("   \n")),
         ),
       ),
       rewriter.Eof(2),
@@ -334,12 +314,10 @@ pub fn standalone_parent_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(
-            rewriter.Clears(Some(" \t")),
-            rewriter.Clears(Some("  ")),
-          ),
+        "hello",
+        rewriter.Clearance(
+          rewriter.Clears(Some(" \t")),
+          rewriter.Clears(Some("  ")),
         ),
       ),
       rewriter.Eof(1),
@@ -357,10 +335,8 @@ pub fn block_clearance_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
       ),
     ]
     == rewriter.rewrite([
@@ -370,10 +346,8 @@ pub fn block_clearance_test() {
   assert [
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(None)),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(None)),
       ),
       rewriter.Eof(1),
     ]
@@ -387,10 +361,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a\n"),
       rewriter.BlockStart(
         2,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.Literal(2, " b\n"),
     ]
@@ -406,10 +378,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a\n"),
       rewriter.BlockStart(
         2,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.Literal(2, " b\n"),
       rewriter.Eof(3),
@@ -428,10 +398,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
@@ -448,10 +416,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
@@ -471,10 +437,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, " b\n"),
     ]
@@ -489,10 +453,8 @@ pub fn block_clearance_test() {
       rewriter.Literal(1, "a "),
       rewriter.BlockStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, " b\n"),
       rewriter.Eof(2),
@@ -511,10 +473,8 @@ pub fn parent_clerance_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(Some("\n"))),
       ),
     ]
     == rewriter.rewrite([
@@ -524,10 +484,8 @@ pub fn parent_clerance_test() {
   assert [
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(None)),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.Clears(None)),
       ),
       rewriter.Eof(1),
     ]
@@ -542,10 +500,8 @@ pub fn parent_clerance_test() {
       // rewriter.LineStart(1, None),
       rewriter.ParentStart(
         2,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.Literal(2, " b\n"),
     ]
@@ -562,10 +518,8 @@ pub fn parent_clerance_test() {
       // rewriter.LineStart(1, None),
       rewriter.ParentStart(
         2,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.Clears(None), rewriter.NotClears),
       ),
       rewriter.Literal(2, " b\n"),
       rewriter.Eof(3),
@@ -584,10 +538,8 @@ pub fn parent_clerance_test() {
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
@@ -604,10 +556,8 @@ pub fn parent_clerance_test() {
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.Clears(Some("\n"))),
       ),
       rewriter.LineStart(2, None),
       rewriter.Literal(2, "b\n"),
@@ -627,10 +577,8 @@ pub fn parent_clerance_test() {
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, " b\n"),
     ]
@@ -645,10 +593,8 @@ pub fn parent_clerance_test() {
       rewriter.Literal(1, "a "),
       rewriter.ParentStart(
         1,
-        rewriter.StartTagData(
-          "hello",
-          rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
-        ),
+        "hello",
+        rewriter.Clearance(rewriter.NotClears, rewriter.NotClears),
       ),
       rewriter.Literal(1, " b\n"),
       rewriter.Eof(2),
