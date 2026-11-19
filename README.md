@@ -14,7 +14,7 @@ and learn Gleam in the process.
 
 ### Compatibility
 
-Version 1.1.x fully supports the required portions of the Mustache
+Version 1.2.x fully supports the required portions of the Mustache
 specification:
 
 - Variables
