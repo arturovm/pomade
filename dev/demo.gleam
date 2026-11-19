@@ -1,4 +1,3 @@
-import gleam/dict
 import gleam/string_tree.{type StringTree}
 
 import pomade
@@ -13,7 +12,7 @@ pub fn render_compiled(
   template: pomade.Template,
 ) -> Result(StringTree, pomade.Error) {
   let data = pomade.dict([#("target", pomade.string("world"))])
-  pomade.render(template, data, dict.new())
+  pomade.render(template, data, [])
   // -> Ok(StringTree)
   // -> "Hello, world!"
 }
@@ -22,7 +21,7 @@ pub fn render_with_partials() -> Result(StringTree, pomade.Error) {
   let template_source = "Fly, you {{>other_template}}!"
   let assert Ok(template) = pomade.compile(template_source)
   let data = pomade.dict([#("adjective", pomade.string("fools"))])
-  let partials = dict.from_list([#("other_template", "{{adjective}}")])
+  let partials = [#("other_template", "{{adjective}}")]
   pomade.render(template, data, partials)
   // -> Ok(StringTree)
   // -> "Fly, you fools!"
@@ -34,12 +33,11 @@ pub fn render_with_inheritance() -> Result(StringTree, pomade.Error) {
        {{$bending}}
          Monkey feathers!
        {{/bending}}
-    {{/parent_template}}"
+     {{/parent_template}}"
   let assert Ok(template) = pomade.compile(template_source)
-  let templates =
-    dict.from_list([
-      #("parent_template", "{{$bending}}Twinkle Toes{{/bending}}"),
-    ])
+  let templates = [
+    #("parent_template", "{{$bending}}Twinkle Toes{{/bending}}"),
+  ]
   pomade.render(template, pomade.dict([]), templates)
   // -> Ok(StringTree)
   // -> "Monkey feathers!"
@@ -53,7 +51,7 @@ pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) 
       #("dig", pomade.dict([#("down", pomade.string("partial_name"))])),
       #("unit", pomade.string("gigawatts")),
     ])
-  let partials = dict.from_list([#("partial_name", "{{unit}}")])
+  let partials = [#("partial_name", "{{unit}}")]
   pomade.render(template, data, partials)
   // -> Ok(StringTree)
   // -> "1.21 gigawatts!"
@@ -63,18 +61,18 @@ pub fn render_to_string() -> Result(String, pomade.Error) {
   let template_source = "Goodbye, {{target}}"
   let assert Ok(template) = pomade.compile(template_source)
   let data = pomade.dict([#("target", pomade.string("horses"))])
-  pomade.render_string(template, data, dict.new())
+  pomade.render_string(template, data, [])
   // -> Ok("Goodbye, horses") 
 }
 
 pub fn convenience_at_your_fingertips() -> Result(StringTree, pomade.Error) {
   let template_source = "No. I am your {{relative}}."
   let data = pomade.dict([#("relative", pomade.string("father"))])
-  pomade.compile_and_render(template_source, data, dict.new())
+  pomade.compile_and_render(template_source, data, [])
   // -> Ok(StringTree)
   // -> "No. I am your father."
   //
   // Or:
-  // pomade.compile_and_render_string(template_source, data, dict.new())
+  // pomade.compile_and_render_string(template_source, data, [])
   // -> Ok("No. I am your father.")
 }

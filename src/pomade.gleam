@@ -13,7 +13,9 @@ import pomade/internal/value
 
 /// `Template` represents a compiled template.
 pub opaque type Template {
-  Template(fn(value.Value, Dict(String, String)) -> Result(StringTree, Error))
+  Template(
+    fn(value.Value, List(#(String, String))) -> Result(StringTree, Error),
+  )
 }
 
 /// `compile_and_render` is a convenience function that compiles and expands a
@@ -28,19 +30,18 @@ pub opaque type Template {
 ///
 /// ```gleam
 /// let template = "Hello, {{target}}!"
-/// let data = pomade.dict(dict.from_list([#("target", pomade.string("world"))]))
-/// pomade.compile_and_render(template, data, dict.new())
+/// let data = pomade.dict([#("target", pomade.string("world"))])
+/// pomade.compile_and_render(template, data, [])
 /// // -> Ok(StringTree)
 /// // -> "Hello, world!"
 /// ```
 ///
 /// With templates:
 ///
-/// ```
+/// ```gleam
 /// let template = "Fly, you {{>other_template}}!"
-/// let data =
-///   pomade.dict(dict.from_list([#("adjective", pomade.string("fools"))]))
-/// let templates = dict.from_list([#("other_template", "{{adjective}}")])
+/// let data = pomade.dict([#("adjective", pomade.string("fools"))])
+/// let templates = [#("other_template", "{{adjective}}")]
 /// pomade.compile_and_render(template, data, templates)
 /// // -> Ok(StringTree)
 /// // -> "Fly, you fools!"
@@ -48,7 +49,7 @@ pub opaque type Template {
 pub fn compile_and_render(
   template: String,
   data: Value,
-  templates: Dict(String, String),
+  templates: List(#(String, String)),
 ) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
   render(template, data, templates)
@@ -85,14 +86,14 @@ pub fn compile(template: String) -> Result(Template, Error) {
 /// ### Examples
 ///
 /// ```gleam
-/// let data = pomade.dict(dict.from_list([#("relative", pomade.string("father"))]))
-/// pomade.render(template, data, dict.new())
+/// let data = pomade.dict([#("relative", pomade.string("father"))])
+/// pomade.render(template, data, [])
 /// // -> Ok(StringTree)
 /// // -> "No. I am your father."
 pub fn render(
   template: Template,
   data: Value,
-  templates: Dict(String, String),
+  templates: List(#(String, String)),
 ) -> Result(StringTree, Error) {
   let Template(template) = template
   template(data, templates)
@@ -108,7 +109,7 @@ pub fn render(
 pub fn compile_and_render_string(
   template: String,
   data: Value,
-  templates: Dict(String, String),
+  templates: List(#(String, String)),
 ) -> Result(String, Error) {
   compile_and_render(template, data, templates)
   |> result.map(string_tree.to_string)
@@ -121,7 +122,7 @@ pub fn compile_and_render_string(
 pub fn render_string(
   template: Template,
   data: Value,
-  templates: Dict(String, String),
+  templates: List(#(String, String)),
 ) -> Result(String, Error) {
   render(template, data, templates)
   |> result.map(string_tree.to_string)
@@ -130,10 +131,9 @@ pub fn render_string(
 // helpers
 
 fn compile_templates(
-  sources: Dict(String, String),
+  sources: List(#(String, String)),
 ) -> Result(Dict(String, List(parser.Expression)), Error) {
-  dict.to_list(sources)
-  |> list.try_map(fn(pair) {
+  list.try_map(sources, fn(pair) {
     use tokens <- result.try(
       scanner.scan(pair.1) |> result.map_error(error_from_lexical_error),
     )

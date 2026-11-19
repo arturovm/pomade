@@ -1,4 +1,3 @@
-import gleam/dict
 import gleam/list
 
 import glychee/benchmark
@@ -21,7 +20,7 @@ const partial =
 pub fn main() {
   let assert Ok(compiled) = pomade.compile(template)
   let data = pomade.dict([#("name", pomade.string("Charlie Chaplin"))])
-  let partials = dict.from_list([#("user", partial)])
+  let partials = [#("user", partial)]
 
   benchmark.run(
     [

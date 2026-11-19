@@ -1,4 +1,3 @@
-import gleam/dict
 import gleam/list
 
 import glychee/benchmark
@@ -45,7 +44,7 @@ pub fn main() {
       benchmark.Function(label: "pomade: render collection", callable: fn(args) {
         let #(template, data, _, _) = args
         fn() {
-          let _ = pomade.render(template, data, dict.new())
+          let _ = pomade.render(template, data, [])
           Nil
         }
       }),
