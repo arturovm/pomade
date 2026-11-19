@@ -130,73 +130,93 @@ fn parse_parameter(
   acc: List(Expression),
 ) -> Result(#(List(Expression), List(rewriter.Element)), SyntaxError) {
   case tokens {
-    [rewriter.BlockStart(_, data) as tag, ..block_content] -> {
+    [rewriter.BlockStart(_, start_data) as tag, ..block_tail] -> {
       use #(reversed_expressions, tail) <- result.try(
-        parse_expressions_reversed(block_content, []),
+        parse_expressions_reversed(block_tail, []),
       )
-      use #(end, tail) <- result.map(
-        parse_end_tag(tail, [data.name])
+      use #(end_clearance, tail) <- result.map(
+        parse_end_tag(tail, [start_data.name])
         |> result.map_error(fn(_) { NoMatchingEndTagError(tag) }),
       )
-      case standalone(data.clearance, end) {
-        True -> {
-          let acc =
-            parse_standalone_parameter(
-              data,
-              reversed_expressions,
-              end,
-              block_content,
-              acc,
-            )
-          #(acc, tail)
-        }
-        False -> {
-          let acc = parse_inline_parameter(data, reversed_expressions, end, acc)
-          #(acc, tail)
-        }
-      }
+      let acc =
+        build_parameter(
+          start_data,
+          reversed_expressions,
+          end_clearance,
+          block_tail,
+          acc,
+        )
+      #(acc, tail)
     }
     _ -> parse_parent(tokens, acc)
   }
 }
 
-fn parse_standalone_parameter(
+fn build_parameter(
   start_data: rewriter.StartTagData,
   reversed_expressions: List(Expression),
-  end: rewriter.Clearance,
+  end_clearance: rewriter.Clearance,
   tokens: List(rewriter.Element),
   acc: List(Expression),
 ) -> List(Expression) {
-  let expressions = list.reverse(reversed_expressions)
+  case standalone(start_data.clearance, end_clearance) {
+    True ->
+      build_standalone_parameter(
+        start_data,
+        reversed_expressions,
+        end_clearance,
+        tokens,
+        acc,
+      )
+
+    False ->
+      build_inline_parameter(
+        start_data,
+        reversed_expressions,
+        end_clearance,
+        acc,
+      )
+  }
+}
+
+fn build_standalone_parameter(
+  start_data: rewriter.StartTagData,
+  reversed_expressions: List(Expression),
+  end_clearance: rewriter.Clearance,
+  tokens: List(rewriter.Element),
+  acc: List(Expression),
+) -> List(Expression) {
   let intrinsic_indentation =
     intrinsic_indentation(start_data.clearance, tokens)
-  let deindented_expressions = deindent(intrinsic_indentation, expressions)
   let extrinsic_indentation =
     extrinsic_parameter_indentation(start_data.clearance)
-  let acc = [
+  let expressions =
+    list.reverse(reversed_expressions)
+    |> deindent(intrinsic_indentation)
+  list.prepend(
+    acc,
     Parameter(
       start_data.name,
       option.or(intrinsic_indentation, extrinsic_indentation),
-      deindented_expressions,
+      expressions,
     ),
-    ..acc
-  ]
-  insert_end_trailing(acc, end)
+  )
+  |> insert_end_trailing(end_clearance)
 }
 
-fn parse_inline_parameter(
+fn build_inline_parameter(
   start_data: rewriter.StartTagData,
   reversed_expressions: List(Expression),
-  end: rewriter.Clearance,
+  end_clearance: rewriter.Clearance,
   acc: List(Expression),
 ) -> List(Expression) {
   let expressions =
-    insert_end_leading(reversed_expressions, end)
+    insert_end_leading(reversed_expressions, end_clearance)
     |> list.reverse()
     |> insert_start_trailing(start_data.clearance)
-  let acc = insert_start_leading(acc, start_data.clearance)
-  let acc = [InlineParameter(start_data.name, expressions), ..acc]
-  insert_end_trailing(acc, end)
+  insert_start_leading(acc, start_data.clearance)
+  |> list.prepend(InlineParameter(start_data.name, expressions))
+  |> insert_end_trailing(end_clearance)
 }
 
 fn parse_parent(
@@ -210,22 +230,17 @@ fn parse_parent(
         parse_end_tag(tail, [data.name])
         |> result.map_error(fn(_) { NoMatchingEndTagError(tag) }),
       )
-      case standalone(data.clearance, end) {
+      let acc = case standalone(data.clearance, end) {
         True -> {
-          let extrinsic_indentation = extrinsic_indentation(data.clearance)
-          let acc = [
-            Parent(data.name, extrinsic_indentation, expressions),
-            ..acc
-          ]
-          #(acc, tail)
+          let indentation = extrinsic_indentation(data.clearance)
+          [Parent(data.name, indentation, expressions), ..acc]
         }
-        False -> {
-          let acc = insert_parent_start_leading(acc, data.clearance)
-          let acc = [InlineParent(data.name, expressions), ..acc]
-          let acc = insert_parent_end_trailing(acc, end)
-          #(acc, tail)
-        }
+        False ->
+          insert_parent_start_leading(acc, data.clearance)
+          |> list.prepend(InlineParent(data.name, expressions))
+          |> insert_parent_end_trailing(end)
       }
+      #(acc, tail)
     }
     _ -> parse_inverted_section(tokens, acc)
   }
@@ -238,8 +253,8 @@ fn parse_arguments(
   case tokens {
     [rewriter.Eof(_)] | [rewriter.End(_, _, _), ..] ->
       Ok(#(list.reverse(acc), tokens))
-    [rewriter.BlockStart(_, data) as tag, ..tail] ->
-      case parse_argument(tail, tag, data) {
+    [rewriter.BlockStart(_, start_data) as tag, ..tail] ->
+      case parse_argument(tail, tag, start_data) {
         Ok(#(argument, tail)) -> parse_arguments(tail, [argument, ..acc])
         Error(error) -> Error(error)
       }
@@ -263,10 +278,11 @@ fn parse_argument(
     parse_end_tag(tail, [data.name])
     |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
   )
-  let expressions = list.reverse(reversed_expressions)
   let intrinsic_indentation = intrinsic_indentation(data.clearance, tokens)
-  let deindented_expressions = deindent(intrinsic_indentation, expressions)
-  #(Argument(data.name, deindented_expressions), tail)
+  let expressions =
+    list.reverse(reversed_expressions)
+    |> deindent(intrinsic_indentation)
+  #(Argument(data.name, expressions), tail)
 }
 
 fn parse_inverted_section(
@@ -278,15 +294,16 @@ fn parse_inverted_section(
       use #(reversed_expressions, tail) <- result.try(
         parse_expressions_reversed(tail, []),
       )
-      use #(end, tail) <- result.map(
+      use #(end_clearance, tail) <- result.map(
         parse_end_tag(tail, start_path)
         |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
       )
       let expressions =
-        insert_end_leading(reversed_expressions, end)
+        insert_end_leading(reversed_expressions, end_clearance)
         |> list.reverse()
-      let acc = [InvertedSection(start_path, expressions), ..acc]
-      let acc = insert_end_trailing(acc, end)
+      let acc =
+        list.prepend(acc, InvertedSection(start_path, expressions))
+        |> insert_end_trailing(end_clearance)
       #(acc, tail)
     }
     _ -> parse_section(tokens, acc)
@@ -302,15 +319,16 @@ fn parse_section(
       use #(reversed_expressions, tail) <- result.try(
         parse_expressions_reversed(tail, []),
       )
-      use #(end, tail) <- result.map(
+      use #(end_clearance, tail) <- result.map(
         parse_end_tag(tail, start_path)
         |> result.map_error(fn(_) { NoMatchingEndTagError(start) }),
       )
       let expressions =
-        insert_end_leading(reversed_expressions, end)
+        insert_end_leading(reversed_expressions, end_clearance)
         |> list.reverse()
-      let acc = [Section(start_path, expressions), ..acc]
-      let acc = insert_end_trailing(acc, end)
+      let acc =
+        list.prepend(acc, Section(start_path, expressions))
+        |> insert_end_trailing(end_clearance)
       #(acc, tail)
     }
     _ -> parse_partial(tokens, acc)
@@ -454,8 +472,8 @@ fn extrinsic_parameter_indentation(start) {
 }
 
 fn deindent(
-  intrinsic_indentation: Option(String),
   expressions: List(Expression),
+  intrinsic_indentation: Option(String),
 ) -> List(Expression) {
   case intrinsic_indentation {
     None -> expressions
