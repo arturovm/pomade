@@ -14,28 +14,32 @@ and learn Gleam in the process.
 
 ### Compatibility
 
-Version 1.2.x fully supports the required portions of the Mustache
-specification:
-
-- Variables
-- Raw variables
-- Custom delimiters
-- Sections
-- Inverted sections
-- Partials
-
-It additionally supports the following optional features:
-
-- Dynamic names for partials
-- Inheritance (blocks and parents)
+Version 1.2.x fully supports all the required portions of the Mustache
+specification, plus some optional features as well.
 
 `pomade` passes the full [suite of tests](https://github.com/mustache/spec) for
-these features.
+all supported parts of the spec.
 
-The optional, as-of-yet unsupported aspects are:
+| Feature                          | Support |
+|----------------------------------|---------|
+| Variables                        | ✅      |
+| Raw variables                    | ✅      |
+| Custom delimiters                | ✅      |
+| Sections                         | ✅      |
+| Inverted sections                | ✅      |
+| Partials                         | ✅      |
+| Dynamic names for partials       | ✨      |
+| Inheritance (blocks and parents) | ✨      |
+| Lambdas and functions            | ⚠️      |
+| Dynamic names for parents        | ⚪️      |
 
-- Lambdas and functions
+<small>✅ = required and supported
 
+✨ = optional and supported
+
+⚠️ = optional and not supported
+
+⚪️ = not in the spec and not supported</small>
 
 ## How
 
