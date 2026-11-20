@@ -28,6 +28,20 @@ pub fn render_with_partials() -> Result(StringTree, pomade.Error) {
   // -> "Fly, you fools!"
 }
 
+pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) {
+  let template_source = "1.21 {{>*dig.down}}!"
+  let assert Ok(template) = pomade.compile(template_source)
+  let data =
+    pomade.dict([
+      #("dig", pomade.dict([#("down", pomade.string("partial_name"))])),
+      #("unit", pomade.string("gigawatts")),
+    ])
+  let partials = dict.from_list([#("partial_name", "{{unit}}")])
+  pomade.render(template, data, partials)
+  // -> Ok(StringTree)
+  // -> "1.21 gigawatts!"
+}
+
 pub fn render_with_inheritance() -> Result(StringTree, pomade.Error) {
   let template_source =
     "{{<parent_template}}
@@ -43,20 +57,6 @@ pub fn render_with_inheritance() -> Result(StringTree, pomade.Error) {
   pomade.render(template, pomade.dict([]), templates)
   // -> Ok(StringTree)
   // -> "Monkey feathers!"
-}
-
-pub fn render_partials_with_dynamic_names() -> Result(StringTree, pomade.Error) {
-  let template_source = "1.21 {{>*dig.down}}!"
-  let assert Ok(template) = pomade.compile(template_source)
-  let data =
-    pomade.dict([
-      #("dig", pomade.dict([#("down", pomade.string("partial_name"))])),
-      #("unit", pomade.string("gigawatts")),
-    ])
-  let partials = dict.from_list([#("partial_name", "{{unit}}")])
-  pomade.render(template, data, partials)
-  // -> Ok(StringTree)
-  // -> "1.21 gigawatts!"
 }
 
 pub fn render_to_string() -> Result(String, pomade.Error) {
