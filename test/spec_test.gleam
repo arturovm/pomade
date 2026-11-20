@@ -1,4 +1,4 @@
-import gleam/dict
+import gleam/dict.{type Dict}
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
@@ -16,7 +16,7 @@ type Test {
     name: String,
     desc: String,
     data: Value,
-    partials: List(#(String, String)),
+    partials: Dict(String, String),
     template: String,
     expected: String,
   )
@@ -51,8 +51,8 @@ fn test_decoder() -> decode.Decoder(Test) {
   use data <- decode.field("data", value_decoder())
   use partials <- decode.optional_field(
     "partials",
-    [],
-    decode.dict(decode.string, decode.string) |> decode.map(dict.to_list),
+    dict.new(),
+    decode.dict(decode.string, decode.string),
   )
   use template <- decode.field("template", decode.string)
   use expected <- decode.field("expected", decode.string)

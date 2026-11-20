@@ -1,3 +1,5 @@
+import gleam/dict
+
 import glychee/benchmark
 
 import chaplin
@@ -26,7 +28,7 @@ pub fn main() {
         let #(template, data, _) = args
         fn() {
           let assert Ok(compiled) = pomade.compile(template)
-          let _ = pomade.render(compiled, data, [])
+          let _ = pomade.render(compiled, data, dict.new())
           Nil
         }
       }),

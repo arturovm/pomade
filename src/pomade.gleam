@@ -13,9 +13,7 @@ import pomade/internal/value
 
 /// `Template` represents a compiled template.
 pub opaque type Template {
-  Template(
-    fn(value.Value, List(#(String, String))) -> Result(StringTree, Error),
-  )
+  Template(fn(value.Value, Dict(String, String)) -> Result(StringTree, Error))
 }
 
 /// `compile_and_render` is a convenience function that compiles and expands a
@@ -49,7 +47,7 @@ pub opaque type Template {
 pub fn compile_and_render(
   template: String,
   data: Value,
-  templates: List(#(String, String)),
+  templates: Dict(String, String),
 ) -> Result(StringTree, Error) {
   use template <- result.try(compile(template))
   render(template, data, templates)
@@ -93,7 +91,7 @@ pub fn compile(template: String) -> Result(Template, Error) {
 pub fn render(
   template: Template,
   data: Value,
-  templates: List(#(String, String)),
+  templates: Dict(String, String),
 ) -> Result(StringTree, Error) {
   let Template(template) = template
   template(data, templates)
@@ -109,7 +107,7 @@ pub fn render(
 pub fn compile_and_render_string(
   template: String,
   data: Value,
-  templates: List(#(String, String)),
+  templates: Dict(String, String),
 ) -> Result(String, Error) {
   compile_and_render(template, data, templates)
   |> result.map(string_tree.to_string)
@@ -122,7 +120,7 @@ pub fn compile_and_render_string(
 pub fn render_string(
   template: Template,
   data: Value,
-  templates: List(#(String, String)),
+  templates: Dict(String, String),
 ) -> Result(String, Error) {
   render(template, data, templates)
   |> result.map(string_tree.to_string)
@@ -131,9 +129,10 @@ pub fn render_string(
 // helpers
 
 fn compile_templates(
-  sources: List(#(String, String)),
+  sources: Dict(String, String),
 ) -> Result(Dict(String, List(parser.Expression)), Error) {
-  list.try_map(sources, fn(pair) {
+  dict.to_list(sources)
+  |> list.try_map(fn(pair) {
     use tokens <- result.try(
       scanner.scan(pair.1) |> result.map_error(error_from_lexical_error),
     )
